@@ -18,3 +18,6 @@ You only need to regenerate the build scripts if you add or remove `cpp` files t
 
     cmake ..
 
+## Data
+
+The actual data is too big to be hosted on github. Contact the owners of the repo if you want them. 
