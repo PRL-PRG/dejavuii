@@ -14,11 +14,13 @@ namespace helpers {
 
         TODO This needs much more work to be actually useful, but is a start...
     */
-    template<char QUOTE = '"', char SEPARATOR = ','>
     class CSVReader {
     public:
 
-        CSVReader() = default ;
+        CSVReader(char quote = '"', char separator = ','):
+            quote_(quote),
+            separator_(separator) {
+        }
 
     protected:
         /** This method gets called whenever a CSV row has been parsed with the columns stored in the row argument.
@@ -69,7 +71,6 @@ namespace helpers {
             TODO make this function more robust.
         */
         void append() {
-            size_t startline = lineNum_;
             std::string line = readLine();;
             std::string startLine = line;
             size_t i = 0;
@@ -77,10 +78,10 @@ namespace helpers {
             while (i < line.size()) {
                 std::string col;
                 // first check quoted string 
-                if (line[i] == QUOTE) {
+                if (line[i] == quote_) {
                     size_t quoteStart = lineNum_;
                     ++i;
-                    while (line[i] != QUOTE) {
+                    while (line[i] != quote_) {
                         if (eof())
                             throw std::ios_base::failure(STR("Unterminated quote, starting at line " + quoteStart));
                         if (line[i] == '\\') {
@@ -100,20 +101,20 @@ namespace helpers {
                     ++i; // past the ending quote
                     // if immediately followed by non-whitespace and not separator, add this to the column as well
                     if (line[i] != ' ' && line[i] != '\t') {
-                        col = QUOTE + col + QUOTE;
-                        while (i < line.size() && line[i] != SEPARATOR)
+                        col = quote_ + col + quote_;
+                        while (i < line.size() && line[i] != separator_)
                             col = col + line[i++];
                     }
-                    if (line[i] == SEPARATOR)
+                    if (line[i] == separator_)
                         ++i;
                 } else {
                     while (i < line.size()) {
                         // prefixed strings - i.e. some stuff followed by quoted string, we keep the quotes
-                        if (line[i] == QUOTE) {
+                        if (line[i] == quote_) {
                             col += line[i++];
                             std::string xl = line;
                             size_t quoteStart = lineNum_;
-                            while(line[i] != QUOTE) {
+                            while(line[i] != quote_) {
                                 if (eof())
                                     throw std::ios_base::failure(STR("Unterminated quote, starting at line " << quoteStart << line));
                                 if (line[i] == '\\') {
@@ -132,7 +133,7 @@ namespace helpers {
                             }
                             col += line[i++]; // the ending quote
                         }
-                        if (line[i] == SEPARATOR) {
+                        if (line[i] == separator_) {
                             ++i;
                             break;
                         }
@@ -171,6 +172,9 @@ namespace helpers {
         std::ifstream f_;
         std::vector<std::string> row_;
         size_t lineNum_;
+
+        char quote_;
+        char separator_;
     }; // CSVReader
 
 
