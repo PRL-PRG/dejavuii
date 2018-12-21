@@ -10,27 +10,26 @@ The input data consists of `files.csv` file which contains for each file observe
 
 All ids are unsigned integers. More information for projects, paths commits and file hashes can be found in separate files:
 
-
 ### `commits.csv`
 
-id
-sha of the commit
-time of the commit
+1. id
+2. sha of the commit
+3. time of the commit
 
 ### `fileHashes.csv`
 
-id
-has of the contents
+1. id
+2. hash of the contents
 
 ### `paths.csv`
 
-id
-path 
+1. id
+2. path 
 
 ### `projects.csv`
 
-id
-username
-repo name
+1. id
+2. username
+3. repo name
 
 

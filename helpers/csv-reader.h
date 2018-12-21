@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -69,7 +70,7 @@ namespace helpers {
             TODO make this function more robust.
         */
         void append() {
-            size_t startline = lineNum_;
+            //size_t startline = lineNum_;
             std::string line = readLine();;
             std::string startLine = line;
             size_t i = 0;

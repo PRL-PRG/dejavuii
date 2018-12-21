@@ -11,7 +11,7 @@ endif (UNIX)
 
 project(dejavu)
 
-include_directories(".")
+include_directories(".", "helpers")
 
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.h")
 
