@@ -9,11 +9,11 @@ if (UNIX)
     )
 endif (UNIX)
 
-project(dejavu)
+project(dejavuii)
 
-include_directories(".", "helpers")
+include_directories("." "helpers")
 
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.h")
 
-add_executable(dejavu ${SRC})
-
+add_executable(dejavuii ${SRC})
+target_link_libraries( dejavuii ${LIBS} m )

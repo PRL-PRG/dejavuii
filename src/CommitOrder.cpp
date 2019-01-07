@@ -1,5 +1,7 @@
 #include "CommitOrder.h"
 
+#include <algorithm>
+
 using namespace dejavu;
 using namespace std;
 
@@ -37,6 +39,9 @@ commit_info * CommitOrder::getCommit(commit_id_t commit_id,
     commit->project_id = project_id;
     commit->commit_id = commit_id;
     commit->timestamp = timestamp;
+
+    commits[commit_id] = commit;
+    
     return commit;
 }
 
@@ -52,11 +57,51 @@ void CommitOrder::aggregate_project_info(project_id_t project_id,
     commit_info * commit = getCommit(commit_id, project_id, timestamp);
 
     // Third, we add the file into the aggregated commit's file list.
-    commit->path_ids.push_back(path_id);
+    commit->path_ids.insert(path_id);
+}
+
+bool are_there_common_files(commit_info * a, commit_info * b) {
+    set<path_id_t> intersection;    
+    set_intersection(a->path_ids.begin(), a->path_ids.end(), 
+                     b->path_ids.begin(), b->path_ids.end(), 
+                     inserter(intersection, intersection.begin()));
+    return intersection.size() > 0;
 }
 
 void CommitOrder::process_existing_data() {
+
+    set<pair<commit_id_t, commit_id_t>> order;
+
     // Create the order.
+    for (auto & outer : commits) {
+        commit_info * out = outer.second;
+
+        for (auto & inner : commits) {
+            commit_info * in = inner.second;
+
+            if (out->commit_id == in->commit_id)
+                continue;
+
+            if (!are_there_common_files(in, out))
+                continue;
+
+            timestamp_t in_timestamp = getTimestamp(in->commit_id);
+            timestamp_t out_timestamp = getTimestamp(out->commit_id);
+
+            if (in_timestamp == out_timestamp)
+                continue;
+            
+            if (in_timestamp < out_timestamp) {
+                cout << current_project << ": " << in->commit_id << " < " << out->commit_id << endl;
+                order.insert(pair<commit_id_t, commit_id_t>(in->commit_id, out->commit_id));
+            } 
+
+            if (in_timestamp > out_timestamp) {
+                cout << current_project << ": " << out->commit_id << " < " << in->commit_id << endl;
+                order.insert(pair<commit_id_t, commit_id_t>(out->commit_id, in->commit_id));
+            } 
+        }
+    }
 
     // Finally, remove all data aggregated so far.
     for (auto & iterator : commits) {

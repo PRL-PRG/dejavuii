@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <vector>
 #include <unordered_map>
 #include "helpers/csv-reader.h"
@@ -13,10 +14,26 @@ namespace dejavu {
     struct commit_info {
         commit_id_t commit_id;
         project_id_t project_id;
-        std::vector<path_id_t> path_ids;
+        std::set<path_id_t> path_ids;
         timestamp_t timestamp;
     };
 
+    /**
+     * Reads a CSV file to extract the order of commits in projects.
+     *
+     * Given a CSV file of the form (project_id, path_id, hash_id, commit_id)
+     * and a map of timestamps (commit_id -> timestamp) it extracts the order
+     * of commits in each of the projects. We assume the CSV file is ordered by
+     * project_id.
+     *
+     * The input CSV is read until all of the commits of a single project are
+     * in memory (ie. read until the project ID changes). When all of a
+     * projects commits are in memory... 
+     *
+     * When the commit order is created, the commit data is removed from
+     * memory, and the reader proceeds to read in another whole project.
+     *
+     */
     class CommitOrder : public helpers::CSVReader<> {
 
     public:
@@ -29,7 +46,7 @@ namespace dejavu {
         const timestamp_map_t & timestamps;
 
         // Output data:
-        // some kind of collection of graphs/orders;
+        // const map<project_id, set<order_elem_t>> orders;
 
         // Internal processing data to carry information between calls to row().
         bool first_row;

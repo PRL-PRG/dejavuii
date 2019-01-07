@@ -119,14 +119,14 @@ using namespace std;
 using namespace dejavu;
 
 int main(int argc, char * argv[]) {
-    string dir = "/home/kondziu/Workspace/dejavuii/processed/";
+    string dir = "/data/dejavuii/data/processed/";
 
     TimestampReader timestamp_reader(dir + "commits.csv");
     timestamp_reader.read();
     const timestamp_map_t timestamps = timestamp_reader.getTimestamps();
     cerr << "Read " << timestamps.size() << " timestamps" << endl;
 
-    CommitOrder order(dir + "files_sorted.csv", timestamps);
+    CommitOrder order(/*dir +*/ "files_sorted.csv", timestamps);
     order.read();
 
     return EXIT_SUCCESS;
