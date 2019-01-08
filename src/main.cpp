@@ -84,13 +84,17 @@ using namespace dejavu;
 int main(int argc, char * argv[]) {
     string dir = "/data/dejavuii/data/processed/";
 
+    cerr << "Reading timestamps from " << (dir + "commits.csv")  << endl;
     TimestampReader timestamp_reader(dir + "commits.csv");
     timestamp_reader.read();
     const timestamp_map_t timestamps = timestamp_reader.getTimestamps();
     cerr << "Read " << timestamps.size() << " timestamps" << endl;
 
+    cerr << "Reading commit orders using " << (/*dir +*/ "files_sorted.csv")  << endl;
+    cerr << "Results will be written to " << (/*dir +*/ "commit_order.csv")  << endl;
     CommitOrder order(/*dir +*/ "files_sorted.csv", /*dir +*/ "commit_order.csv", timestamps);
     order.read();
+    cerr << "Done." << endl;
 
     return EXIT_SUCCESS;
 }
