@@ -5,13 +5,20 @@
 using namespace dejavu;
 using namespace std;
 
-CommitOrder::CommitOrder(const std::string path,
+CommitOrder::CommitOrder(const std::string input_path,
+                         const std::string output_path,
                          const timestamp_map_t & timestamps)
-        : path(path), timestamps(timestamps) {}
+        : input_path(input_path), 
+          output_path(output_path),
+          timestamps(timestamps) {} 
 
 void CommitOrder::read() {
     first_row = true;
-    parse(path);
+
+    ofstream csv_file (output_path, ios::out | ios::trunc);
+    csv_file.close();
+
+    parse(input_path);
 }
 
 timestamp_t CommitOrder::getTimestamp(commit_id_t commit_id) {
@@ -70,38 +77,57 @@ bool are_there_common_files(commit_info * a, commit_info * b) {
 
 void CommitOrder::process_existing_data() {
 
-    set<pair<commit_id_t, commit_id_t>> order;
+    //set<pair<commit_id_t, commit_id_t>> order;
+    // Open the output file for appending.
+    ofstream csv_file;
+    csv_file.open(output_path, ios::out | ios::app);
 
-    // Create the order.
+    // Create the order. Compare all commits within the project amongs each
+    // other.
     for (auto & outer : commits) {
         commit_info * out = outer.second;
 
         for (auto & inner : commits) {
             commit_info * in = inner.second;
 
+            // The commit neither precedes nor succeeds itself, the order
+            // relation is not reflexive.
             if (out->commit_id == in->commit_id)
                 continue;
 
+            // Check if the commits have any files in common. If they do not,
+            // they are not ordered.
             if (!are_there_common_files(in, out))
                 continue;
 
+            // Retrieve timestamps from the map gathered earlier.
             timestamp_t in_timestamp = getTimestamp(in->commit_id);
             timestamp_t out_timestamp = getTimestamp(out->commit_id);
 
+            // If the timestamps are the same, there is no order relation. I
+            // guess this probably doesn't happen very often, if at all.
             if (in_timestamp == out_timestamp)
                 continue;
             
+            // If the in timestamp precedes the out timestamp, we create that
+            // relationship. We output it to a CSV file.
             if (in_timestamp < out_timestamp) {
-                cout << current_project << ": " << in->commit_id << " < " << out->commit_id << endl;
-                order.insert(pair<commit_id_t, commit_id_t>(in->commit_id, out->commit_id));
+                //cout << current_project << ": " << in->commit_id << " < " << out->commit_id << endl;
+                //order.insert(pair<commit_id_t, commit_id_t>(in->commit_id, out->commit_id));
+                csv_file << current_project << "," << in->commit_id << "," << out->commit_id << endl;
             } 
 
+            // If the in timestamp follows the out timestamp, we create that
+            // relationship. We output it to a CSV file.
             if (in_timestamp > out_timestamp) {
-                cout << current_project << ": " << out->commit_id << " < " << in->commit_id << endl;
-                order.insert(pair<commit_id_t, commit_id_t>(out->commit_id, in->commit_id));
+                //cout << current_project << ": " << out->commit_id << " < " << in->commit_id << endl;
+                //order.insert(pair<commit_id_t, commit_id_t>(out->commit_id, in->commit_id));
+                csv_file << current_project << "," << out->commit_id << "," << in->commit_id << endl;
             } 
         }
     }
+
+    csv_file.close();
 
     // Finally, remove all data aggregated so far.
     for (auto & iterator : commits) {

@@ -75,7 +75,7 @@ int main(int argc, char * argv[]) {
     const timestamp_map_t timestamps = timestamp_reader.getTimestamps();
     cerr << "Read " << timestamps.size() << " timestamps" << endl;
 
-    CommitOrder order(/*dir +*/ "files_sorted.csv", timestamps);
+    CommitOrder order(/*dir +*/ "files_sorted.csv", /*dir +*/ "commit_order.csv", timestamps);
     order.read();
 
     return EXIT_SUCCESS;

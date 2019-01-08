@@ -40,12 +40,15 @@ namespace dejavu {
     class CommitOrder : public helpers::CSVReader<> {
 
     public:
-        CommitOrder(const std::string path, const timestamp_map_t & timestamps);
+        CommitOrder(const std::string input_path, 
+                    const std::string output_path, 
+                    const timestamp_map_t & timestamps);
         void read();
 
     protected:
         // Input data: constructor parameters.
-        const std::string path;
+        const std::string input_path;
+        const std::string output_path;
         const timestamp_map_t & timestamps;
 
         // Output data:
