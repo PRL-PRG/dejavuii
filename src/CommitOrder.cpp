@@ -148,7 +148,7 @@ void CommitOrder::process_existing_data() {
 
     csv_file.close();
 
-    cerr << "Written out " << relations << "relations for project #" 
+    cerr << "Written out " << relations << " relations for project #" 
          << current_project << endl;    
 
     // Finally, remove all data aggregated so far.
