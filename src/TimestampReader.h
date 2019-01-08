@@ -18,7 +18,7 @@ namespace dejavu {
      * commit_id -> timestamp. The result of this is then accessible through 
      * getTimestamps.
      */
-    class TimestampReader : public helpers::CSVReader<> {
+    class TimestampReader : public helpers::CSVReader {
     public:
         TimestampReader(const std::string path);
         void read();

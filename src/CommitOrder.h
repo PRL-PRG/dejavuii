@@ -37,7 +37,7 @@ namespace dejavu {
      * memory, and the reader proceeds to read in another whole project.
      *
      */
-    class CommitOrder : public helpers::CSVReader<> {
+    class CommitOrder : public helpers::CSVReader {
 
     public:
         CommitOrder(const std::string input_path, 
