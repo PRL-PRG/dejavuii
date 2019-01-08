@@ -90,9 +90,9 @@ int main(int argc, char * argv[]) {
     const timestamp_map_t timestamps = timestamp_reader.getTimestamps();
     cerr << "Read " << timestamps.size() << " timestamps" << endl;
 
-    cerr << "Reading commit orders using " << (/*dir +*/ "files_sorted.csv")  << endl;
-    cerr << "Results will be written to " << (/*dir +*/ "commit_order.csv")  << endl;
-    CommitOrder order(/*dir +*/ "files_sorted.csv", /*dir +*/ "commit_order.csv", timestamps);
+    cerr << "Reading commit orders using " << (dir + "files_sorted.csv")  << endl;
+    cerr << "Results will be written to " << (dir + "commit_order.csv")  << endl;
+    CommitOrder order(dir + "files_sorted.csv", dir + "commit_order.csv", timestamps);
     order.read();
     cerr << "Done." << endl;
 
