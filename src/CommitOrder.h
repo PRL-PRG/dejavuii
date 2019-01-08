@@ -28,7 +28,10 @@ namespace dejavu {
      *
      * The input CSV is read until all of the commits of a single project are
      * in memory (ie. read until the project ID changes). When all of a
-     * projects commits are in memory... 
+     * projects commits are in memory, they are compared among each other.
+     * If any two commits modify some common set of files, then they are
+     * ordered by their timestamp. There is no order relation if the timestamps
+     * are the same or if the commits do not impact any files in common.
      *
      * When the commit order is created, the commit data is removed from
      * memory, and the reader proceeds to read in another whole project.
