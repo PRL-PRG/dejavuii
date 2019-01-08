@@ -67,20 +67,39 @@ void CommitOrder::aggregate_project_info(project_id_t project_id,
     commit->path_ids.insert(path_id);
 }
 
-bool are_there_common_files(commit_info * a, commit_info * b) {
+set<path_id_t> get_common_files(commit_info * a, commit_info * b) {
     set<path_id_t> intersection;    
     set_intersection(a->path_ids.begin(), a->path_ids.end(), 
                      b->path_ids.begin(), b->path_ids.end(), 
                      inserter(intersection, intersection.begin()));
-    return intersection.size() > 0;
+    //return intersection.size() > 0;
+    return intersection;
+}
+
+void write_out_to_csv(ofstream * csv_file, project_id_t project, 
+                      commit_id_t predecessor, commit_id_t successor,
+                      set<path_id_t> * common_files) {
+
+
+    set<path_id_t>::iterator i;
+    for (i = common_files->begin(); i != common_files->end(); ++i) {
+        path_id_t path_id = *i; 
+        (*csv_file) << project << "," 
+                    << predecessor << "," 
+                    << successor << ","
+                    << path_id 
+                    << endl;
+    }
 }
 
 void CommitOrder::process_existing_data() {
 
-    //set<pair<commit_id_t, commit_id_t>> order;
     // Open the output file for appending.
     ofstream csv_file;
     csv_file.open(output_path, ios::out | ios::app);
+
+    // Let's count relations.
+    int relations = 0;
 
     // Create the order. Compare all commits within the project amongs each
     // other.
@@ -97,7 +116,8 @@ void CommitOrder::process_existing_data() {
 
             // Check if the commits have any files in common. If they do not,
             // they are not ordered.
-            if (!are_there_common_files(in, out))
+            set<path_id_t> common_files = get_common_files(in, out);
+            if (common_files.size() == 0)
                 continue;
 
             // Retrieve timestamps from the map gathered earlier.
@@ -111,23 +131,25 @@ void CommitOrder::process_existing_data() {
             
             // If the in timestamp precedes the out timestamp, we create that
             // relationship. We output it to a CSV file.
-            if (in_timestamp < out_timestamp) {
-                //cout << current_project << ": " << in->commit_id << " < " << out->commit_id << endl;
-                //order.insert(pair<commit_id_t, commit_id_t>(in->commit_id, out->commit_id));
-                csv_file << current_project << "," << in->commit_id << "," << out->commit_id << endl;
-            } 
+            if (in_timestamp < out_timestamp) 
+                write_out_to_csv(&csv_file, current_project, in->commit_id, 
+                                 out->commit_id, &common_files);
 
             // If the in timestamp follows the out timestamp, we create that
             // relationship. We output it to a CSV file.
-            if (in_timestamp > out_timestamp) {
-                //cout << current_project << ": " << out->commit_id << " < " << in->commit_id << endl;
-                //order.insert(pair<commit_id_t, commit_id_t>(out->commit_id, in->commit_id));
-                csv_file << current_project << "," << out->commit_id << "," << in->commit_id << endl;
-            } 
+            if (in_timestamp > out_timestamp) 
+                write_out_to_csv(&csv_file, current_project, out->commit_id, 
+                                 in->commit_id, &common_files);
+
+            // Count relations.
+            relations += common_files.size();
         }
     }
 
     csv_file.close();
+
+    cerr << "Written out " << relations << "relations for project #" 
+         << current_project << endl;    
 
     // Finally, remove all data aggregated so far.
     for (auto & iterator : commits) {
@@ -158,6 +180,7 @@ void CommitOrder::row(std::vector<std::string> & row){
         cerr << "Done reading project #" << current_project << endl;
         cerr << "Read " << commits.size() << " commits" << endl;
 
+        cerr << "Processing commits for project #" << current_project << endl;
         process_existing_data();
         current_project = project_id;
 

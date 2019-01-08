@@ -9,9 +9,11 @@
  *       file must be sorted according to project_id. 
  * 
  * The output data is a CSV file that describes the order among commits within
- * projects. The CSV takes the form (project_id, commit_id1, commit_id2) which
- * indicates that commit_id1 < commit_id2 in project_id. The file is sorted by
- * project_id.
+ * projects. The CSV takes the form (project_id, commit_id1, commit_id2,
+ * path_id) which indicates that commit_id1 < commit_id2 in project_id. The
+ * file_id field indicates that both commits modify this file. If there are
+ * more files that the commits have in common, the program outputs multiple
+ * lines. The file is sorted by project_id. 
  *
  * Semi-formal definitions
  *
@@ -55,6 +57,15 @@
  *                  5 is 916.
  *
  * There are 145.9M projects, BTW.
+ *
+ * If there are three commits, 0, 1, and 2 that all modify the same file F, and
+ * where timestamp(0) < timestamp(1) < timestamp(2) the program outputs:
+ *
+ *      P,0,1,F
+ *      P,0,2,F
+ *      P,1,2,F 
+ *
+ * The redundant second line could be eliminated, but currently is not.
  *
  */
 
