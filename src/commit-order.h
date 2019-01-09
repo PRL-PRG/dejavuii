@@ -1,6 +1,6 @@
 #pragma once
 
-#include <set>
+#include <unordered_set>
 #include <vector>
 #include <unordered_map>
 #include "helpers/csv-reader.h"
@@ -11,7 +11,7 @@ namespace dejavu {
     struct CommitInfo {
         unsigned int commit_id;
         unsigned int project_id;
-        std::set<unsigned int> path_ids;
+        std::unordered_set<unsigned int> path_ids;
         unsigned long timestamp;
     };
 
@@ -63,7 +63,7 @@ namespace dejavu {
         void process_existing_data();
         unsigned long getTimestamp(unsigned int commit_id);
         CommitInfo * getCommit(unsigned int commit_id, unsigned int project_id,
-                                unsigned long timestamp);
+                               unsigned long timestamp);
     };
 
 } // namespace

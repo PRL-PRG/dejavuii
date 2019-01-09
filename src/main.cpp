@@ -72,29 +72,25 @@
 #include <cstdlib>
 #include <iostream>
 
-//#include "helpers/helpers.h"
-//#include "helpers/csv-reader.h"
-
 #include "timestamp-reader.h"
 #include "commit-order.h"
 
-using namespace std;
 using namespace dejavu;
 
 int main(int argc, char * argv[]) {
-    string dir = "/data/dejavuii/data/processed/";
+    std::string dir = "/data/dejavuii/data/processed/";
 
-    cerr << "Reading timestamps from " << (dir + "commits.csv")  << endl;
+    std::cerr << "Reading timestamps from " << (dir + "commits.csv") << std::endl;
     TimestampReader timestamp_reader(dir + "commits.csv");
     timestamp_reader.read();
     const std::unordered_map<unsigned int, unsigned long> timestamps = timestamp_reader.getTimestamps();
-    cerr << "Read " << timestamps.size() << " timestamps" << endl;
+    std::cerr << "Read " << timestamps.size() << " timestamps" << std::endl;
 
-    cerr << "Reading commit orders using " << (dir + "files_sorted.csv")  << endl;
-    cerr << "Results will be written to " << (dir + "commit_order.csv")  << endl;
+    std::cerr << "Reading commit orders using " << (dir + "files_sorted.csv") << std::endl;
+    std::cerr << "Results will be written to " << (dir + "commit_order.csv") << std::endl;
     CommitOrder order(dir + "files_sorted.csv", dir + "commit_order.csv", timestamps);
     order.read();
-    cerr << "Done." << endl;
+    std::cerr << "Done." << std::endl;
 
     return EXIT_SUCCESS;
 }

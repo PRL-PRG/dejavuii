@@ -3,7 +3,6 @@
 #include <algorithm>
 
 using namespace dejavu;
-using namespace std;
 
 CommitOrder::CommitOrder(const std::string input_path,
                          const std::string output_path,
@@ -15,7 +14,7 @@ CommitOrder::CommitOrder(const std::string input_path,
 void CommitOrder::read() {
     first_row = true;
 
-    ofstream csv_file (output_path, ios::out | ios::trunc);
+    std::ofstream csv_file (output_path, std::ios::out | std::ios::trunc);
     csv_file.close();
 
     parse(input_path);
@@ -25,8 +24,8 @@ unsigned long CommitOrder::getTimestamp(unsigned int commit_id) {
 
     auto pair = timestamps.find(commit_id);
     if (pair == timestamps.end()) {
-        cerr << "[BELGIUM] Did not find commit #" << commit_id
-             << " in commits." << endl;
+        std::cerr << "[BELGIUM] Did not find commit #" << commit_id
+                  << " in commits." << std::endl;
         return 0; // FIXME
     }
 
@@ -67,8 +66,8 @@ void CommitOrder::aggregate_project_info(unsigned int project_id,
     commit->path_ids.insert(path_id);
 }
 
-set<unsigned int> get_common_files(CommitInfo * a, CommitInfo * b) {
-    set<unsigned int> intersection;
+std::unordered_set<unsigned int> get_common_files(CommitInfo * a, CommitInfo * b) {
+    std::unordered_set<unsigned int> intersection;
     set_intersection(a->path_ids.begin(), a->path_ids.end(), 
                      b->path_ids.begin(), b->path_ids.end(), 
                      inserter(intersection, intersection.begin()));
@@ -76,27 +75,27 @@ set<unsigned int> get_common_files(CommitInfo * a, CommitInfo * b) {
     return intersection;
 }
 
-void write_out_to_csv(ofstream * csv_file, unsigned int project,
+void write_out_to_csv(std::ofstream * csv_file, unsigned int project,
                       unsigned int predecessor, unsigned int successor,
-                      set<unsigned int> * common_files) {
+                      std::unordered_set<unsigned int> * common_files) {
 
 
-    set<unsigned int>::iterator i;
+    std::unordered_set<unsigned int>::iterator i;
     for (i = common_files->begin(); i != common_files->end(); ++i) {
         unsigned int path_id = *i;
         (*csv_file) << project << "," 
                     << predecessor << "," 
                     << successor << ","
                     << path_id 
-                    << endl;
+                    << std::endl;
     }
 }
 
 void CommitOrder::process_existing_data() {
 
     // Open the output file for appending.
-    ofstream csv_file;
-    csv_file.open(output_path, ios::out | ios::app);
+    std::ofstream csv_file;
+    csv_file.open(output_path, std::ios::out | std::ios::app);
 
     // Let's count relations.
     int relations = 0;
@@ -116,7 +115,7 @@ void CommitOrder::process_existing_data() {
 
             // Check if the commits have any files in common. If they do not,
             // they are not ordered.
-            set<unsigned int> common_files = get_common_files(in, out);
+            std::unordered_set<unsigned int> common_files = get_common_files(in, out);
             if (common_files.size() == 0)
                 continue;
 
@@ -148,8 +147,8 @@ void CommitOrder::process_existing_data() {
 
     csv_file.close();
 
-    cerr << "Written out " << relations << " relations for project #" 
-         << current_project << endl;    
+    std::cerr << "Written out " << relations << " relations for project #"
+              << current_project << std::endl;
 
     // Finally, remove all data aggregated so far.
     for (auto & iterator : commits) {
@@ -171,20 +170,22 @@ void CommitOrder::row(std::vector<std::string> & row){
         current_project = project_id;
         first_row = false;
 
-        cerr << "Reading project #" << project_id << endl;
+        std::cerr << "Reading project #" << project_id << std::endl;
     }
 
     // If the project changed, process all the data collected so far and
     // initialize a new project.
     if (project_id != current_project) {
-        cerr << "Done reading project #" << current_project << endl;
-        cerr << "Read " << commits.size() << " commits" << endl;
+        std::cerr << "Done reading project #" << current_project << std::endl;
+        std::cerr << "Read " << commits.size() << " commits" << std::endl;
 
-        cerr << "Processing commits for project #" << current_project << endl;
+        std::cerr << "Processing commits for project #" << current_project
+                  << std::endl;
+
         process_existing_data();
         current_project = project_id;
 
-        cerr << "Reading project #" << project_id << endl;
+        std::cerr << "Reading project #" << project_id << std::endl;
     }
 
     // Process the data from the current row.
