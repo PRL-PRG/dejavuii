@@ -1,6 +1,7 @@
 #include "commit-order.h"
 
 #include <algorithm>
+#include <map>
 
 namespace dejavu {
 
@@ -33,12 +34,21 @@ namespace dejavu {
     }
 
     CommitInfo const & CommitOrder::getCommit(unsigned int commit_id,
-                                             unsigned int project_id,
-                                             unsigned long timestamp) {
+                                              unsigned int project_id,
+                                              unsigned long timestamp) {
 
-        auto pair = commits.find(commit_id);
+        auto pair = commits.find(timestamp);
         if (pair != commits.end()) {
-            return pair->second;
+
+            if (pair->second.commit_id == commit_id) {
+                return pair->second;
+            } else {
+                std::cerr << "[BELGIUM] I looked for a commit with timestamp " << timestamp
+                          << " and commit id " << commit_id << " but there was already a "
+                          << "commit there with commit id " << pair->second.commit_id
+                          << std::endl;
+                return pair->second; // FIXME
+            }
         }
 
         CommitInfo commit;
@@ -46,9 +56,8 @@ namespace dejavu {
         commit.commit_id = commit_id;
         commit.timestamp = timestamp;
 
-        commits[commit_id] = commit;
-
-        return commits[commit_id];
+        commits[timestamp] = commit;
+        return commits[timestamp];
     }
 
     void CommitOrder::aggregateProjectInfo(unsigned int project_id,
@@ -75,21 +84,24 @@ namespace dejavu {
         return intersection;
     }
 
-    void writeOutToCSV(std::ofstream *csv_file, unsigned int project,
-                       unsigned int predecessor, unsigned int successor,
-                       std::unordered_set<unsigned int> *common_files) {
+//    void writeOutToCSV(std::ofstream *csv_file, unsigned int project,
+//                       unsigned int predecessor, unsigned int successor,
+//                       std::unordered_set<unsigned int> *common_files) {
+//
+//        std::unordered_set<unsigned int>::iterator i;
+//        for (i = common_files->begin(); i != common_files->end(); ++i) {
+//            unsigned int path_id = *i;
+//            (*csv_file) << project << ","
+//                        << predecessor << ","
+//                        << successor << ","
+//                        << path_id
+//                        << std::endl;
+//        }
+//    }
 
-        std::unordered_set<unsigned int>::iterator i;
-        for (i = common_files->begin(); i != common_files->end(); ++i) {
-            unsigned int path_id = *i;
-            (*csv_file) << project << ","
-                        << predecessor << ","
-                        << successor << ","
-                        << path_id
-                        << std::endl;
-        }
-    }
-
+    /**
+     * Once all of the data of a project are read in
+     */
     void CommitOrder::processExistingData() {
 
         // Open the output file for appending.
@@ -99,52 +111,70 @@ namespace dejavu {
         // Let's count relations.
         int relations = 0;
 
-        // Create the order. Compare all commits within the project amongs each
-        // other.
-        for (auto &outer : commits) {
-            CommitInfo out = outer.second;
-
-            for (auto &inner : commits) {
-                CommitInfo in = inner.second;
-
-                // The commit neither precedes nor succeeds itself, the order
-                // relation is not reflexive.
-                if (out.commit_id == in.commit_id)
-                    continue;
-
-                // Check if the commits have any files in common. If they do not,
-                // they are not ordered.
-                std::unordered_set<unsigned int> common_files = getCommonFiles(in, out);
-                if (common_files.size() == 0)
-                    continue;
-
-                // Retrieve timestamps from the map gathered earlier.
-                unsigned long in_timestamp = getTimestamp(in.commit_id);
-                unsigned long out_timestamp = getTimestamp(out.commit_id);
-
-                // If the timestamps are the same, there is no order relation. I
-                // guess this probably doesn't happen very often, if at all.
-                if (in_timestamp == out_timestamp)
-                    continue;
-
-                // If the in timestamp precedes the out timestamp, we create that
-                // relationship. We output it to a CSV file.
-                if (in_timestamp < out_timestamp)
-                    writeOutToCSV(&csv_file, current_project,
-                                  in.commit_id, out.commit_id,
-                                  &common_files);
-
-                // If the in timestamp follows the out timestamp, we create that
-                // relationship. We output it to a CSV file.
-                if (in_timestamp > out_timestamp)
-                    writeOutToCSV(&csv_file, current_project,
-                                  out.commit_id, in.commit_id,
-                                  &common_files);
-
-                // Count relations.
-                relations += common_files.size();
+        std::unordered_map<unsigned int, unsigned int> file_and_the_commit_that_last_modified_it;
+        for (auto & pair : commits) {
+            CommitInfo info = pair.second;
+            for (auto it = info.path_ids.begin(); it != info.path_ids.end(); ++it) {
+                unsigned int path_id = *it;
+                auto pair = file_and_the_commit_that_last_modified_it.find(path_id);
+                if (pair != file_and_the_commit_that_last_modified_it.end()) {
+                    csv_file << info.project_id << ","
+                             << file_and_the_commit_that_last_modified_it[path_id] << ","
+                             << info.commit_id << ","
+                             << path_id
+                             << std::endl;
+                    relations++;
+                }
+                file_and_the_commit_that_last_modified_it[path_id] = info.commit_id;
             }
         }
+
+//        // Create the order. Compare all commits within the project among each
+//        // other.
+//        for (auto & outer : commits) {
+//            CommitInfo out = outer.second;
+//
+//            for (auto & inner : commits) {
+//                CommitInfo in = inner.second;
+//
+//                // The commit neither precedes nor succeeds itself, the order
+//                // relation is not reflexive.
+//                if (out.commit_id == in.commit_id)
+//                    continue;
+//
+//                // Check if the commits have any files in common. If they do not,
+//                // they are not ordered.
+//                std::unordered_set<unsigned int> common_files = getCommonFiles(in, out);
+//                if (common_files.size() == 0)
+//                    continue;
+//
+//                // Retrieve timestamps from the map gathered earlier.
+//                unsigned long in_timestamp = getTimestamp(in.commit_id);
+//                unsigned long out_timestamp = getTimestamp(out.commit_id);
+//
+//                // If the timestamps are the same, there is no order relation. I
+//                // guess this probably doesn't happen very often, if at all.
+//                if (in_timestamp == out_timestamp)
+//                    continue;
+//
+//                // If the in timestamp precedes the out timestamp, we create that
+//                // relationship. We output it to a CSV file.
+//                if (in_timestamp < out_timestamp)
+//                    writeOutToCSV(&csv_file, current_project,
+//                                  in.commit_id, out.commit_id,
+//                                  &common_files);
+//
+//                // If the in timestamp follows the out timestamp, we create that
+//                // relationship. We output it to a CSV file.
+//                if (in_timestamp > out_timestamp)
+//                    writeOutToCSV(&csv_file, current_project,
+//                                  out.commit_id, in.commit_id,
+//                                  &common_files);
+//
+//                // Count relations.
+//                relations += common_files.size();
+//            }
+//        }
 
         csv_file.close();
 

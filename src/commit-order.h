@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <vector>
 #include <unordered_map>
+#include <map>
 #include "helpers/csv-reader.h"
 #include "timestamp-reader.h"
 
@@ -54,7 +55,7 @@ namespace dejavu {
         // Internal processing data to carry information between calls to row().
         bool first_row;
         unsigned int current_project;
-        std::unordered_map<unsigned int, CommitInfo> commits;
+        std::map<unsigned long, CommitInfo> commits;
 
         // Auxiliary functions.
         void row(std::vector<std::string> & row) override;

@@ -71,6 +71,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <map>
 
 #include "timestamp-reader.h"
 #include "commit-order.h"
