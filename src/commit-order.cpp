@@ -9,7 +9,7 @@ namespace dejavu {
                              std::unordered_map<unsigned int, unsigned long> const &timestamps)
             : input_path(input_path),
               output_path(output_path),
-              timestamps(timestamps) {}
+              timestamps(std::move(timestamps)) {}
 
     void CommitOrder::read() {
         first_row = true;
