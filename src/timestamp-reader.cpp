@@ -10,8 +10,8 @@ namespace dejavu {
     }
 
     void TimestampReader::row(std::vector<std::string> &row) {
-        unsigned int commit_id = atoi(row[0].c_str());
-        unsigned long timestamp = atol(row[1].c_str());
+        unsigned int commit_id = std::stoi(row[0].c_str());
+        unsigned long timestamp = std::stol(row[1].c_str());
         timestamps[commit_id] = timestamp;
     }
 

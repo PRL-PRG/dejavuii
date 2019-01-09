@@ -32,7 +32,7 @@ namespace dejavu {
         return pair->second;
     }
 
-    CommitInfo const &CommitOrder::getCommit(unsigned int commit_id,
+    CommitInfo const & CommitOrder::getCommit(unsigned int commit_id,
                                              unsigned int project_id,
                                              unsigned long timestamp) {
 
@@ -161,10 +161,10 @@ namespace dejavu {
     void CommitOrder::row(std::vector<std::string> &row) {
 
         // Get the basic data from the row, convert into appropriate types.
-        unsigned int project_id = atoi(row[0].c_str());
-        unsigned int path_id = atoi(row[1].c_str());
-        //hash_id_t hash_id = atoi(row[2].c_str());
-        unsigned int commit_id = atoi(row[3].c_str());
+        unsigned int project_id = std::stoi(row[0].c_str());
+        unsigned int path_id = std::stoi(row[1].c_str());
+        //hash_id_t hash_id = std::stoi(row[2].c_str());
+        unsigned int commit_id = std::stoi(row[3].c_str());
 
         // If this is the first row, initialize the current project field.
         if (first_row) {
