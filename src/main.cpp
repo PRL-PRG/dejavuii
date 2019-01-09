@@ -78,18 +78,22 @@
 using namespace dejavu;
 
 int main(int argc, char * argv[]) {
-    std::string dir = "/data/dejavuii/data/processed/";
 
+    std::string dir = "/data/dejavuii/data/processed/";
     std::cerr << "Reading timestamps from " << (dir + "commits.csv") << std::endl;
+
     TimestampReader timestamp_reader(dir + "commits.csv");
     timestamp_reader.read();
+
     std::unordered_map<unsigned int, unsigned long> const timestamps = timestamp_reader.getTimestamps();
     std::cerr << "Read " << timestamps.size() << " timestamps" << std::endl;
 
     std::cerr << "Reading commit orders using " << (dir + "files_sorted.csv") << std::endl;
     std::cerr << "Results will be written to " << (dir + "commit_order.csv") << std::endl;
+
     CommitOrder order(dir + "files_sorted.csv", dir + "commit_order.csv", timestamps);
     order.read();
+
     std::cerr << "Done." << std::endl;
 
     return EXIT_SUCCESS;

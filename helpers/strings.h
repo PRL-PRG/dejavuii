@@ -14,7 +14,6 @@ namespace helpers {
         return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
     }
 
-    
     inline std::vector<std::string> split(std::string const & what, char delimiter) {
         std::vector<std::string> result;
         size_t start = 0;
@@ -36,5 +35,4 @@ namespace helpers {
         }
         return result;
     }
-    
 }

@@ -54,6 +54,7 @@ namespace dejavu {
     void CommitOrder::aggregateProjectInfo(unsigned int project_id,
                                            unsigned int path_id,
                                            unsigned int commit_id) {
+
         // First, we find the commit associated with this particular row.
         unsigned long timestamp = getTimestamp(commit_id);
 
@@ -77,7 +78,6 @@ namespace dejavu {
     void writeOutToCSV(std::ofstream *csv_file, unsigned int project,
                        unsigned int predecessor, unsigned int successor,
                        std::unordered_set<unsigned int> *common_files) {
-
 
         std::unordered_set<unsigned int>::iterator i;
         for (i = common_files->begin(); i != common_files->end(); ++i) {
