@@ -87,7 +87,7 @@ int main(int argc, char * argv[]) {
     cerr << "Reading timestamps from " << (dir + "commits.csv")  << endl;
     TimestampReader timestamp_reader(dir + "commits.csv");
     timestamp_reader.read();
-    const timestamp_map_t timestamps = timestamp_reader.getTimestamps();
+    const std::unordered_map<unsigned int, unsigned long> timestamps = timestamp_reader.getTimestamps();
     cerr << "Read " << timestamps.size() << " timestamps" << endl;
 
     cerr << "Reading commit orders using " << (dir + "files_sorted.csv")  << endl;

@@ -8,7 +8,7 @@
 
 namespace dejavu {
 
-    struct commit_info {
+    struct CommitInfo {
         unsigned int commit_id;
         unsigned int project_id;
         std::set<unsigned int> path_ids;
@@ -39,14 +39,14 @@ namespace dejavu {
     public:
         CommitOrder(const std::string input_path, 
                     const std::string output_path, 
-                    const timestamp_map_t & timestamps);
+                    const std::unordered_map<unsigned int, unsigned long> & timestamps);
         void read();
 
     protected:
         // Input data: constructor parameters.
         const std::string input_path;
         const std::string output_path;
-        const timestamp_map_t & timestamps;
+        const std::unordered_map<unsigned int, unsigned long> & timestamps;
 
         // Output data:
         // const map<project_id, set<order_elem_t>> orders;
@@ -54,7 +54,7 @@ namespace dejavu {
         // Internal processing data to carry information between calls to row().
         bool first_row;
         unsigned int current_project;
-        std::unordered_map<unsigned int, commit_info *> commits;
+        std::unordered_map<unsigned int, CommitInfo *> commits;
 
         // Auxiliary functions.
         void row(std::vector<std::string> & row);
@@ -62,7 +62,7 @@ namespace dejavu {
                                     unsigned int commit_id);
         void process_existing_data();
         unsigned long getTimestamp(unsigned int commit_id);
-        commit_info * getCommit(unsigned int commit_id, unsigned int project_id,
+        CommitInfo * getCommit(unsigned int commit_id, unsigned int project_id,
                                 unsigned long timestamp);
     };
 

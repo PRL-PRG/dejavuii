@@ -16,6 +16,6 @@ void TimestampReader::row(vector<string> & row) {
     timestamps[commit_id] = timestamp;
 }
 
-const timestamp_map_t & TimestampReader::getTimestamps() {
+const std::unordered_map<unsigned int, unsigned long> & TimestampReader::getTimestamps() {
     return timestamps;
 }

@@ -7,7 +7,7 @@ using namespace std;
 
 CommitOrder::CommitOrder(const std::string input_path,
                          const std::string output_path,
-                         const timestamp_map_t & timestamps)
+                         const std::unordered_map<unsigned int, unsigned long> & timestamps)
         : input_path(input_path), 
           output_path(output_path),
           timestamps(timestamps) {} 
@@ -33,7 +33,7 @@ unsigned long CommitOrder::getTimestamp(unsigned int commit_id) {
     return pair->second;
 }
 
-commit_info * CommitOrder::getCommit(unsigned int commit_id,
+CommitInfo * CommitOrder::getCommit(unsigned int commit_id,
                                      unsigned int project_id,
                                      unsigned long timestamp) {
 
@@ -42,7 +42,7 @@ commit_info * CommitOrder::getCommit(unsigned int commit_id,
         return pair->second;
     }
 
-    commit_info * commit = new commit_info;
+    CommitInfo * commit = new CommitInfo;
     commit->project_id = project_id;
     commit->commit_id = commit_id;
     commit->timestamp = timestamp;
@@ -61,13 +61,13 @@ void CommitOrder::aggregate_project_info(unsigned int project_id,
     // Second, we check if we already have an aggregated commit associated
     // with this commit id. If we do not we need to create a new
     // aggregated_commit entry. Otherwise, we grab a reference to it.
-    commit_info * commit = getCommit(commit_id, project_id, timestamp);
+    CommitInfo * commit = getCommit(commit_id, project_id, timestamp);
 
     // Third, we add the file into the aggregated commit's file list.
     commit->path_ids.insert(path_id);
 }
 
-set<unsigned int> get_common_files(commit_info * a, commit_info * b) {
+set<unsigned int> get_common_files(CommitInfo * a, CommitInfo * b) {
     set<unsigned int> intersection;
     set_intersection(a->path_ids.begin(), a->path_ids.end(), 
                      b->path_ids.begin(), b->path_ids.end(), 
@@ -104,10 +104,10 @@ void CommitOrder::process_existing_data() {
     // Create the order. Compare all commits within the project amongs each
     // other.
     for (auto & outer : commits) {
-        commit_info * out = outer.second;
+        CommitInfo * out = outer.second;
 
         for (auto & inner : commits) {
-            commit_info * in = inner.second;
+            CommitInfo * in = inner.second;
 
             // The commit neither precedes nor succeeds itself, the order
             // relation is not reflexive.

@@ -3,8 +3,6 @@
 #include <unordered_map>
 #include "helpers/csv-reader.h"
 
-typedef std::unordered_map<unsigned int, unsigned long> timestamp_map_t;
-
 namespace dejavu {
 
     /**
@@ -19,11 +17,11 @@ namespace dejavu {
     public:
         TimestampReader(const std::string path);
         void read();
-        const timestamp_map_t &getTimestamps();
+        const std::unordered_map<unsigned int, unsigned long> & getTimestamps();
 
     protected:
         const std::string path;
-        timestamp_map_t timestamps;
+        std::unordered_map<unsigned int, unsigned long> timestamps;
 
         void row(std::vector <std::string> &row);
     };
