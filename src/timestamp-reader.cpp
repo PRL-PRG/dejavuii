@@ -1,5 +1,5 @@
 #include <unordered_map>
-#include "TimestampReader.h"
+#include "timestamp-reader.h"
 
 using namespace std;
 using namespace dejavu;

@@ -75,8 +75,8 @@
 //#include "helpers/helpers.h"
 //#include "helpers/csv-reader.h"
 
-#include "TimestampReader.h"
-#include "CommitOrder.h"
+#include "timestamp-reader.h"
+#include "commit-order.h"
 
 using namespace std;
 using namespace dejavu;

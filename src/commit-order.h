@@ -4,7 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include "helpers/csv-reader.h"
-#include "TimestampReader.h"
+#include "timestamp-reader.h"
 
 namespace dejavu {
 
