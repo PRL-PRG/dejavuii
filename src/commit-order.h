@@ -54,16 +54,19 @@ namespace dejavu {
         // Internal processing data to carry information between calls to row().
         bool first_row;
         unsigned int current_project;
-        std::unordered_map<unsigned int, CommitInfo *> commits;
+        std::unordered_map<unsigned int, CommitInfo> commits;
 
         // Auxiliary functions.
         void row(std::vector<std::string> & row) override;
-        void aggregateProjectInfo(unsigned int project_id, unsigned int path_id,
+        void aggregateProjectInfo(unsigned int project_id,
+                                  unsigned int path_id,
                                   unsigned int commit_id);
+
         void processExistingData();
         unsigned long getTimestamp(unsigned int commit_id);
-        CommitInfo * getCommit(unsigned int commit_id, unsigned int project_id,
-                               unsigned long timestamp);
+        CommitInfo const & getCommit(unsigned int commit_id,
+                                     unsigned int project_id,
+                                     unsigned long timestamp);
     };
 
 } // namespace

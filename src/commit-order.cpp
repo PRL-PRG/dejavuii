@@ -32,23 +32,23 @@ unsigned long CommitOrder::getTimestamp(unsigned int commit_id) {
     return pair->second;
 }
 
-CommitInfo * CommitOrder::getCommit(unsigned int commit_id,
-                                    unsigned int project_id,
-                                    unsigned long timestamp) {
+CommitInfo const & CommitOrder::getCommit(unsigned int commit_id,
+                                          unsigned int project_id,
+                                          unsigned long timestamp) {
 
     auto pair = commits.find(commit_id);
     if (pair != commits.end()) {
         return pair->second;
     }
 
-    CommitInfo * commit = new CommitInfo;
-    commit->project_id = project_id;
-    commit->commit_id = commit_id;
-    commit->timestamp = timestamp;
+    CommitInfo commit;
+    commit.project_id = project_id;
+    commit.commit_id = commit_id;
+    commit.timestamp = timestamp;
 
     commits[commit_id] = commit;
     
-    return commit;
+    return commits[commit_id];
 }
 
 void CommitOrder::aggregateProjectInfo(unsigned int project_id,
@@ -60,18 +60,17 @@ void CommitOrder::aggregateProjectInfo(unsigned int project_id,
     // Second, we check if we already have an aggregated commit associated
     // with this commit id. If we do not we need to create a new
     // aggregated_commit entry. Otherwise, we grab a reference to it.
-    CommitInfo * commit = getCommit(commit_id, project_id, timestamp);
+    CommitInfo commit = getCommit(commit_id, project_id, timestamp);
 
     // Third, we add the file into the aggregated commit's file list.
-    commit->path_ids.insert(path_id);
+    commit.path_ids.insert(path_id);
 }
 
-std::unordered_set<unsigned int> getCommonFiles(CommitInfo * a, CommitInfo * b) {
+std::unordered_set<unsigned int> getCommonFiles(CommitInfo & a, CommitInfo & b) {
     std::unordered_set<unsigned int> intersection;
-    set_intersection(a->path_ids.begin(), a->path_ids.end(), 
-                     b->path_ids.begin(), b->path_ids.end(), 
+    set_intersection(a.path_ids.begin(), a.path_ids.end(),
+                     b.path_ids.begin(), b.path_ids.end(),
                      inserter(intersection, intersection.begin()));
-    //return intersection.size() > 0;
     return intersection;
 }
 
@@ -103,14 +102,14 @@ void CommitOrder::processExistingData() {
     // Create the order. Compare all commits within the project amongs each
     // other.
     for (auto & outer : commits) {
-        CommitInfo * out = outer.second;
+        CommitInfo out = outer.second;
 
         for (auto & inner : commits) {
-            CommitInfo * in = inner.second;
+            CommitInfo in = inner.second;
 
             // The commit neither precedes nor succeeds itself, the order
             // relation is not reflexive.
-            if (out->commit_id == in->commit_id)
+            if (out.commit_id == in.commit_id)
                 continue;
 
             // Check if the commits have any files in common. If they do not,
@@ -120,8 +119,8 @@ void CommitOrder::processExistingData() {
                 continue;
 
             // Retrieve timestamps from the map gathered earlier.
-            unsigned long in_timestamp = getTimestamp(in->commit_id);
-            unsigned long out_timestamp = getTimestamp(out->commit_id);
+            unsigned long in_timestamp = getTimestamp(in.commit_id);
+            unsigned long out_timestamp = getTimestamp(out.commit_id);
 
             // If the timestamps are the same, there is no order relation. I
             // guess this probably doesn't happen very often, if at all.
@@ -131,14 +130,16 @@ void CommitOrder::processExistingData() {
             // If the in timestamp precedes the out timestamp, we create that
             // relationship. We output it to a CSV file.
             if (in_timestamp < out_timestamp) 
-                writeOutToCSV(&csv_file, current_project, in->commit_id,
-                              out->commit_id, &common_files);
+                writeOutToCSV(&csv_file, current_project,
+                              in.commit_id, out.commit_id,
+                              &common_files);
 
             // If the in timestamp follows the out timestamp, we create that
             // relationship. We output it to a CSV file.
             if (in_timestamp > out_timestamp)
-                writeOutToCSV(&csv_file, current_project, out->commit_id,
-                              in->commit_id, &common_files);
+                writeOutToCSV(&csv_file, current_project,
+                              out.commit_id, in.commit_id,
+                              &common_files);
 
             // Count relations.
             relations += common_files.size();
@@ -151,9 +152,9 @@ void CommitOrder::processExistingData() {
               << current_project << std::endl;
 
     // Finally, remove all data aggregated so far.
-    for (auto & iterator : commits) {
-        free(iterator.second);
-    }
+    //for (auto & iterator : commits) {
+    //    free(iterator.second);
+    //}
     commits.clear();
 }
 
