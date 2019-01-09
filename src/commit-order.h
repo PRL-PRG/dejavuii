@@ -57,7 +57,7 @@ namespace dejavu {
         std::unordered_map<unsigned int, CommitInfo *> commits;
 
         // Auxiliary functions.
-        void row(std::vector<std::string> & row);
+        void row(std::vector<std::string> & row) override;
         void aggregate_project_info(unsigned int project_id, unsigned int path_id,
                                     unsigned int commit_id);
         void process_existing_data();

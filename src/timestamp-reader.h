@@ -23,7 +23,7 @@ namespace dejavu {
         std::string const & path;
         std::unordered_map<unsigned int, unsigned long> timestamps;
 
-        void row(std::vector <std::string> & row);
+        void row(std::vector <std::string> & row) override;
     };
 
 } // namespace
