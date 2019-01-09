@@ -33,32 +33,13 @@ namespace dejavu {
         return pair->second;
     }
 
-    CommitInfo const & CommitOrder::getCommit(unsigned int commit_id,
-                                              unsigned int project_id,
-                                              unsigned long timestamp) {
-
-        auto pair = commits.find(timestamp);
-        if (pair != commits.end()) {
-
-            if (pair->second.commit_id == commit_id) {
-                return pair->second;
-            } else {
-                std::cerr << "[BELGIUM] I looked for a commit with timestamp " << timestamp
-                          << " and commit id " << commit_id << " but there was already a "
-                          << "commit there with commit id " << pair->second.commit_id
-                          << std::endl;
-                return pair->second; // FIXME
-            }
-        }
-
-        CommitInfo commit;
-        commit.project_id = project_id;
-        commit.commit_id = commit_id;
-        commit.timestamp = timestamp;
-
-        commits[timestamp] = commit;
-        return commits[timestamp];
-    }
+//    CommitInfo & CommitOrder::getCommit(unsigned int commit_id,
+//                                        unsigned int project_id,
+//                                        unsigned long timestamp,
+//                                        unsigned int path_id) {
+//
+//        return commits[timestamp];
+//    }
 
     void CommitOrder::aggregateProjectInfo(unsigned int project_id,
                                            unsigned int path_id,
@@ -70,10 +51,29 @@ namespace dejavu {
         // Second, we check if we already have an aggregated commit associated
         // with this commit id. If we do not we need to create a new
         // aggregated_commit entry. Otherwise, we grab a reference to it.
-        CommitInfo commit = getCommit(commit_id, project_id, timestamp);
+        auto pair = commits.find(timestamp);
+        if (pair != commits.end()) {
 
-        // Third, we add the file into the aggregated commit's file list.
+            if (pair->second.commit_id == commit_id) {
+                pair->second.path_ids.insert(path_id);
+            } else {
+                std::cerr << "[BELGIUM] I looked for a commit with timestamp " << timestamp
+                          << " and commit id " << commit_id << " but there was already a "
+                          << "commit there with commit id " << pair->second.commit_id
+                          << "(project id " << project_id << ")"
+                          << std::endl;
+                pair->second.path_ids.insert(path_id);
+            }
+        }
+
+        CommitInfo commit;
+
+        commit.project_id = project_id;
+        commit.commit_id = commit_id;
+        commit.timestamp = timestamp;
         commit.path_ids.insert(path_id);
+
+        commits[timestamp] = commit;
     }
 
     std::unordered_set<unsigned int> getCommonFiles(CommitInfo & a, CommitInfo & b) {

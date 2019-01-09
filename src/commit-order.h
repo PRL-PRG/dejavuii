@@ -65,9 +65,9 @@ namespace dejavu {
 
         void processExistingData();
         unsigned long getTimestamp(unsigned int commit_id);
-        CommitInfo const & getCommit(unsigned int commit_id,
-                                     unsigned int project_id,
-                                     unsigned long timestamp);
+        //CommitInfo & getCommit(unsigned int commit_id,
+        //                       unsigned int project_id,
+        //                       unsigned long timestamp);
     };
 
 } // namespace
