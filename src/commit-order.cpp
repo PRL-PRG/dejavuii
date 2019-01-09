@@ -4,9 +4,9 @@
 
 using namespace dejavu;
 
-CommitOrder::CommitOrder(const std::string input_path,
-                         const std::string output_path,
-                         const std::unordered_map<unsigned int, unsigned long> & timestamps)
+CommitOrder::CommitOrder(std::string const input_path,
+                         std::string const output_path,
+                         std::unordered_map<unsigned int, unsigned long> const & timestamps)
         : input_path(input_path), 
           output_path(output_path),
           timestamps(timestamps) {} 
@@ -33,8 +33,8 @@ unsigned long CommitOrder::getTimestamp(unsigned int commit_id) {
 }
 
 CommitInfo * CommitOrder::getCommit(unsigned int commit_id,
-                                     unsigned int project_id,
-                                     unsigned long timestamp) {
+                                    unsigned int project_id,
+                                    unsigned long timestamp) {
 
     auto pair = commits.find(commit_id);
     if (pair != commits.end()) {

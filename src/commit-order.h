@@ -37,16 +37,16 @@ namespace dejavu {
     class CommitOrder : public helpers::CSVReader {
 
     public:
-        CommitOrder(const std::string input_path, 
-                    const std::string output_path, 
-                    const std::unordered_map<unsigned int, unsigned long> & timestamps);
+        CommitOrder(std::string const input_path,
+                    std::string const output_path,
+                    std::unordered_map<unsigned int, unsigned long> const & timestamps);
         void read();
 
     protected:
         // Input data: constructor parameters.
-        const std::string input_path;
-        const std::string output_path;
-        const std::unordered_map<unsigned int, unsigned long> & timestamps;
+        std::string const input_path;
+        std::string const output_path;
+        std::unordered_map<unsigned int, unsigned long> const & timestamps;
 
         // Output data:
         // const map<project_id, set<order_elem_t>> orders;

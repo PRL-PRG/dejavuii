@@ -3,7 +3,7 @@
 
 using namespace dejavu;
 
-TimestampReader::TimestampReader(const std::string path) : path(path) {}
+TimestampReader::TimestampReader(std::string const path) : path(path) {}
 
 void TimestampReader::read() {
     parse(path);
@@ -15,6 +15,6 @@ void TimestampReader::row(std::vector<std::string> & row) {
     timestamps[commit_id] = timestamp;
 }
 
-const std::unordered_map<unsigned int, unsigned long> & TimestampReader::getTimestamps() {
+std::unordered_map<unsigned int, unsigned long> const & TimestampReader::getTimestamps() {
     return timestamps;
 }
