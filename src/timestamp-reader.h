@@ -3,10 +3,7 @@
 #include <unordered_map>
 #include "helpers/csv-reader.h"
 
-typedef unsigned int commit_id_t;
-typedef unsigned long timestamp_t;
-
-typedef std::unordered_map<commit_id_t, timestamp_t> timestamp_map_t;
+typedef std::unordered_map<unsigned int, unsigned long> timestamp_map_t;
 
 namespace dejavu {
 

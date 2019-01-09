@@ -21,7 +21,7 @@ void CommitOrder::read() {
     parse(input_path);
 }
 
-timestamp_t CommitOrder::getTimestamp(commit_id_t commit_id) {
+unsigned long CommitOrder::getTimestamp(unsigned int commit_id) {
 
     auto pair = timestamps.find(commit_id);
     if (pair == timestamps.end()) {
@@ -33,9 +33,9 @@ timestamp_t CommitOrder::getTimestamp(commit_id_t commit_id) {
     return pair->second;
 }
 
-commit_info * CommitOrder::getCommit(commit_id_t commit_id,
-                                     project_id_t project_id,
-                                     timestamp_t timestamp) {
+commit_info * CommitOrder::getCommit(unsigned int commit_id,
+                                     unsigned int project_id,
+                                     unsigned long timestamp) {
 
     auto pair = commits.find(commit_id);
     if (pair != commits.end()) {
@@ -52,11 +52,11 @@ commit_info * CommitOrder::getCommit(commit_id_t commit_id,
     return commit;
 }
 
-void CommitOrder::aggregate_project_info(project_id_t project_id,
-                                         path_id_t path_id,
-                                         commit_id_t commit_id) {
+void CommitOrder::aggregate_project_info(unsigned int project_id,
+                                         unsigned int path_id,
+                                         unsigned int commit_id) {
     // First, we find the commit associated with this particular row.
-    timestamp_t timestamp = getTimestamp(commit_id);
+    unsigned long timestamp = getTimestamp(commit_id);
 
     // Second, we check if we already have an aggregated commit associated
     // with this commit id. If we do not we need to create a new
@@ -67,8 +67,8 @@ void CommitOrder::aggregate_project_info(project_id_t project_id,
     commit->path_ids.insert(path_id);
 }
 
-set<path_id_t> get_common_files(commit_info * a, commit_info * b) {
-    set<path_id_t> intersection;    
+set<unsigned int> get_common_files(commit_info * a, commit_info * b) {
+    set<unsigned int> intersection;
     set_intersection(a->path_ids.begin(), a->path_ids.end(), 
                      b->path_ids.begin(), b->path_ids.end(), 
                      inserter(intersection, intersection.begin()));
@@ -76,14 +76,14 @@ set<path_id_t> get_common_files(commit_info * a, commit_info * b) {
     return intersection;
 }
 
-void write_out_to_csv(ofstream * csv_file, project_id_t project, 
-                      commit_id_t predecessor, commit_id_t successor,
-                      set<path_id_t> * common_files) {
+void write_out_to_csv(ofstream * csv_file, unsigned int project,
+                      unsigned int predecessor, unsigned int successor,
+                      set<unsigned int> * common_files) {
 
 
-    set<path_id_t>::iterator i;
+    set<unsigned int>::iterator i;
     for (i = common_files->begin(); i != common_files->end(); ++i) {
-        path_id_t path_id = *i; 
+        unsigned int path_id = *i;
         (*csv_file) << project << "," 
                     << predecessor << "," 
                     << successor << ","
@@ -116,13 +116,13 @@ void CommitOrder::process_existing_data() {
 
             // Check if the commits have any files in common. If they do not,
             // they are not ordered.
-            set<path_id_t> common_files = get_common_files(in, out);
+            set<unsigned int> common_files = get_common_files(in, out);
             if (common_files.size() == 0)
                 continue;
 
             // Retrieve timestamps from the map gathered earlier.
-            timestamp_t in_timestamp = getTimestamp(in->commit_id);
-            timestamp_t out_timestamp = getTimestamp(out->commit_id);
+            unsigned long in_timestamp = getTimestamp(in->commit_id);
+            unsigned long out_timestamp = getTimestamp(out->commit_id);
 
             // If the timestamps are the same, there is no order relation. I
             // guess this probably doesn't happen very often, if at all.
@@ -161,10 +161,10 @@ void CommitOrder::process_existing_data() {
 void CommitOrder::row(std::vector<std::string> & row){
 
     // Get the basic data from the row, convert into appropriate types.
-    project_id_t project_id = atoi(row[0].c_str());
-    path_id_t path_id = atoi(row[1].c_str());
+    unsigned int project_id = atoi(row[0].c_str());
+    unsigned int path_id = atoi(row[1].c_str());
     //hash_id_t hash_id = atoi(row[2].c_str());
-    commit_id_t commit_id = atoi(row[3].c_str());
+    unsigned int commit_id = atoi(row[3].c_str());
 
     // If this is the first row, initialize the current project field.
     if (first_row) {

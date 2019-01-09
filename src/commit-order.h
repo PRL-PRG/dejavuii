@@ -8,14 +8,11 @@
 
 namespace dejavu {
 
-    typedef unsigned int project_id_t;
-    typedef unsigned int path_id_t;
-
     struct commit_info {
-        commit_id_t commit_id;
-        project_id_t project_id;
-        std::set<path_id_t> path_ids;
-        timestamp_t timestamp;
+        unsigned int commit_id;
+        unsigned int project_id;
+        std::set<unsigned int> path_ids;
+        unsigned long timestamp;
     };
 
     /**
@@ -56,17 +53,17 @@ namespace dejavu {
 
         // Internal processing data to carry information between calls to row().
         bool first_row;
-        project_id_t current_project;
-        std::unordered_map<commit_id_t, commit_info *> commits;
+        unsigned int current_project;
+        std::unordered_map<unsigned int, commit_info *> commits;
 
         // Auxiliary functions.
         void row(std::vector<std::string> & row);
-        void aggregate_project_info(project_id_t project_id, path_id_t path_id,
-                                    commit_id_t commit_id);
+        void aggregate_project_info(unsigned int project_id, unsigned int path_id,
+                                    unsigned int commit_id);
         void process_existing_data();
-        timestamp_t getTimestamp(commit_id_t commit_id);
-        commit_info * getCommit(commit_id_t commit_id, project_id_t project_id,
-                                timestamp_t timestamp);
+        unsigned long getTimestamp(unsigned int commit_id);
+        commit_info * getCommit(unsigned int commit_id, unsigned int project_id,
+                                unsigned long timestamp);
     };
 
 } // namespace

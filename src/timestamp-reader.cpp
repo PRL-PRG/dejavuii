@@ -11,8 +11,8 @@ void TimestampReader::read() {
 }
 
 void TimestampReader::row(vector<string> & row) {
-    commit_id_t commit_id = atoi(row[0].c_str());
-    timestamp_t timestamp = atol(row[1].c_str());
+    unsigned int commit_id = atoi(row[0].c_str());
+    unsigned long timestamp = atol(row[1].c_str());
     timestamps[commit_id] = timestamp;
 }
 
