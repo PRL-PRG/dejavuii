@@ -15,15 +15,15 @@ namespace dejavu {
      */
     class TimestampReader : public helpers::CSVReader {
     public:
-        TimestampReader(std::string const path);
+        TimestampReader(std::string const & path);
         void read();
         std::unordered_map<unsigned int, unsigned long> const & getTimestamps();
 
     protected:
-        std::string const path;
+        std::string const & path;
         std::unordered_map<unsigned int, unsigned long> timestamps;
 
-        void row(std::vector <std::string> &row);
+        void row(std::vector <std::string> & row);
     };
 
 } // namespace

@@ -3,7 +3,7 @@
 
 using namespace dejavu;
 
-TimestampReader::TimestampReader(std::string const path) : path(path) {}
+TimestampReader::TimestampReader(std::string const & path) : path(path) {}
 
 void TimestampReader::read() {
     parse(path);

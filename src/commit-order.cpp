@@ -4,8 +4,8 @@
 
 using namespace dejavu;
 
-CommitOrder::CommitOrder(std::string const input_path,
-                         std::string const output_path,
+CommitOrder::CommitOrder(std::string const & input_path,
+                         std::string const & output_path,
                          std::unordered_map<unsigned int, unsigned long> const & timestamps)
         : input_path(input_path), 
           output_path(output_path),
