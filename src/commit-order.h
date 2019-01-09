@@ -58,9 +58,9 @@ namespace dejavu {
 
         // Auxiliary functions.
         void row(std::vector<std::string> & row) override;
-        void aggregate_project_info(unsigned int project_id, unsigned int path_id,
-                                    unsigned int commit_id);
-        void process_existing_data();
+        void aggregateProjectInfo(unsigned int project_id, unsigned int path_id,
+                                  unsigned int commit_id);
+        void processExistingData();
         unsigned long getTimestamp(unsigned int commit_id);
         CommitInfo * getCommit(unsigned int commit_id, unsigned int project_id,
                                unsigned long timestamp);

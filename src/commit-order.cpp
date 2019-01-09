@@ -51,7 +51,7 @@ CommitInfo * CommitOrder::getCommit(unsigned int commit_id,
     return commit;
 }
 
-void CommitOrder::aggregate_project_info(unsigned int project_id,
+void CommitOrder::aggregateProjectInfo(unsigned int project_id,
                                          unsigned int path_id,
                                          unsigned int commit_id) {
     // First, we find the commit associated with this particular row.
@@ -66,7 +66,7 @@ void CommitOrder::aggregate_project_info(unsigned int project_id,
     commit->path_ids.insert(path_id);
 }
 
-std::unordered_set<unsigned int> get_common_files(CommitInfo * a, CommitInfo * b) {
+std::unordered_set<unsigned int> getCommonFiles(CommitInfo * a, CommitInfo * b) {
     std::unordered_set<unsigned int> intersection;
     set_intersection(a->path_ids.begin(), a->path_ids.end(), 
                      b->path_ids.begin(), b->path_ids.end(), 
@@ -75,9 +75,9 @@ std::unordered_set<unsigned int> get_common_files(CommitInfo * a, CommitInfo * b
     return intersection;
 }
 
-void write_out_to_csv(std::ofstream * csv_file, unsigned int project,
-                      unsigned int predecessor, unsigned int successor,
-                      std::unordered_set<unsigned int> * common_files) {
+void writeOutToCSV(std::ofstream * csv_file, unsigned int project,
+                   unsigned int predecessor, unsigned int successor,
+                   std::unordered_set<unsigned int> * common_files) {
 
 
     std::unordered_set<unsigned int>::iterator i;
@@ -91,7 +91,7 @@ void write_out_to_csv(std::ofstream * csv_file, unsigned int project,
     }
 }
 
-void CommitOrder::process_existing_data() {
+void CommitOrder::processExistingData() {
 
     // Open the output file for appending.
     std::ofstream csv_file;
@@ -115,7 +115,7 @@ void CommitOrder::process_existing_data() {
 
             // Check if the commits have any files in common. If they do not,
             // they are not ordered.
-            std::unordered_set<unsigned int> common_files = get_common_files(in, out);
+            std::unordered_set<unsigned int> common_files = getCommonFiles(in, out);
             if (common_files.size() == 0)
                 continue;
 
@@ -131,14 +131,14 @@ void CommitOrder::process_existing_data() {
             // If the in timestamp precedes the out timestamp, we create that
             // relationship. We output it to a CSV file.
             if (in_timestamp < out_timestamp) 
-                write_out_to_csv(&csv_file, current_project, in->commit_id, 
-                                 out->commit_id, &common_files);
+                writeOutToCSV(&csv_file, current_project, in->commit_id,
+                              out->commit_id, &common_files);
 
             // If the in timestamp follows the out timestamp, we create that
             // relationship. We output it to a CSV file.
-            if (in_timestamp > out_timestamp) 
-                write_out_to_csv(&csv_file, current_project, out->commit_id, 
-                                 in->commit_id, &common_files);
+            if (in_timestamp > out_timestamp)
+                writeOutToCSV(&csv_file, current_project, out->commit_id,
+                              in->commit_id, &common_files);
 
             // Count relations.
             relations += common_files.size();
@@ -182,12 +182,12 @@ void CommitOrder::row(std::vector<std::string> & row){
         std::cerr << "Processing commits for project #" << current_project
                   << std::endl;
 
-        process_existing_data();
+        processExistingData();
         current_project = project_id;
 
         std::cerr << "Reading project #" << project_id << std::endl;
     }
 
     // Process the data from the current row.
-    aggregate_project_info(project_id, path_id, commit_id);
+    aggregateProjectInfo(project_id, path_id, commit_id);
 }
