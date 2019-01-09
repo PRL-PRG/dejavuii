@@ -67,7 +67,7 @@ namespace dejavu {
         commit.path_ids.insert(path_id);
     }
 
-    std::unordered_set<unsigned int> getCommonFiles(CommitInfo &a, CommitInfo &b) {
+    std::unordered_set<unsigned int> getCommonFiles(CommitInfo & a, CommitInfo & b) {
         std::unordered_set<unsigned int> intersection;
         set_intersection(a.path_ids.begin(), a.path_ids.end(),
                          b.path_ids.begin(), b.path_ids.end(),

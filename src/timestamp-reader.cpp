@@ -15,7 +15,7 @@ namespace dejavu {
         timestamps[commit_id] = timestamp;
     }
 
-    std::unordered_map<unsigned int, unsigned long> const &TimestampReader::getTimestamps() {
+    std::unordered_map<unsigned int, unsigned long> const & TimestampReader::getTimestamps() {
         return timestamps;
     }
 }
