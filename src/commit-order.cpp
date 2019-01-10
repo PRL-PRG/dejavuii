@@ -57,11 +57,12 @@ namespace dejavu {
             if (pair->second.commit_id == commit_id) {
                 pair->second.path_ids.insert(path_id);
             } else {
-                std::cerr << "[BELGIUM] I looked for a commit with timestamp " << timestamp
-                          << " and commit id " << commit_id << " but there was already a "
-                          << "commit there with commit id " << pair->second.commit_id
-                          << "(project id " << project_id << ")"
-                          << std::endl;
+                std::cout << project_id << "," << commit_id << "," << second.commit_id << "," << timestamp << std::endl; 
+                //std::cerr << "[BELGIUM] I looked for a commit with timestamp " << timestamp
+                //          << " and commit id " << commit_id << " but there was already a "
+                //          << "commit there with commit id " << pair->second.commit_id
+                //          << "(project id " << project_id << ")"
+                //          << std::endl;
                 pair->second.path_ids.insert(path_id);
             }
         }
@@ -212,7 +213,7 @@ namespace dejavu {
             std::cerr << "Processing commits for project #" << current_project
                       << std::endl;
 
-            processExistingData();
+            //processExistingData();
             current_project = project_id;
 
             std::cerr << "Reading project #" << project_id << std::endl;
