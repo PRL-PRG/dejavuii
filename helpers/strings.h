@@ -4,6 +4,22 @@
 
 namespace helpers {
 
+    inline std::string escapeQuotes(std::string const & from) {
+        std::string result;
+        for (char c : from) {
+            switch (c) {
+            case '\'':
+            case '"':
+            case '\\':
+                result = result + '\\' + c;
+                break;
+            default:
+                result += c;
+            }
+        }
+        return result;
+    }
+    
     inline bool startsWith(std::string const & value, std::string const & prefix) {
         return value.find(prefix) == 0;
     }
