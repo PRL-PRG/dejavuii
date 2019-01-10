@@ -1,8 +1,11 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <unordered_map>
 #include <unordered_set>
+
+#include "helpers/helpers.h"
 
 namespace helpers {
 
@@ -75,6 +78,12 @@ namespace helpers {
         }
         
     private:
+
+        friend std::ostream & operator << (std::ostream & s, StringOption const & o) {
+            s << o.value_;
+            return s;
+        }
+        
         std::string value_;
 
         
@@ -109,6 +118,11 @@ namespace helpers {
         }
 
     private:
+
+        friend std::ostream & operator << (std::ostream & s, BoolOption const & o) {
+            s << o.value_;
+            return s;
+        }
 
         bool value_;
         

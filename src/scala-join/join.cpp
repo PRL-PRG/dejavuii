@@ -166,8 +166,8 @@ namespace dejavu {
         settings.parse(argc, argv);
         settings.check();
         // do the work now
-        //        ChunksParser p;
-        //p.parseDirectory(DataRoot.value() + ChunksDir.value(), DataRoot.value() + OutputDir.value());
+        ChunksParser p;
+        p.parseDirectory(DataRoot.value() + ChunksDir.value(), DataRoot.value() + OutputDir.value());
     }
 
 

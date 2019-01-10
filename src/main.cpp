@@ -9,7 +9,8 @@
 
 // the different commands we have available
 
-#include "scala_join/join.h"
+#include "simple-commands/simple-commands.h"
+#include "scala-join/join.h"
 
 
 namespace dejavu {
@@ -33,9 +34,11 @@ int main(int argc, char * argv[]) {
         std::string cmd = argv[1];
         if (cmd == "scala-join") 
             JoinScalaChunks(argc -2, argv + 2);
+        else if (cmd == "sort-files")
+            SortFiles(argc-2, argv +2);
         else 
             throw std::runtime_error(STR("Invalid command " << cmd));
-        std::cerr << "KTHZBYE!" << std::endl;
+        std::cerr << "KTHXBYE!" << std::endl;
         return EXIT_SUCCESS;
     } catch (std::runtime_error const & e) {
         std::cerr << "I HAZ DIS:" << std::endl << settings << std::endl << std::endl;
