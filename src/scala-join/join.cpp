@@ -156,8 +156,10 @@ namespace dejavu {
 
 
 
-    helpers::StringOption ChunksDir("chunksDir", "/original data from shabbir", false);
-    helpers::StringOption OutputDir("outputDir", "/processed", {"-o"}, false);
+    namespace {
+        helpers::Option<std::string> ChunksDir("chunksDir", "/original data from shabbir", false);
+        helpers::Option<std::string> OutputDir("outputDir", "/processed", {"-o"}, false);
+    }
 
     void JoinScalaChunks(int argc, char * argv[]) {
         settings.addOption(DataRoot);

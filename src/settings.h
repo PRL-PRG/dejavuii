@@ -4,7 +4,7 @@
 
 namespace dejavu {
 
-    extern helpers::StringOption DataRoot;
+    extern helpers::Option<std::string> DataRoot;
 
     extern helpers::Settings settings;
     

@@ -11,7 +11,7 @@ namespace helpers {
 
 
 
-    class Option {
+    class BaseOption {
     public:
         std::string const name;
         bool const required;
@@ -28,12 +28,12 @@ namespace helpers {
 
     protected:
 
-        Option(std::string const & name, bool required):
+        BaseOption(std::string const & name, bool required):
             name(name),
             required(required) {
         }
 
-        Option(std::string const & name, std::initializer_list<std::string> aliases, bool required):
+        BaseOption(std::string const & name, std::initializer_list<std::string> aliases, bool required):
             name(name),
             required(required),
             nameAliases_(aliases) {
@@ -50,6 +50,55 @@ namespace helpers {
         std::vector<std::string> nameAliases_;
     };
 
+    template<typename T>
+    class Option : public BaseOption {
+    public:
+        Option(std::string const & name, T const & defaultValue, bool required = true):
+            BaseOption(name, required),
+            value_(defaultValue) {
+        }
+
+        Option(std::string const & name, T const & defaultValue, std::initializer_list<std::string> aliases, bool required = true):
+            BaseOption(name, aliases, required),
+            value_(defaultValue) {
+        }
+
+        T const & value() const {
+            return value_;
+        }
+
+        void print(std::ostream & s) override {
+            Option::print(s);
+            s << value_;
+        }
+
+    protected:
+
+        void parseValue(std::string const & s) override;
+
+    private:
+
+        T value_;
+        
+    }; // helpers::Option<T>
+
+    template<>
+    inline void Option<std::string>::parseValue(std::string const & s) {
+        value_ = s;
+    }
+
+    template<>
+    inline void Option<bool>::parseValue(std::string const & s) {
+        if (s == "" || s == "1" || s == "t" || s == "true" || s == "T")
+            value_ = true;
+        else if (s == "0" || s == "f" || s == "false" || s == "F")
+            value_ = false;
+        else
+            throw std::runtime_error(STR("Invalid value for argument " << name << ": expected boolean, but " << s << " found."));
+        
+    }
+
+    /*
     class StringOption : public Option {
     public:
         StringOption(std::string const & name, std::string const & defaultValue, bool required = true):
@@ -126,7 +175,7 @@ namespace helpers {
 
         bool value_;
         
-    }; 
+        }; // helpers::StringOption */
 
 
     /** Manages settings for the application.
@@ -145,7 +194,7 @@ namespace helpers {
          */
         void check(bool allowUnknownOptions = false) {
             for (auto i : options_) {
-                Option & o = *i.second;
+                BaseOption & o = *i.second;
                 if (o.required && ! o.isSpecified())
                     throw std::runtime_error(STR("Option " << o.name << " is required, but missing"));
             }
@@ -159,7 +208,7 @@ namespace helpers {
             
         }
 
-        void addOption(Option & o) {
+        void addOption(BaseOption & o) {
             addOption(o.name, &o);
             for (auto i : o.nameAliases_)
                 addOption(i, &o);
@@ -185,7 +234,7 @@ namespace helpers {
             return s;
         }
 
-        void addOption(std::string name, Option * o) {
+        void addOption(std::string name, BaseOption * o) {
             auto i = options_.find(name);
             if (i != options_.end())
                 throw std::runtime_error(STR("Option name " << name << " already used for option " + i->second->name));
@@ -219,7 +268,7 @@ namespace helpers {
             }
         }
         
-        std::unordered_map<std::string, Option *> options_;
+        std::unordered_map<std::string, BaseOption *> options_;
         
         std::unordered_map<std::string, std::string> unknownOptions_;
 
