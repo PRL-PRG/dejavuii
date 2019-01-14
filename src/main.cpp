@@ -80,6 +80,19 @@ using namespace dejavu;
 
 int main(int argc, char * argv[]) {
 
+    std::map<std::pair<long, int>, int> m;
+
+    m[std::make_pair<long, int>(2L,4)] = 4;
+    m[std::make_pair<long, int>(1L,2)] = 2;
+    m[std::make_pair<long, int>(1L,3)] = 3;
+    m[std::make_pair<long, int>(1L,1)] = 1;
+
+    for (auto it = m.begin(); it != m.end(); ++it)
+        std::cout << it->first.first << "." << it->first.second << " " << it->second << "\n" ;
+}
+
+int hewwo() {
+
     std::string dir = "/data/dejavuii/data/processed/";
     std::string files_sorted = dir + "files_sorted.csv";
     std::string commit_order = dir + "commit_order.csv";

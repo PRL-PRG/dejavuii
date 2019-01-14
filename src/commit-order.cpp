@@ -33,74 +33,53 @@ namespace dejavu {
         return pair->second;
     }
 
-//    CommitInfo & CommitOrder::getCommit(unsigned int commit_id,
-//                                        unsigned int project_id,
-//                                        unsigned long timestamp,
-//                                        unsigned int path_id) {
-//
-//        return commits[timestamp];
-//    }
-
     void CommitOrder::aggregateProjectInfo(unsigned int project_id,
                                            unsigned int path_id,
                                            unsigned int commit_id) {
 
-        // First, we find the commit associated with this particular row.
+        // First, we find the timestamp associated with this commit ID.
         unsigned long timestamp = getTimestamp(commit_id);
 
-        // Second, we check if we already have an aggregated commit associated
-        // with this commit id. If we do not we need to create a new
-        // aggregated_commit entry. Otherwise, we grab a reference to it.
+        // Second, we check if we already have any commits at this timestamp.
         auto pair = commits.find(timestamp);
         if (pair != commits.end()) {
 
-            if (pair->second.commit_id == commit_id) {
-                pair->second.path_ids.insert(path_id);
+            // If so, we add our new commit to the set of commits under that
+            // timestamp.
+            auto found = pair->second.find(commit_id);
+            if (found != pair->second.end()) {
+                CommitInfo commit = found->second;
+                commit.path_ids.insert(path_id);
             } else {
-                std::cerr << "[BELGIUM] I looked for a commit with timestamp " << timestamp
-                          << " and commit id " << commit_id << " but there was already a "
-                          << "commit there with commit id " << pair->second.commit_id
-                          << "(project id " << project_id << ")"
-                          << std::endl;
-                pair->second.path_ids.insert(path_id);
+                CommitInfo commit;
+
+                commit.project_id = project_id;
+                commit.commit_id = commit_id;
+                commit.timestamp = timestamp;
+                commit.path_ids.insert(path_id);
+
+                pair->second[commit_id] = commit;
             }
+        } else {
+            // Otherwise, we create an empty set around the new commit and
+            // insert it into our data.
+            CommitInfo commit;
+
+            commit.project_id = project_id;
+            commit.commit_id = commit_id;
+            commit.timestamp = timestamp;
+            commit.path_ids.insert(path_id);
+
+            std::unordered_map<unsigned int, CommitInfo> simultaneous;
+
+            simultaneous[commit_id] = commit;
+            commits[timestamp] = simultaneous;
         }
-
-        CommitInfo commit;
-
-        commit.project_id = project_id;
-        commit.commit_id = commit_id;
-        commit.timestamp = timestamp;
-        commit.path_ids.insert(path_id);
-
-        commits[timestamp] = commit;
     }
-
-    std::unordered_set<unsigned int> getCommonFiles(CommitInfo & a, CommitInfo & b) {
-        std::unordered_set<unsigned int> intersection;
-        set_intersection(a.path_ids.begin(), a.path_ids.end(),
-                         b.path_ids.begin(), b.path_ids.end(),
-                         inserter(intersection, intersection.begin()));
-        return intersection;
-    }
-
-//    void writeOutToCSV(std::ofstream *csv_file, unsigned int project,
-//                       unsigned int predecessor, unsigned int successor,
-//                       std::unordered_set<unsigned int> *common_files) {
-//
-//        std::unordered_set<unsigned int>::iterator i;
-//        for (i = common_files->begin(); i != common_files->end(); ++i) {
-//            unsigned int path_id = *i;
-//            (*csv_file) << project << ","
-//                        << predecessor << ","
-//                        << successor << ","
-//                        << path_id
-//                        << std::endl;
-//        }
-//    }
 
     /**
-     * Once all of the data of a project are read in
+     * Once all of the data of a project are read in, extract the commit
+     * order.
      */
     void CommitOrder::processExistingData() {
 
@@ -111,71 +90,58 @@ namespace dejavu {
         // Let's count relations.
         int relations = 0;
 
+        // First we create a structure which we will use to keep track of
+        // which commit modified which file. The key is the ID of a file,
+        // while the value is the ID of commits. As we explore the commits
+        // in the project in order of timestamps, we will update this
+        // structure to tell us which commit modified a specific file most
+        // recently from the point of view of the commit we are looking at.
         std::unordered_map<unsigned int, unsigned int> file_and_the_commit_that_last_modified_it;
+
+        // Then, we start to iterate over all the commits in the project.
+        // These commits are ordered by timestamp by virtue of being stored
+        // in a timestamp -> commits ordered map, so, in effect, the algorithm
+        // looks through them in order of timestamps.
         for (auto & pair : commits) {
-            CommitInfo info = pair.second;
-            for (auto it = info.path_ids.begin(); it != info.path_ids.end(); ++it) {
-                unsigned int path_id = *it;
-                auto pair = file_and_the_commit_that_last_modified_it.find(path_id);
-                if (pair != file_and_the_commit_that_last_modified_it.end()) {
-                    csv_file << info.project_id << ","
-                             << file_and_the_commit_that_last_modified_it[path_id] << ","
-                             << info.commit_id << ","
-                             << path_id
-                             << std::endl;
-                    relations++;
+
+            // Each timestamp holds at least one, but possibly many commits.
+            // These commits are simultaneous. Since they are simultaneous,
+            // they do not have relations between each other.
+            std::unordered_map<unsigned int, CommitInfo> simultaneous_commits = pair.second;
+
+            // We examine each of these simultaneous commits in isolation.
+            for (auto cit = simultaneous_commits.begin(); cit != simultaneous_commits.end(); ++cit) {
+                CommitInfo current_commit = cit->second;
+
+                // For each file the currently examined commit modifies, we
+                // use out absurdly named structure to find the commit that
+                // modified this file previously.
+                for (auto it = current_commit.path_ids.begin(); it != current_commit.path_ids.end(); ++it) {
+                    unsigned int path_id = *it;
+                    auto pair = file_and_the_commit_that_last_modified_it.find(path_id);
+
+                    // If we find a commit that modified this file previously,
+                    // we note down a relation between the previous commit and
+                    // the current commit.
+                    if (pair != file_and_the_commit_that_last_modified_it.end()) {
+                        csv_file << current_commit.project_id << ","
+                                 << file_and_the_commit_that_last_modified_it[path_id] << ","
+                                 << current_commit.commit_id << ","
+                                 << path_id
+                                 << std::endl;
+                        relations++;
+                    }
+
+                    // In either case, we store the current commit id in the
+                    // ridiculously named data structure to indicate that this
+                    // is the most recent commit that modified this file.
+                    file_and_the_commit_that_last_modified_it[path_id] = current_commit.commit_id;
                 }
-                file_and_the_commit_that_last_modified_it[path_id] = info.commit_id;
+
             }
         }
 
-//        // Create the order. Compare all commits within the project among each
-//        // other.
-//        for (auto & outer : commits) {
-//            CommitInfo out = outer.second;
-//
-//            for (auto & inner : commits) {
-//                CommitInfo in = inner.second;
-//
-//                // The commit neither precedes nor succeeds itself, the order
-//                // relation is not reflexive.
-//                if (out.commit_id == in.commit_id)
-//                    continue;
-//
-//                // Check if the commits have any files in common. If they do not,
-//                // they are not ordered.
-//                std::unordered_set<unsigned int> common_files = getCommonFiles(in, out);
-//                if (common_files.size() == 0)
-//                    continue;
-//
-//                // Retrieve timestamps from the map gathered earlier.
-//                unsigned long in_timestamp = getTimestamp(in.commit_id);
-//                unsigned long out_timestamp = getTimestamp(out.commit_id);
-//
-//                // If the timestamps are the same, there is no order relation. I
-//                // guess this probably doesn't happen very often, if at all.
-//                if (in_timestamp == out_timestamp)
-//                    continue;
-//
-//                // If the in timestamp precedes the out timestamp, we create that
-//                // relationship. We output it to a CSV file.
-//                if (in_timestamp < out_timestamp)
-//                    writeOutToCSV(&csv_file, current_project,
-//                                  in.commit_id, out.commit_id,
-//                                  &common_files);
-//
-//                // If the in timestamp follows the out timestamp, we create that
-//                // relationship. We output it to a CSV file.
-//                if (in_timestamp > out_timestamp)
-//                    writeOutToCSV(&csv_file, current_project,
-//                                  out.commit_id, in.commit_id,
-//                                  &common_files);
-//
-//                // Count relations.
-//                relations += common_files.size();
-//            }
-//        }
-
+        // Close the output file.
         csv_file.close();
 
         std::cerr << "Written out " << relations << " relations for project #"
