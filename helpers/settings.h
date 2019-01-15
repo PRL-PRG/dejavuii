@@ -95,87 +95,18 @@ namespace helpers {
             value_ = false;
         else
             throw std::runtime_error(STR("Invalid value for argument " << name << ": expected boolean, but " << s << " found."));
-        
     }
 
-    /*
-    class StringOption : public Option {
-    public:
-        StringOption(std::string const & name, std::string const & defaultValue, bool required = true):
-            Option(name, required),
-            value_(defaultValue) {
-        }
+    template<>
+    inline void Option<int>::parseValue(std::string const & s) {
+        value_ = std::stoi(s);
+    }
 
-        StringOption(std::string const & name, std::string const & defaultValue, std::initializer_list<std::string> aliases, bool required = true):
-            Option(name, aliases, required),
-            value_(defaultValue) {
-        }
+    template<>
+    inline void Option<unsigned>::parseValue(std::string const & s) {
+        value_ = std::stoul(s);
+    }
 
-        std::string const & value() const {
-            return value_;    
-        }
-
-        void print(std::ostream & s) override {
-            Option::print(s);
-            s << value_ << " [string]";
-        }
-
-    protected:
-
-        void parseValue(std::string const & str) override {
-            value_ = str;
-        }
-        
-    private:
-
-        friend std::ostream & operator << (std::ostream & s, StringOption const & o) {
-            s << o.value_;
-            return s;
-        }
-        
-        std::string value_;
-
-        
-    }; // StringOption
-
-    class BoolOption : public Option {
-    public:
-
-        BoolOption(std::string const & name, bool defaultValue, bool required = true):
-            Option(name, required),
-            value_(defaultValue) {
-        }
-        
-        bool value() const {
-            return value_;
-        }
-
-        void print(std::ostream & s) override {
-            Option::print(s);
-            s << value_ << " [bool]";
-        }
-
-    protected:
-
-        void parseValue(std::string const & str) override {
-            if (str == "" || str == "1" || str == "t" || str == "true" || str == "T")
-                value_ = true;
-            else if (str == "0" || str == "f" || str == "false" || str == "F")
-                value_ = false;
-            else
-                throw std::runtime_error(STR("Invalid value for argument " << name << ": expected boolean, but " << str << " found."));
-        }
-
-    private:
-
-        friend std::ostream & operator << (std::ostream & s, BoolOption const & o) {
-            s << o.value_;
-            return s;
-        }
-
-        bool value_;
-        
-        }; // helpers::StringOption */
 
 
     /** Manages settings for the application.

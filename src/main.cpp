@@ -14,6 +14,7 @@
 #include "scala-join/join.h"
 #include "nm-filter/nmfilter.h"
 #include "import-clones/import-clones.h"
+#include "downloader/downloader.h"
 
 
 namespace dejavu {
@@ -47,6 +48,7 @@ void InitializeCommands() {
     AddCommand("sort-files", SortFiles, "Sorts the files.csv in increasing order of commit timestamps. This is a prerequisite for the ");
     AddCommand("filter-nm", RemoveNodeModules, "Removes all files in node_modules subdirectories as well as any commits, contents, or projects that only happen in these paths");
     AddCommand("import-clones", ImportClones, "Analyzes import clones in the dataset. Work in progress");
+    AddCommand("download-commit-histories", DownloadCommitHistories, "Downloads the commit histories for all projects in the dataset");
 }
 
 /** A half decent main function.
