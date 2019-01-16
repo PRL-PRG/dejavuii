@@ -107,6 +107,11 @@ namespace helpers {
         value_ = std::stoul(s);
     }
 
+    template<>
+    inline void Option<uint64_t>::parseValue(std::string const & s) {
+        value_ = std::stoull(s);
+    }
+
 
 
     /** Manages settings for the application.

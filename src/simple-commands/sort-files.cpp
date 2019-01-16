@@ -1,4 +1,8 @@
+#include "../settings.h"
+
 #include "simple-commands.h"
+
+
 
 namespace dejavu {
 

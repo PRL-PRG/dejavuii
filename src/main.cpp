@@ -15,6 +15,7 @@
 #include "nm-filter/nmfilter.h"
 #include "import-clones/import-clones.h"
 #include "downloader/downloader.h"
+#include "shared-mem/shared-mem.h"
 
 
 namespace dejavu {
@@ -49,6 +50,9 @@ void InitializeCommands() {
     AddCommand("filter-nm", RemoveNodeModules, "Removes all files in node_modules subdirectories as well as any commits, contents, or projects that only happen in these paths");
     AddCommand("import-clones", ImportClones, "Analyzes import clones in the dataset. Work in progress");
     AddCommand("download-commit-histories", DownloadCommitHistories, "Downloads the commit histories for all projects in the dataset");
+    AddCommand("shared-mem-initialize", InitializeSharedMem, "Initializes the shared memory region to be used for interprocess communication");
+    AddCommand("shared-mem-terminate", TerminateSharedMem, "Terminates the shared memory region previously allocated");
+    AddCommand("calculate-originals", CalculateOriginals, "Calculates the originals and number of occurences for respective snapshots");
 }
 
 /** A half decent main function.

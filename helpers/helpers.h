@@ -6,6 +6,11 @@
 
 #define STR(WHAT) static_cast<std::stringstream &&>(std::stringstream() << WHAT).str()
 
+#define NOT_IMPLEMENTED throw std::runtime_error(STR("NOT IMPLEMENTED: " << __FILE__ << "[" << __LINE__ << "]"))
+
+#define UNREACHABLE throw std::runtime_error(STR("UNREACHABLE: " << __FILE__ << "[" << __LINE__ << "]"))
+
+#define ERROR(...) throw std::runtime_error(STR(__VA_ARGS__))
 
 namespace helpers {
 
@@ -28,7 +33,7 @@ namespace helpers {
         }
 
         ~TempDir() {
-            int err = system(STR("rm -r " << path).c_str());
+            /*int err = */ system(STR("rm -r " << path).c_str());
             //if (err == -1)
             //throw std::runtime_error(STR("Unable to delete temporary directory " + path));
         }

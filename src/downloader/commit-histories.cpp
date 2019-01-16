@@ -175,9 +175,6 @@ namespace dejavu {
         downloader_->addProjectToQueue(id, repoPath);
     }
     
-
-
-    
     void DownloadCommitHistories(int argc, char * argv[]) {
         settings.addOption(DataRoot);
         settings.addOption(InputDir);
