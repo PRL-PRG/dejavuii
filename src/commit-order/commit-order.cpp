@@ -5,14 +5,14 @@
 
 namespace dejavu {
 
-    CommitOrder::CommitOrder(std::string const &input_path,
+    CalculateCommitOrder::CalculateCommitOrder(std::string const &input_path,
                              std::string const &output_path,
                              std::unordered_map<unsigned int, unsigned long> const &timestamps)
             : input_path(input_path),
               output_path(output_path),
               timestamps(std::move(timestamps)) {}
 
-    void CommitOrder::read() {
+    void CalculateCommitOrder::read() {
         first_row = true;
 
         std::ofstream csv_file(output_path, std::ios::out | std::ios::trunc);
@@ -21,7 +21,7 @@ namespace dejavu {
         parse(input_path);
     }
 
-    unsigned long CommitOrder::getTimestamp(unsigned int commit_id) {
+    unsigned long CalculateCommitOrder::getTimestamp(unsigned int commit_id) {
 
         auto pair = timestamps.find(commit_id);
         if (pair == timestamps.end()) {
@@ -33,7 +33,7 @@ namespace dejavu {
         return pair->second;
     }
 
-    void CommitOrder::aggregateProjectInfo(unsigned int project_id,
+    void CalculateCommitOrder::aggregateProjectInfo(unsigned int project_id,
                                            unsigned int path_id,
                                            unsigned int commit_id) {
 
@@ -81,7 +81,7 @@ namespace dejavu {
      * Once all of the data of a project are read in, extract the commit
      * order.
      */
-    void CommitOrder::processExistingData() {
+    void CalculateCommitOrder::processExistingData() {
 
         // Open the output file for appending.
         std::ofstream csv_file;
@@ -154,7 +154,7 @@ namespace dejavu {
         commits.clear();
     }
 
-    void CommitOrder::row(std::vector<std::string> &row) {
+    void CalculateCommitOrder::row(std::vector<std::string> &row) {
 
         // Get the basic data from the row, convert into appropriate types.
         unsigned int project_id = std::stoi(row[0]);
@@ -186,5 +186,29 @@ namespace dejavu {
 
         // Process the data from the current row.
         aggregateProjectInfo(project_id, path_id, commit_id);
+    }
+
+
+    void CommitOrder(int argc, char * argv[]) {
+        std::string dir = "/data/dejavuii/data/processed/";
+        std::string files_sorted = dir + "files_sorted.csv";
+        std::string commit_order = dir + "commit_order.csv";
+        std::string commits = dir + "commits.csv";
+
+        std::cerr << "Reading timestamps from " << commits << std::endl;
+
+        TimestampReader timestamp_reader(commits);
+        timestamp_reader.read();
+        std::unordered_map<unsigned int, unsigned long> const timestamps = timestamp_reader.getTimestamps();
+
+        std::cerr << "Read " << timestamps.size() << " timestamps" << std::endl;
+
+        std::cerr << "Reading commit orders using " << files_sorted << std::endl;
+        std::cerr << "Results will be written to " << commit_order << std::endl;
+
+        CalculateCommitOrder order(files_sorted, commit_order, timestamps);
+        order.read();
+
+        std::cerr << "Done." << std::endl;
     }
 }
