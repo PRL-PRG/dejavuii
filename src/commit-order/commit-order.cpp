@@ -1,16 +1,15 @@
 #include "commit-order.h"
+#include <src/objects.h>
 
 #include <algorithm>
 #include <map>
 
 namespace dejavu {
 
-    CalculateCommitOrder::CalculateCommitOrder(std::string const &input_path,
-                             std::string const &output_path,
-                             std::unordered_map<unsigned int, unsigned long> const &timestamps)
+    CalculateCommitOrder::CalculateCommitOrder(std::string const & input_path,
+                             std::string const & output_path)
             : input_path(input_path),
-              output_path(output_path),
-              timestamps(std::move(timestamps)) {}
+              output_path(output_path) {}
 
     void CalculateCommitOrder::read() {
         first_row = true;
@@ -21,24 +20,12 @@ namespace dejavu {
         parse(input_path);
     }
 
-    unsigned long CalculateCommitOrder::getTimestamp(unsigned int commit_id) {
-
-        auto pair = timestamps.find(commit_id);
-        if (pair == timestamps.end()) {
-            std::cerr << "[BELGIUM] Did not find commit #" << commit_id
-                      << " in commits." << std::endl;
-            return 0; // FIXME
-        }
-
-        return pair->second;
-    }
-
     void CalculateCommitOrder::aggregateProjectInfo(unsigned int project_id,
                                            unsigned int path_id,
                                            unsigned int commit_id) {
 
         // First, we find the timestamp associated with this commit ID.
-        unsigned long timestamp = getTimestamp(commit_id);
+        unsigned long timestamp = Commit::Get(commit_id)->time;
 
         // Second, we check if we already have any commits at this timestamp.
         auto pair = commits.find(timestamp);
@@ -197,16 +184,18 @@ namespace dejavu {
 
         std::cerr << "Reading timestamps from " << commits << std::endl;
 
-        TimestampReader timestamp_reader(commits);
-        timestamp_reader.read();
-        std::unordered_map<unsigned int, unsigned long> const timestamps = timestamp_reader.getTimestamps();
+//        TimestampReader timestamp_reader(commits);
+//        timestamp_reader.read();
+//        std::unordered_map<unsigned int, unsigned long> const timestamps = timestamp_reader.getTimestamps();
 
-        std::cerr << "Read " << timestamps.size() << " timestamps" << std::endl;
+        Commit::ImportFrom(commits);
+
+        //std::cerr << "Read " << Commit::Reader .size() << " timestamps" << std::endl;
 
         std::cerr << "Reading commit orders using " << files_sorted << std::endl;
         std::cerr << "Results will be written to " << commit_order << std::endl;
 
-        CalculateCommitOrder order(files_sorted, commit_order, timestamps);
+        CalculateCommitOrder order(files_sorted, commit_order);
         order.read();
 
         std::cerr << "Done." << std::endl;

@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <map>
 #include "helpers/csv-reader.h"
-#include "timestamp-reader.h"
 
 /**
 * The program extracts commit order from input data.
@@ -109,15 +108,13 @@ namespace dejavu {
 
     public:
         CalculateCommitOrder(std::string const & input_path,
-                    std::string const & output_path,
-                    std::unordered_map<unsigned int, unsigned long> const & timestamps);
+                             std::string const & output_path);
         void read();
 
     protected:
         // Input data: constructor parameters.
         std::string const & input_path;
         std::string const & output_path;
-        std::unordered_map<unsigned int, unsigned long> const & timestamps;
 
         // Output data:
         // Internal processing data to carry information between calls to row().
@@ -134,7 +131,7 @@ namespace dejavu {
                                   unsigned int path_id,
                                   unsigned int commit_id);
         void processExistingData();
-        unsigned long getTimestamp(unsigned int commit_id);
+//        unsigned long getTimestamp(unsigned int commit_id);
     };
 
     void CommitOrder(int argc, char * argv[]);

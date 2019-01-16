@@ -14,11 +14,9 @@ find_package(Threads)
 find_package(Boost REQUIRED COMPONENTS system)
 
 include_directories(${Boost_INCLUDE_DIR})
-#include_directories("." "helpers")
 include_directories(".")
 
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.h")
 
 add_executable(dejavu ${SRC})
-#target_link_libraries( dejavuii ${LIBS} m )
 target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} rt)
