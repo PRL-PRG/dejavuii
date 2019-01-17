@@ -1,7 +1,7 @@
 #include "simple-commands.h"
 
 #include "../settings.h"
-#include "../objects.h"
+#include "src/objects.h"
 
 namespace dejavu {
     namespace {

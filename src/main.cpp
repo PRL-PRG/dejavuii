@@ -1,5 +1,6 @@
 #include <cstdlib>
 #include <iostream>
+#include <map>
 #include <functional>
 
 #include "helpers/helpers.h"
@@ -16,6 +17,7 @@
 #include "import-clones/import-clones.h"
 #include "downloader/downloader.h"
 #include "shared-mem/shared-mem.h"
+#include "commit-order/commit-order.h"
 
 
 namespace dejavu {
@@ -29,6 +31,7 @@ using namespace dejavu;
 
 
 typedef std::function<void(int, char * [])> CommandHandler;
+
 
 
 struct Command {
@@ -53,6 +56,7 @@ void InitializeCommands() {
     AddCommand("shared-mem-initialize", InitializeSharedMem, "Initializes the shared memory region to be used for interprocess communication");
     AddCommand("shared-mem-terminate", TerminateSharedMem, "Terminates the shared memory region previously allocated");
     AddCommand("calculate-originals", CalculateOriginals, "Calculates the originals and number of occurences for respective snapshots");
+    AddCommand("file-order-commits", CommitOrder, "Orders the commits that modify the same files according to their timestamps.");
 }
 
 /** A half decent main function.

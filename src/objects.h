@@ -18,7 +18,6 @@ namespace dejavu {
         }
     };
 
-
     class Project;
     class Path;
     

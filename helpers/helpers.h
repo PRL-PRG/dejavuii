@@ -6,6 +6,8 @@
 
 #define STR(WHAT) static_cast<std::stringstream &&>(std::stringstream() << WHAT).str()
 
+#define STRLN(WHAT) static_cast<std::stringstream &&>(std::stringstream() << WHAT << std::endl).str()
+
 #define NOT_IMPLEMENTED throw std::runtime_error(STR("NOT IMPLEMENTED: " << __FILE__ << "[" << __LINE__ << "]"))
 
 #define UNREACHABLE throw std::runtime_error(STR("UNREACHABLE: " << __FILE__ << "[" << __LINE__ << "]"))
