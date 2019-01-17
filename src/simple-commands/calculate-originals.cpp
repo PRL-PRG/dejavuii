@@ -38,7 +38,6 @@ namespace dejavu {
                     creator = c;
                 else if (creator->time == c->time)
                     ++identicalCommitTimes;
-                //std::cerr << "Two commits same time, snapshot: " << id << ", creator " << creator->id << ", other: " << commitId << std::endl;
             }
 
             friend std::ostream & operator << (std::ostream & s, OriginalityInfo const & o) {
@@ -88,7 +87,6 @@ namespace dejavu {
             std::ofstream output_;
         }; // Originals
     } // anonymous namespace
-
 
     void CalculateOriginals(int argc, char * argv[]) {
         settings.addOption(DataRoot);
