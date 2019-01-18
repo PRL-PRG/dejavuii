@@ -48,7 +48,7 @@ namespace dejavu {
         }; // OriginalityInfo
 
         
-        class Originals : public FilesImporter {
+        class Originals : public FileRecord::Reader {
         public:
             Originals(std::string const & outputFile) {
                 output_.open(outputFile);

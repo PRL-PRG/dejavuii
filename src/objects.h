@@ -72,6 +72,7 @@ namespace dejavu {
         static void ImportFrom(std::string const & filename);
 
         std::string const hash;
+        
         uint64_t const time;
 
     private:
@@ -291,47 +292,48 @@ namespace dejavu {
 
 
 
-
-    /** Loads the files and builds the representation in memory so that it can be queried.
-     */
-    class FilesImporter : public helpers::CSVReader {
+    class FileRecord {
     public:
-        /*        static size_t ImportFile(std::string const & filename) {
-            FilesImporter l;
-            l.parse(filename);
-            return l.numRecords_;
-            } */
+        /** Loads the files and builds the representation in memory so that it can be queried.
+         */
+        class Reader : public helpers::CSVReader {
+        public:
 
-        size_t readFile(std::string const & filename) {
-            numRecords_ = 0;
-            parse(filename);
-            onDone(numRecords_);
-            return numRecords_;
-        }
+            size_t readFile(std::string const & filename) {
+                numRecords_ = 0;
+                parse(filename);
+                onDone(numRecords_);
+                return numRecords_;
+            }
             
-    protected:
+        protected:
 
-        virtual void onRow(unsigned projectId, unsigned pathId, unsigned snapshotId, unsigned commitId) = 0;
-        virtual void onDone(size_t numRows) { }
+            virtual void onRow(unsigned projectId, unsigned pathId, unsigned snapshotId, unsigned commitId) = 0;
+            virtual void onDone(size_t numRows) { }
 
-        void row(std::vector<std::string> & row) override {
-            assert(row.size() ==  4 && "Invalid file row length");
-            unsigned projectId = std::stoul(row[0]);
-            unsigned pathId = std::stoul(row[1]);
-            unsigned snapshotId = std::stoul(row[2]);
-            unsigned commitId = std::stoul(row[3]);
-            /*            Project * project = Project::Get(std::stoul(row[0]));
-            Path * path = Path::Get(std::stoul(row[1]));
-            Snapshot * snapshot = Snapshot::Get(std::stoul(row[2]));
-            Commit * commit = Commit::Get(std::stoul(row[3]));
-            */
-            ++numRecords_;
-            onRow(projectId, pathId, snapshotId, commitId);
-        }
+            void row(std::vector<std::string> & row) override {
+                assert(row.size() ==  4 && "Invalid file row length");
+                unsigned projectId = std::stoul(row[0]);
+                unsigned pathId = std::stoul(row[1]);
+                unsigned snapshotId = std::stoul(row[2]);
+                unsigned commitId = std::stoul(row[3]);
+                ++numRecords_;
+                onRow(projectId, pathId, snapshotId, commitId);
+            }
 
         
-        size_t numRecords_ = 0;
-    }; // FilesLoader
+            size_t numRecords_ = 0;
+        }; // FileRecord
+
+    private:
+        
+        FileRecord() = delete;
+        
+    }; 
+    
+
+
+    
 
     
     void ImportFiles(std::string const & filename);
