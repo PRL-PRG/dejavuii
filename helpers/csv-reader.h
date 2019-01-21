@@ -39,7 +39,7 @@ namespace helpers {
 
             If the file cannot be opened, throws the ios_base::failure exception, otherwise parses the file and when parsing of a line is finished, calls the row() method repeatedly until the end of file is reached.
         */
-        void parse(std::string const & filename) {
+        void parse(std::string const & filename, bool headers) {
             f_ = std::ifstream(filename, std::ios::in);
             lineNum_ = 1;
             //        f_.open(filename, std::ios::in);
@@ -47,7 +47,10 @@ namespace helpers {
                 throw std::ios_base::failure(STR("Unable to openfile " << filename));
             while (! eof()) {
                 try {
-                    append();
+                    if (headers == true)
+                        headers = false;
+                    else
+                        append();
                     if (!row_.empty()) {
                         row(row_);
                         row_.clear();

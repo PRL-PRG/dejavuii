@@ -108,7 +108,7 @@ namespace dejavu {
                     if (fname == "." || fname == "..")
                         continue;
                     std::cout << fname << std::endl;
-                    parse(path + "/" + fname);
+                    parse(path + "/" + fname, false);
                     std::cout << "    files       " << numRows << std::endl;
                     std::cout << "    deletions   " << empty << std::endl;
                     std::cout << "    projects    " << projects.size() << std::endl;

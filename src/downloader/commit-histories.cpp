@@ -63,7 +63,7 @@ namespace dejavu {
                 }
                 // now parse the file
                 ProjectsReader reader(this);
-                reader.parse(projects);
+                reader.parse(projects, false);
                 parserDone_ = true;
                 while (workers_ != 0) 
                     std::this_thread::sleep_for(std::chrono::milliseconds(1000));

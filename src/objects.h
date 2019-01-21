@@ -28,7 +28,7 @@ namespace dejavu {
         public:
             size_t readFile(std::string const & filename) {
                 numRows_ = 0;
-                parse(filename);
+                parse(filename, false);
                 onDone(numRows_);
                 return numRows_;
             }
@@ -92,7 +92,7 @@ namespace dejavu {
         public:
             size_t readFile(std::string const & filename) {
                 numRows_ = 0;
-                parse(filename);
+                parse(filename, false);
                 onDone(numRows_);
                 return numRows_;
             }
@@ -159,7 +159,7 @@ namespace dejavu {
         public:
             size_t readFile(std::string const & filename) {
                 numRows_ = 0;
-                parse(filename);
+                parse(filename, false);
                 onDone(numRows_);
                 return numRows_;
             }
@@ -214,7 +214,7 @@ namespace dejavu {
         public:
             size_t readFile(std::string const & filename) {
                 numRows_ = 0;
-                parse(filename);
+                parse(filename, false);
                 onDone(numRows_);
                 return numRows_;
             }
@@ -301,7 +301,7 @@ namespace dejavu {
 
             size_t readFile(std::string const & filename) {
                 numRecords_ = 0;
-                parse(filename);
+                parse(filename, false);
                 onDone(numRecords_);
                 return numRecords_;
             }

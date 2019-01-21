@@ -21,7 +21,7 @@ namespace dejavu {
         static std::unordered_set<unsigned> GetValidPaths(std::string const & idir, std::string const & odir, std::ofstream & stats) {
             PathsParser p;
             p.nonNmPaths_.open(odir + "/paths.csv");
-            p.parse(idir + "/paths.csv");
+            p.parse(idir + "/paths.csv", false);
             std::cout << "node_modules paths: " << p.numNmPaths_ << std::endl;
             std::cout << "non node paths:     " << p.numNonNmPaths_ << std::endl;
             stats << "paths_node_modules," << p.numNmPaths_ << std::endl;
@@ -58,7 +58,7 @@ namespace dejavu {
         static ValidIds GetValidIds(std::string const & idir, std::string const & odir, std::ofstream & stats, std::unordered_set<unsigned> const & validPaths) {
             FilesParser p(validPaths);
             p.noNmFiles_.open(odir + "/files.csv");
-            p.parse(idir + "/files.csv");
+            p.parse(idir + "/files.csv", false);
             std::cout << "node_modules files: " << p.numNm_ << std::endl;
             std::cout << "non node files:     " << p.numNoNm_ << std::endl;
             stats << "files_node_modules," << p.numNm_ << std::endl;
@@ -101,7 +101,7 @@ namespace dejavu {
         static void Validate(std::string const & idir, std::string const & odir, std::ofstream & stats, std::unordered_set<unsigned> const & validIds) {
             CommitsParser p(validIds);
             p.noNmCommits_.open(odir + "/commits.csv");
-            p.parse(idir + "/commits.csv");
+            p.parse(idir + "/commits.csv", false);
             std::cout << "node_modules only commits: " << p.numNm_ << std::endl;
             std::cout << "regular commits:           " << p.numNoNm_ << std::endl;
             stats << "commits_node_modules_only," << p.numNm_ << std::endl;
@@ -134,7 +134,7 @@ namespace dejavu {
         static void Validate(std::string const & idir, std::string const & odir, std::ofstream & stats, std::unordered_set<unsigned> const & validIds) {
             ProjectsParser p(validIds);
             p.noNmProjects_.open(odir + "/projects.csv");
-            p.parse(idir + "/projects.csv");
+            p.parse(idir + "/projects.csv", false);
             std::cout << "node_modules only projects: " << p.numNm_ << std::endl;
             std::cout << "regular projects:           " << p.numNoNm_ << std::endl;
             stats << "projects_node_modules_only," << p.numNm_ << std::endl;
@@ -167,7 +167,7 @@ namespace dejavu {
         static void Validate(std::string const & idir, std::string const & odir, std::ofstream & stats, std::unordered_set<unsigned> const & validIds) {
             FileHashParser p(validIds);
             p.noNmFileHashes_.open(odir + "/fileHashes.csv");
-            p.parse(idir + "/fileHashes.csv");
+            p.parse(idir + "/fileHashes.csv", false);
             std::cout << "node_modules only fileHashes: " << p.numNm_ << std::endl;
             std::cout << "regular fileHashes:           " << p.numNoNm_ << std::endl;
             stats << "fileHashes_node_modules_only," << p.numNm_ << std::endl;

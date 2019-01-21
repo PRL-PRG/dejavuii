@@ -17,7 +17,7 @@ namespace dejavu {
         std::ofstream csv_file(output_path, std::ios::out | std::ios::trunc);
         csv_file.close();
 
-        parse(input_path);
+        parse(input_path, false);
     }
 
     void CalculateCommitOrder::aggregateProjectInfo(unsigned int project_id,
