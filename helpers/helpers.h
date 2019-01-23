@@ -44,6 +44,9 @@ namespace helpers {
     }; // helpers::TempDir
 
 
+    /** Executes the gfiven command and returns its output.
+        
+     */
     inline std::string Exec(std::string const & what, std::string const & path ) {
         char buffer[128];
         std::string result = "";

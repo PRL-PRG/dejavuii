@@ -11,12 +11,13 @@ add_definitions(
 
 
 find_package(Threads)
-find_package(Boost REQUIRED COMPONENTS system)
+#find_package(Boost REQUIRED COMPONENTS system)
 
-include_directories(${Boost_INCLUDE_DIR})
+#include_directories(${Boost_INCLUDE_DIR})
 include_directories(".")
 
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.h")
 
 add_executable(dejavu ${SRC})
-target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} rt)
+target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
+#target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} rt)

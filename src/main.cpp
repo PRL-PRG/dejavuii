@@ -55,12 +55,13 @@ void InitializeCommands() {
     AddCommand("filter-nm", RemoveNodeModules, "Removes all files in node_modules subdirectories as well as any commits, contents, or projects that only happen in these paths");
     AddCommand("import-clones", ImportClones, "Analyzes import clones in the dataset. Work in progress");
     AddCommand("download-commit-histories", DownloadCommitHistories, "Downloads the commit histories for all projects in the dataset");
-    AddCommand("shared-mem-initialize", InitializeSharedMem, "Initializes the shared memory region to be used for interprocess communication");
-    AddCommand("shared-mem-terminate", TerminateSharedMem, "Terminates the shared memory region previously allocated");
+    //AddCommand("shared-mem-initialize", InitializeSharedMem, "Initializes the shared memory region to be used for interprocess communication");
+    //AddCommand("shared-mem-terminate", TerminateSharedMem, "Terminates the shared memory region previously allocated");
     AddCommand("calculate-originals", CalculateOriginals, "Calculates the originals and number of occurences for respective snapshots");
     AddCommand("file-order-commits", CommitOrder, "Orders the commits that modify the same files according to their timestamps.");
     AddCommand("active-projects", DetermineActiveProjects, "Determine which projects are, or were active for long enough time, or which are interesting for the clone analysis");
     AddCommand("project-extras", ProjectCreationDates, "Adds extra information to projects from GHTorrent.");
+    AddCommand("commit-originals", CommitOriginals, "For each commit, determines project that created it");
 }
 
 /** A half decent main function.
