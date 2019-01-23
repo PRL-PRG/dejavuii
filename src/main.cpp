@@ -18,10 +18,12 @@
 #include "downloader/downloader.h"
 #include "shared-mem/shared-mem.h"
 #include "commit-order/commit-order.h"
+#include "active-projects/active-projects.h"
+
 
 
 namespace dejavu {
-    helpers::Option<std::string> DataRoot("dataRoot", "", { "-dr"}, true);
+    helpers::Option<std::string> DataRoot("dataRoot", "/data/dejavuii/data", { "-dr"}, false);
 
     helpers::Settings settings;
 
@@ -57,6 +59,8 @@ void InitializeCommands() {
     AddCommand("shared-mem-terminate", TerminateSharedMem, "Terminates the shared memory region previously allocated");
     AddCommand("calculate-originals", CalculateOriginals, "Calculates the originals and number of occurences for respective snapshots");
     AddCommand("file-order-commits", CommitOrder, "Orders the commits that modify the same files according to their timestamps.");
+    AddCommand("active-projects", DetermineActiveProjects, "Determine which projects are, or were active for long enough time, or which are interesting for the clone analysis");
+    AddCommand("project-extras", ProjectCreationDates, "Adds extra information to projects from GHTorrent.");
 }
 
 /** A half decent main function.

@@ -1,0 +1,90 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Preparing the data
+
+> Because the original data from the scala downloader is very limited we have to add extra pieces of data to it. For now, this comes from various places and is a bit of a mess. Should be fixed into something more orderly, but this is my first attempt to document what needs to be done. 
+
+## Joining the chunks together
+
+First, the output of the scala downloader chunks should be joined into a single files for commits, projects, paths and file records. During this phase, ids for projects, commits, paths and snapshots are generated and used throughout the rest of the analysis to conserve space. 
+
+`scala-join` command
+
+## Downloading Commit histories
+
+The command `download-commit-histories` downloads all commit histories for the existing projects. Currently takes about 8 days to proceed. 
+
+## Augmenting Commits 
+
+TODO
+
+## Augmenting Projects
+
+For each project, we want to have extra information available, notably the time the project was created, and number of authors, committers and watchers. For now, we get the information from GHTorrent. So download GHTorrent and then extract only the files we need to save space:
+
+    tar --extract --file=mysql-2019-01-01.tar.gz mysql-2019-01-01/projects.csv
+    tar --extract --file=mysql-2019-01-01.tar.gz mysql-2019-01-01/commits.csv
+    tar --extract --file=mysql-2019-01-01.tar.gz mysql-2019-01-01/watchers.csv
+
+Then run the `project-extras` command. With default arguments, this creates the augmented projects table of the following schema:
+
+| Column | Description |
+| ------ | ----------- |
+| 0      | Project id |
+| 1      | User name |
+| 2      | Repo name |
+| 3      | Fork id (-1 for not a fork, -2 for fork of unknown project) |
+| 4      | Created at (UNIX timestamp) |
+| 5      | # of Committers |
+| 6      | # of Authors |
+| 7      | # of Watchers |
+
+> The data from GHTorrent are not the best, TBH. Should be replaced with data obtained via the Github API (approx 10 days) 
+
+## Detecting snapshot originals
+
+Definition first: Original of a snapshot is the oldest occurence of that snapshot
+
+
+
+
+## Determining interesting projects
+
+Definition first: Interesting project is a project that has a sequence of at least N commits where no two consecutive commits are separated by more than M days and the sequence spans at least O days.
+
+> TODO should we also say that any projects that contains an original of a snapshot is important project? I would say yes, because it is interesting. 
+
+
+
+
+
+
+
+
+
+
+
+
+First import the `csv` file containing the information about orginality and copies of the files (this is produced by the `calculate-originals` command). Note that this takes *a lot* of time and *a lot* of memory. 
+
+```{r}
+originality = read.csv("/data/dejavuii/data/processed/snapshots-originality.csv", header = F, col.names = c("id", "occurences", "paths", "commits", "time"))
+```
+
+Do some summaries:
+
+```{r}
+summary(originality$occurences)
+summary(originality$paths)
+summary(originality$commits)
+```
+
+And some printing, when we get to it:
+
+```{r}
+library(hexbin)
+plot(hexbin(log10(originality$paths[originality$occurences > 1]), log10(originality$occurences[originality$occurences > 1])), xlab = "paths", ylab = "occurences")
+```

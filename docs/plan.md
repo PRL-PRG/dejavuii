@@ -1,3 +1,9 @@
+# TODO
+
+- deleting bad projects (single committer, activity for less than 3 mo, not original of anything)
+- distribution of active projects
+- distributions of active projects that have been copied
+
 # DejaVu II Plan
 
 The paper should investigate cloning in Javascript in greater depth mainly in the following three areas:

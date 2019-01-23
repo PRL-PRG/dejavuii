@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "helpers/csv-reader.h"
+#include "helpers/strings.h"
 
 namespace dejavu {
 
@@ -53,7 +54,6 @@ namespace dejavu {
             
         }; // Commit::Reader
 
-        
         Commit(unsigned id, std::string const & hash, uint64_t time):
             Object(id),
             hash(hash),
@@ -85,8 +85,14 @@ namespace dejavu {
         
     }; // dejavu::Commit
 
+    /**
+
+     */
     class Project : public Object {
     public:
+
+        static constexpr int NO_FORK = -1;
+        static constexpr int UNKNOWN_FORK = -2;
 
         class Reader : public helpers::CSVReader {
         public:
@@ -121,7 +127,12 @@ namespace dejavu {
         Project(unsigned id, std::string const & repo, std::string const & user):
             Object(id),
             repo(repo),
-            user(user) {
+            user(user),
+            createdAt(0),
+            fork(NO_FORK),
+            committers(0),
+            authors(0),
+            watchers(0) {
             assert(projects_.find(id) == projects_.end() && "Project already exists");
             projects_[id] = this;
         }
@@ -131,13 +142,43 @@ namespace dejavu {
             assert(i != projects_.end() && "Unknown project");
             return i->second;
         }
+
+        static std::unordered_map<unsigned, Project *> const & AllProjects() {
+            return projects_;
+        }
+
+        static void SaveAll(std::string const & filename) {
+            std::ofstream s(filename);
+            if (! s.good())
+                ERROR("Unable to open file " << filename << " for writing");
+            s << "pid,user,repo,createdAt,fork,committers,authors,watchers" << std::endl;    
+            for (auto i : projects_)
+                s << * (i.second) << std::endl;
+        }
         
         static void ImportFrom(std::string const & filename);
 
         std::string const repo;
         std::string const user;
+        uint64_t createdAt;
+        int fork;
+        unsigned committers;
+        unsigned authors;
+        unsigned watchers;
 
     private:
+
+        friend std::ostream & operator << (std::ostream & s, Project const & p) {
+            s << p.id << "," <<
+                helpers::escapeQuotes(p.user) << "," <<
+                helpers::escapeQuotes(p.repo) << "," <<
+                p.createdAt << ","<<
+                p.fork << "," <<
+                p.committers << "," <<
+                p.authors << "," <<
+                p.watchers;
+            return s;
+        }
 
         /** All commits that belong to the project.
          */
@@ -339,3 +380,16 @@ namespace dejavu {
     void ImportFiles(std::string const & filename);
     
 } //namespace dejavu
+
+namespace std {
+
+    template<>
+    class less<dejavu::Commit*> {
+    public:
+        bool operator () (dejavu::Commit * first, dejavu::Commit * second) {
+            assert(first != nullptr && second != nullptr && "We don't expect null commit");
+            return first->time < second->time;
+        }
+    }; // std::less<dejavu::Commit *>
+    
+} // namespace std

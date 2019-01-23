@@ -104,7 +104,8 @@ namespace helpers {
                     }
                     ++i; // past the ending quote
                     // if immediately followed by non-whitespace and not separator, add this to the column as well
-                    if (line[i] != ' ' && line[i] != '\t') {
+                    // FIXME We need this because shabbir's downloader did not output CSVs nicely, but this is not part of CSV standard
+                    if (line[i] != ' ' && line[i] != '\t' && line[i] != separator_ && line[i] != 0) {
                         col = quote_ + col + quote_;
                         while (i < line.size() && line[i] != separator_)
                             col = col + line[i++];
