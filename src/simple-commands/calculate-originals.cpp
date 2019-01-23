@@ -62,9 +62,9 @@ namespace dejavu {
             }
 
             void onDone(size_t numRows) override {
-                size_t unique;
-                size_t originals;
-                size_t copies;
+                size_t unique = 0;
+                size_t originals= 0;
+                size_t copies= 0;
                 std::cerr << "Rows:                   " << numRows << std::endl;
                 std::cerr << "Identical commit times: " << identicalCommitTimes << std::endl;
                 std::cerr << "CAN I DUMP RESULTZ?" << std::endl;
