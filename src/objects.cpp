@@ -18,6 +18,10 @@ namespace dejavu {
             void onRow(unsigned id, std::string const & user, std::string const & repo) override {
                 new Project(id, repo, user);
             }
+            
+            void onRow(unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt, int fork, unsigned committers, unsigned authors, unsigned watchers) override {
+                new Project(id, repo, user, createdAt, fork, committers, authors, watchers);
+            }
         }; // ProjectsLoader
 
         class PathsLoader : public Path::Reader {

@@ -105,17 +105,33 @@ namespace dejavu {
 
         protected:
 
-            virtual void onRow(unsigned id, std::string const & user, std::string const & repo) = 0;
+            virtual void onRow(unsigned id, std::string const & user, std::string const & repo) {
+                assert(false && "onRow method for used data layout not implemented");
+            };
+
+            virtual void onRow(unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt, int fork, unsigned committers, unsigned authors, unsigned watchers) {
+                assert(false && "onRow method for used data layout not implemented");
+            }
 
             virtual void onDone(size_t numRows) { };
 
             void row(std::vector<std::string> & row) override {
-                assert(row.size() == 3 && "Invalid commit row length");
+                assert((row.size() == 3 || row.size() == 8) && "Invalid commit row length");
                 unsigned id = std::stoul(row[0]);
                 std::string user = row[1];
                 std::string repo = row[2];
+                if (row.size() == 8) {
+                    uint64_t createdAt = std::stoull(row[3]);
+                    int fork = std::stoi(row[4]);
+                    unsigned committers = std::stoul(row[5]);
+                    unsigned authors = std::stoul(row[6]);
+                    unsigned watchers = std::stoul(row[7]);
+                    ++numRows_;
+                    onRow(id, user, repo, createdAt, fork, committers, authors, watchers);
+                } else {
                 ++numRows_;
                 onRow(id, user, repo);
+                }
             }
 
         private:
@@ -133,6 +149,19 @@ namespace dejavu {
             committers(0),
             authors(0),
             watchers(0) {
+            assert(projects_.find(id) == projects_.end() && "Project already exists");
+            projects_[id] = this;
+        }
+
+        Project(unsigned id, std::string const & repo, std::string const & user, uint64_t createdAt, int fork, unsigned committers, unsigned authors, unsigned watchers):
+            Object(id),
+            repo(repo),
+            user(user),
+            createdAt(createdAt),
+            fork(fork),
+            committers(committers),
+            authors(authors),
+            watchers(watchers) {
             assert(projects_.find(id) == projects_.end() && "Project already exists");
             projects_[id] = this;
         }
