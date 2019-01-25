@@ -188,7 +188,7 @@ namespace dejavu {
 //        timestamp_reader.read();
 //        std::unordered_map<unsigned int, unsigned long> const timestamps = timestamp_reader.getTimestamps();
 
-        Commit::ImportFrom(commits);
+        Commit::ImportFrom(commits, false);
 
         //std::cerr << "Read " << Commit::Reader .size() << " timestamps" << std::endl;
 

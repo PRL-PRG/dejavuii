@@ -44,15 +44,16 @@ namespace helpers {
             lineNum_ = 1;
             //        f_.open(filename, std::ios::in);
             if (! f_.good())
-                throw std::ios_base::failure(STR("Unable to openfile " << filename));
+                ERROR("Unable to openfile " << filename);
             while (! eof()) {
                 try {
-                    if (headers == true)
-                        headers = false;
-                    else
-                        append();
+                    append();
                     if (!row_.empty()) {
-                        row(row_);
+                        if (headers) {
+                            headers = false;
+                        } else {
+                            row(row_);
+                        }
                         row_.clear();
                     }
                 } catch(std::ios_base::failure const & e) {

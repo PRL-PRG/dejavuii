@@ -27,25 +27,38 @@ namespace dejavu {
 
         class Reader : public helpers::CSVReader {
         public:
-            size_t readFile(std::string const & filename) {
+            size_t readFile(std::string const & filename, bool headers) {
                 numRows_ = 0;
-                parse(filename, false);
+                parse(filename, headers);
                 onDone(numRows_);
                 return numRows_;
             }
         protected:
 
-            virtual void onRow(unsigned id, std::string const & hash, uint64_t time) = 0;
+            virtual void onRow(unsigned id, std::string const & hash, uint64_t time) {
+                assert(false && "onRow method for used data layout not implemented");
+            }
+
+            virtual void onRow(unsigned id, std::string const & hash, uint64_t time, unsigned numProjects, unsigned originalProject) {
+                assert(false && "onRow method for used data layout not implemented");
+            }
 
             virtual void onDone(size_t numRows) { }
             
             void row(std::vector<std::string> & row) override {
-                assert(row.size() == 3 && "Invalid commit row length");
+                assert((row.size() == 3 || row.size() == 5) && "Invalid commit row length");
                 unsigned id = std::stoul(row[0]);
                 std::string hash = row[1];
                 uint64_t t = std::stoull(row[2]);
-                ++numRows_;
-                onRow(id, hash, t);
+                if (row.size() == 5) {
+                    unsigned numProjects = std::stoul(row[3]);
+                    unsigned originalProject = std::stoul(row[4]);
+                    ++numRows_;
+                    onRow(id, hash, t, numProjects, originalProject);
+                } else {
+                    ++numRows_;
+                    onRow(id, hash, t);
+                }
             }
 
         private:
@@ -57,7 +70,19 @@ namespace dejavu {
         Commit(unsigned id, std::string const & hash, uint64_t time):
             Object(id),
             hash(hash),
-            time(time) {
+            time(time),
+            numProjects(0),
+            originalProject(0) {
+            assert(commits_.find(id) == commits_.end() && "Commit already exists");
+            commits_[id] = this;
+        }
+
+        Commit(unsigned id, std::string const & hash, uint64_t time, unsigned numProjects, unsigned originalProject):
+            Object(id),
+            hash(hash),
+            time(time),
+            numProjects(numProjects),
+            originalProject(originalProject) {
             assert(commits_.find(id) == commits_.end() && "Commit already exists");
             commits_[id] = this;
         }
@@ -68,14 +93,35 @@ namespace dejavu {
             assert(i != commits_.end() && "Unknown commit");
             return i->second;
         }
-        
-        static void ImportFrom(std::string const & filename);
 
+        static std::unordered_map<unsigned, Commit *> const & AllCommits() {
+            return commits_;
+        }
+        
+        static void ImportFrom(std::string const & filename, bool headers);
+
+        static void SaveAll(std::string const & filename) {
+            std::ofstream s(filename);
+            if (! s.good())
+                ERROR("Unable to open file " << filename << " for writing");
+            s << "id,hash,time,numProjects,originalProjectId" << std::endl;    
+            for (auto i : commits_)
+                s << * (i.second) << std::endl;
+        }
+
+        
         std::string const hash;
         
         uint64_t const time;
 
+        unsigned numProjects;
+        unsigned originalProject;
+
     private:
+        friend std::ostream & operator << (std::ostream & s, Commit const & c) {
+            s << c.id << "," << c.hash << "," << c.time << "," << c.numProjects << "," << c.originalProject;
+            return s;
+        }
 
         /** All projects which contain the given commit.
          */
@@ -96,9 +142,9 @@ namespace dejavu {
 
         class Reader : public helpers::CSVReader {
         public:
-            size_t readFile(std::string const & filename) {
+            size_t readFile(std::string const & filename, bool headers) {
                 numRows_ = 0;
-                parse(filename, false);
+                parse(filename, headers);
                 onDone(numRows_);
                 return numRows_;
             }
@@ -107,7 +153,7 @@ namespace dejavu {
 
             virtual void onRow(unsigned id, std::string const & user, std::string const & repo) {
                 assert(false && "onRow method for used data layout not implemented");
-            };
+            }
 
             virtual void onRow(unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt, int fork, unsigned committers, unsigned authors, unsigned watchers) {
                 assert(false && "onRow method for used data layout not implemented");
@@ -185,7 +231,7 @@ namespace dejavu {
                 s << * (i.second) << std::endl;
         }
         
-        static void ImportFrom(std::string const & filename);
+        static void ImportFrom(std::string const & filename, bool headers);
 
         std::string const repo;
         std::string const user;
@@ -280,29 +326,47 @@ namespace dejavu {
     class Snapshot : public Object {
     public:
 
+        static constexpr unsigned DELETED = 0;
+
         class Reader : public helpers::CSVReader {
         public:
-            size_t readFile(std::string const & filename) {
+            size_t readFile(std::string const & filename, bool headers) {
                 numRows_ = 0;
-                parse(filename, false);
+                parse(filename, headers);
                 onDone(numRows_);
                 return numRows_;
             }
 
         protected:
 
-            virtual void onRow(unsigned id, std::string const & hash) = 0;
+            virtual void onRow(unsigned id, std::string const & hash) {
+                assert(false && "onRow method for used data layout not implemented");
+            }
+
+            virtual void onRow(unsigned id, std::string const & hash, unsigned creatorCommit, unsigned occurences, unsigned paths, unsigned commits, unsigned projects) {
+                assert(false && "onRow method for used data layout not implemented");
+            }
 
             virtual void onDone(size_t numRows) { };
 
             void row(std::vector<std::string> & row) override {
                 unsigned id = std::stoul(row[0]);
-                ++numRows_;
                 // id 0 == deleted, no hash
                 if (id != 0) {
-                    assert(row.size() == 2 && "Invalid snapshot row length");
+                    assert((row.size() == 2 || row.size() == 7) && "Invalid row length, unrecognized format");
                     std::string hash = row[1];
-                    onRow(id, hash);
+                    if (row.size() == 7) {
+                        unsigned creatorCommit = std::stoul(row[2]);
+                        unsigned occurences = std::stoul(row[3]);
+                        unsigned paths = std::stoul(row[4]);
+                        unsigned commits = std::stoul(row[5]);
+                        unsigned projects = std::stoul(row[6]);
+                        ++numRows_;
+                        onRow(id, hash, creatorCommit, occurences, paths, commits, projects);
+                    } else {
+                        ++numRows_;
+                        onRow(id, hash);
+                    }
                 } 
             }
 
@@ -314,7 +378,23 @@ namespace dejavu {
         
         Snapshot(unsigned id, std::string const & hash):
             Object(id),
-            hash(hash) {
+            hash(hash),
+            creatorCommit(0),
+            occurences(0),
+            paths(0),
+            commits(0),
+            projects(0) {
+            assert(snapshots_.find(id) == snapshots_.end() && "Snapshot already exists");
+            snapshots_[id] = this;
+        }
+        Snapshot(unsigned id, std::string const & hash, unsigned creatorCommit, unsigned occurences, unsigned paths, unsigned commits, unsigned projects):
+            Object(id),
+            hash(hash),
+            creatorCommit(creatorCommit),
+            occurences(occurences),
+            paths(paths),
+            commits(commits),
+            projects(projects) {
             assert(snapshots_.find(id) == snapshots_.end() && "Snapshot already exists");
             snapshots_[id] = this;
         }
@@ -326,12 +406,36 @@ namespace dejavu {
             assert(i != snapshots_.end() && "Unknown snapshot");
             return i->second;
         }
-        
-        static void ImportFrom(std::string const & filename);
 
+        static std::unordered_map<unsigned, Snapshot *> const & AllSnapshots() {
+            return snapshots_;
+        }
+        
+        static void ImportFrom(std::string const & filename, bool headers);
+
+        static void SaveAll(std::string const & filename) {
+            std::ofstream s(filename);
+            if (! s.good())
+                ERROR("Unable to open file " << filename << " for writing");
+            s << "id,hash,creatorCommit,occurences,paths,commits,projects" << std::endl;    
+            for (auto i : snapshots_)
+                s << * (i.second) << std::endl;
+        }
+        
         std::string const hash;
 
+        unsigned creatorCommit;
+        unsigned occurences;
+        unsigned paths;
+        unsigned commits;
+        unsigned projects;
+
     private:
+
+        friend std::ostream & operator << (std::ostream & o, Snapshot const & s) {
+            o << s.id << "," << s.hash << "," << s.creatorCommit << "," << s.occurences << "," << s.paths << "," << s.commits << "," << s.projects << std::endl;
+            return o;
+        }
 
         static std::unordered_map<unsigned, Snapshot *> snapshots_;
         

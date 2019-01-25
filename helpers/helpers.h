@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ctime>
+
 #include <memory>
 #include <cstdlib>
 #include <sstream>
@@ -69,6 +71,12 @@ namespace helpers {
         unsigned h = seconds % 24;
         seconds = seconds / 24;
         return STR(seconds << " days " << h << ":" << m << "." << s);
+    }
+
+    inline uint64_t StrToTimestamp(std::string const & s, std::string const & format = "%Y-%m-%d %T") {
+        std::tm time;
+        strptime(s.c_str(), format.c_str(), &time);
+        return std::mktime(&time);
     }
 
     

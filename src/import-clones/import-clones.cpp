@@ -25,10 +25,10 @@ namespace dejavu {
     }
     
     void LoadDataset(std::string const & dataset) {
-        Project::ImportFrom(STR(dataset << "/projects.csv"));
-        Commit::ImportFrom(STR(dataset << "/commits.csv"));
+        Project::ImportFrom(STR(dataset << "/projects.csv"), false);
+        Commit::ImportFrom(STR(dataset << "/commits.csv"), false);
         Path::ImportFrom(STR(dataset << "/paths.csv"));
-        Snapshot::ImportFrom(STR(dataset << "/fileHashes.csv"));
+        Snapshot::ImportFrom(STR(dataset << "/fileHashes.csv"), false);
         ImportFiles(STR(dataset << "/files.csv"));
     }
 

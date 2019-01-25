@@ -87,7 +87,7 @@ namespace dejavu {
                         ++missingDeleted_;
                     return;
                 }
-                i->second->createdAt = std::stoul(row[6]);
+                i->second->createdAt = helpers::StrToTimestamp(row[6]);
                 if (row[7] == "\\N") 
                     i->second->fork = Project::NO_FORK;
                 else
@@ -215,7 +215,7 @@ namespace dejavu {
         settings.parse(argc, argv);
         settings.check();
         // import the projects
-        Project::ImportFrom(DataRoot.value() + InputDir.value() + "/projects.csv");
+        Project::ImportFrom(DataRoot.value() + InputDir.value() + "/projects.csv", false);
         // now read the ghtorrent stuffs and load the 
         std::unordered_map<unsigned, unsigned> ghToOurs = GHProjectsReader::AddProjectExtras();
         GHTCommitsReader::CalculateAuthorsAndCommitters(ghToOurs);
