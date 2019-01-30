@@ -171,9 +171,10 @@ namespace dejavu {
         private:
             std::unordered_map<unsigned, ProjectInfo *> projectInfo_;
 
-
+        }; // ProjectInfo
             
-        }; 
+    } // anonymous namespace
+        
 
     void DetermineActiveProjects(int argc, char * argv[]) {
         settings.addOption(InputDir);
