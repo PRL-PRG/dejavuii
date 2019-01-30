@@ -146,7 +146,7 @@ hist(log10(commits$numProjects), breaks = 100)
 ```
 OK, this is as expected... 
 
-## Detecting snapshot originals
+## Detecting file hash originals
 
 For this, we use the `snapshot-originals` command. This takes the commits from previous step and snapshots and then determines for each snapshot things like its original commit, number of occurences and so on. 
 

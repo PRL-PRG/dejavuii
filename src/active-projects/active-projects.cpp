@@ -108,7 +108,7 @@ namespace dejavu {
 
             void sumSnapshotInfo() {
                 std::cerr << "Summarizing snapshot information..." << std::endl;
-                for (auto i : Snapshot::AllSnapshots()) {
+                for (auto i : FileHash::AllSnapshots()) {
                     ProjectInfo * pi = projectInfo_[Commit::Get(i.second->creatorCommit)->originalProject];
                     if (i.second->occurences == 1) {
                         ++pi->uniqueSnapshots;
@@ -185,7 +185,7 @@ namespace dejavu {
         // load the commits
         Commit::ImportFrom(DataRoot.value() + InputDir.value() + "/commits.csv", true);
         Project::ImportFrom(DataRoot.value() + InputDir.value() +"/projects.csv", true);
-        Snapshot::ImportFrom(DataRoot.value() + InputDir.value() + "/snapshots.csv", true);
+        FileHash::ImportFrom(DataRoot.value() + InputDir.value() + "/snapshots.csv", true);
 
         ProjectActivityCalculator c;
         c.sumProjectInfo();

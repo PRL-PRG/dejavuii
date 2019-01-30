@@ -131,7 +131,47 @@ namespace dejavu {
         
     }; // dejavu::Commit
 
-    /**
+
+    
+    // forward decl for folder - collection of path segments
+    class Folder;
+
+    /** Generic path segment.
+
+        Contains only a pointer to 
+
+     */
+    class PathSegment {
+    public:
+        Folder const * parent;
+    protected:
+    }; // dejavu::PathSegment
+
+
+
+    
+    /** File contains ordered set of commits which change it and the snapshots to which the file has been updated to.
+     */
+    class File : public PathSegment {
+    public:
+        /** Id of the path.
+         */
+        unsigned pathId;
+
+        
+    }; // dejavu File
+
+
+    
+    class Folder : public PathSegment {
+    public:
+    protected:
+        std::unordered_map<std::string, PathSegment *> children_;
+    }; // dejavu::Folder
+
+
+    
+    /** 
 
      */
     class Project : public Object {
@@ -241,6 +281,7 @@ namespace dejavu {
         unsigned authors;
         unsigned watchers;
 
+
     private:
 
         friend std::ostream & operator << (std::ostream & s, Project const & p) {
@@ -264,7 +305,6 @@ namespace dejavu {
         std::unordered_map<unsigned, Path*> paths_;
 
         static std::unordered_map<unsigned, Project *> projects_;
-        
         
     }; // dejavu::Project
 
@@ -323,7 +363,9 @@ namespace dejavu {
         
     }; // dejavu::Path
 
-    class Snapshot : public Object {
+    /** File hash represents unique contents of a file identified by its file hash (i.e. hash under which the contents is stored in github).
+     */
+    class FileHash : public Object {
     public:
 
         static constexpr unsigned DELETED = 0;
@@ -376,7 +418,7 @@ namespace dejavu {
             
         }; // Snapshot::Reader
         
-        Snapshot(unsigned id, std::string const & hash):
+        FileHash(unsigned id, std::string const & hash):
             Object(id),
             hash(hash),
             creatorCommit(0),
@@ -384,10 +426,10 @@ namespace dejavu {
             paths(0),
             commits(0),
             projects(0) {
-            assert(snapshots_.find(id) == snapshots_.end() && "Snapshot already exists");
-            snapshots_[id] = this;
+            assert(fileHashes_.find(id) == fileHashes_.end() && "Snapshot already exists");
+            fileHashes_[id] = this;
         }
-        Snapshot(unsigned id, std::string const & hash, unsigned creatorCommit, unsigned occurences, unsigned paths, unsigned commits, unsigned projects):
+        FileHash(unsigned id, std::string const & hash, unsigned creatorCommit, unsigned occurences, unsigned paths, unsigned commits, unsigned projects):
             Object(id),
             hash(hash),
             creatorCommit(creatorCommit),
@@ -395,20 +437,20 @@ namespace dejavu {
             paths(paths),
             commits(commits),
             projects(projects) {
-            assert(snapshots_.find(id) == snapshots_.end() && "Snapshot already exists");
-            snapshots_[id] = this;
+            assert(fileHashes_.find(id) == fileHashes_.end() && "Snapshot already exists");
+            fileHashes_[id] = this;
         }
 
-        static Snapshot * Get(unsigned id) {
+        static FileHash * Get(unsigned id) {
             if (id == 0)
                 return nullptr; // deleted snapshot
-            auto i = snapshots_.find(id);
-            assert(i != snapshots_.end() && "Unknown snapshot");
+            auto i = fileHashes_.find(id);
+            assert(i != fileHashes_.end() && "Unknown snapshot");
             return i->second;
         }
 
-        static std::unordered_map<unsigned, Snapshot *> const & AllSnapshots() {
-            return snapshots_;
+        static std::unordered_map<unsigned, FileHash *> const & AllSnapshots() {
+            return fileHashes_;
         }
         
         static void ImportFrom(std::string const & filename, bool headers);
@@ -418,7 +460,7 @@ namespace dejavu {
             if (! s.good())
                 ERROR("Unable to open file " << filename << " for writing");
             s << "id,hash,creatorCommit,occurences,paths,commits,projects" << std::endl;    
-            for (auto i : snapshots_)
+            for (auto i : fileHashes_)
                 s << * (i.second) << std::endl;
         }
         
@@ -432,38 +474,14 @@ namespace dejavu {
 
     private:
 
-        friend std::ostream & operator << (std::ostream & o, Snapshot const & s) {
+        friend std::ostream & operator << (std::ostream & o, FileHash const & s) {
             o << s.id << "," << s.hash << "," << s.creatorCommit << "," << s.occurences << "," << s.paths << "," << s.commits << "," << s.projects << std::endl;
             return o;
         }
 
-        static std::unordered_map<unsigned, Snapshot *> snapshots_;
+        static std::unordered_map<unsigned, FileHash *> fileHashes_;
         
     }; // dejavu::Snapshot
-
-
-
-    class Folder;
-
-    class PathSegment {
-    public:
-        std::string const name;
-        Folder const * parent;
-    protected:
-    }; // dejavu::PathSegment
-
-    class File : public PathSegment {
-        
-    }; // dejavu File
-
-
-    
-    class Folder : public PathSegment {
-    public:
-    protected:
-        std::unordered_map<std::string, PathSegment *> children_;
-    }; // dejavu::Folder
-
 
 
     class FileRecord {
@@ -482,17 +500,17 @@ namespace dejavu {
             
         protected:
 
-            virtual void onRow(unsigned projectId, unsigned pathId, unsigned snapshotId, unsigned commitId) = 0;
+            virtual void onRow(unsigned projectId, unsigned pathId, unsigned fileHashId, unsigned commitId) = 0;
             virtual void onDone(size_t numRows) { }
 
             void row(std::vector<std::string> & row) override {
                 assert(row.size() ==  4 && "Invalid file row length");
                 unsigned projectId = std::stoul(row[0]);
                 unsigned pathId = std::stoul(row[1]);
-                unsigned snapshotId = std::stoul(row[2]);
+                unsigned fileHashId = std::stoul(row[2]);
                 unsigned commitId = std::stoul(row[3]);
                 ++numRecords_;
-                onRow(projectId, pathId, snapshotId, commitId);
+                onRow(projectId, pathId, fileHashId, commitId);
             }
 
         
