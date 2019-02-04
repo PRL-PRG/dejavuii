@@ -1,97 +1,170 @@
+> Note that the information below has nothing to deal with the actual implementation or with how we store the data. 
+
+# Terminology
+
+A **path segment** is name of directory or file. Empty path segment is empty string.
+
+Path segments can be joined together using the `/` operator. If either the lhs or rhs of the `/` is the empty path segment, then the result is the other operand.
+
+A **path** is either empty path segment, or arbitrary number of path segments joined using `/`.
+
+A **file path** is path in the form of `{ directory '/' } file`.
+
+A **directory path** is path in the form of `directory { '/' directory }`. Directory path is also an empty path segment itself.
+
+All paths are relative to the root of the repository they are being applied to.
+
+> In english, we use paths in much the same way OS uses them. We join paths together using `/`. All paths are relative to the repo root and they do not have the initial `/`. Joining paths produces the logical outcome.
+
+A **repository** is identified by `(U, P, C)` where:
+
+- `U` is the name of github user who owns the project
+- `P` is the name of the project
+- `C` is set of all commits of the repository
+
+Repository is uniquely identified by the user and project names. 
+
+> The repository is basically a github repository. In theory this can be extended to other sources easily. 
+
+A **file** is identified by `(R, P)` where:
+
+- `R` is a repository
+- `P` is a file path
+
+> File is identified by the project and file path in the project. Note that two different contents of the file are still the same file, even if the file gets deleted and then inserted again, it is still the same file.
+
+A **commit** is `(H, T, C)` where:
+
+- `H` is the hash (id) of the commit
+- `T` is the time of the commit (git determines between author and commit times, for now we use author times everywhere)
+- `C` is the list of changes the commit has made.
+
+Each change is identified by `(FP, FH)` where `FP` is file path and `FH` is hash of the contents to which the commit changes file at given path. If the file is deleted, `FH` is `0`.
+
+The commit is uniquely identified by its hash. 
+
+> Commit is git commit.
+
+# Functions
+
+## files(P, T, D = "")
+
+For project `P`, time `T` and directory path `D`, returns for each file path `FP` that is in the form of `D / Fx` that has in project `P` at time `T` file hash `FH` that is not `0` the tuple `(FP, FH)`. If the `D` argument is missing in defaults to empty directory and the function returns the state of *all* files of the project `P` alive at `T`.
+
+## commit(P, FP, T)
+
+For given project `P`, file path `FP` and time `T` returns the youngest commit before `T` that changed `FP` in `A`.
+
+> I.e. returns the commit responsible for the contents of `FP` observed at `T`.
+
+## changes(P, FP, T = Inf)
+
+For each commit `C` that changed file path `FP` in project `P` to hash `FH` before time `T` returns tuple `(C, FH)`.
+
+## contents(P, FP, T)
+
+For given project, file path and time returns the file hash of the contents of the file at the specified time. 
+
 # Clones
 
-# Definitions
+For all the clone relationship we assume to have two projects - `A` which contains the clone and `B` which contains the source. Furthermore we expect two times `Ta` and `Tb` such that `Ta >= Tb` so that we can say that project `A` at time `Ta` contained the clone in question from project `B` as it appeared at time `Tb`
 
+We expect times `Ta` and `Tb` for each relation to be minimal, i.e. all other things being same, if there are multiple possible values for `Ta` and `Tb` that would satisfy the relation, we will always choose the smallest `Ta` and `Tb`.
 
-### Clone
+## Directory Clone
 
-At least two elements that are identical (but possibly more) are called clones. Note that the cloning relationship does not care about which element is the original and which ones are the copies. 
+`A` contains clone of directory `Db` in `B` if there is directory `Da` such that:
 
-### Project 
+- `FilesA` = `files(A, Ta, Da)` and `FilesB` = `files(B, Tb, Db)`, both `FilesA` and `FilesB` are not empty
+- for each `(Db / FP, FH)` from `FilesB` there exists `(Da / FP, FH)` in `FilesA`
+- size of `FilesA` == size of `FilesB`
 
-Single git repository, identified by its owner and repo name.
+If `Db` is empty path then `A` contains *project* clone of `B`.
 
-### Commit
+The directory clone is identified by `(A, B, Da, Db, Ta, Tb)`.
 
-Commit in git identified by its hash. Each commit must belong to at least one project. If a commit belongs to multiple projects, then these projects are clones.
+> In plain english, if some folder in `A` at time `Ta` has the same contents as some folder of `B` at time `Tb` then `A` contains the directory clone of that dir in `B`. If the dir in `B` is empty, that means entire project `B` has been clone and we call this *project clone* instead.
 
-### File Path
+For a directory clone `DC` defined as above, the following properties can be calculated:
 
-File path is a location of file within a project. We can say that file path is at a tuple `(T, H)` where `T` is time and `H` is file hash if  at the specified time `T` the file path has contents of file hash `H`. Any file path that does not exist in given project at the time has implicitly file hash of `0` (deleted).
+- `age(DC)` = max of size of `changes(A, FP, Ta)` for each `(FP, FH)` from `FilesA` (where `FP` is file path and `FH` is file hash)
 
-File path can be separated into folders and the file (last path element), folders and filenames are joined using `/` (like `os.path.join`, i.e. it deals with corner cases such if lhs or rhs is empty the result is the other part and so on). In order for the algorithms below to work we should also say that all file Paths never start with `/`, but we expect them to all start from root folders of their projects.
+> The maximal number of changes to file cloned from `B` observed in `A` before the clone relationship could have been established. Generally if this number is high, it lowers the likelihood that we are really seeing clone of `B` because the affected files of `A` had their own life in `A` before. 
 
-### File Hash
+- `commits(DC)` = set of `commit(A, FP, Ta)` for each `(FP, FH)` from `FilesA` (== the commits required to create the clone in `A`)
 
-Unique identifier of the contents of any file.
+> The number of commits required to create the situation in `A` so that the folder `D` contained a clone from `B`, in other words in how many commits was the contents from `B` brought to `A`.
 
-### File Change
+- `effectA(DC)` = number of files in `FilesA` / number of files in `files(A, Ta)`
 
-Given project `P`, commit `C`, file path `F` and hash `H`, the tuple `(P,C,F,H)` is a file change with the meaning that commit `C` changes contents of file at path `F` to contents identified by hash `H` in project `P`.
+> I.e. the fraction of project `A` that belonged to the project clone at the time the project clone was established.
 
-# Clones
+- `effectB(DC)` = number of files in `FilesB` / number of files in `files(B, Ta)`
 
-Different granularity of clones can be expressed:
+> I.e. the fraction of project `B` that belonged to the project clone at the time the clone was established. For project clones, `effectB` must be equal to `1`.
 
-## Project Clone
+**TODO**: I would like a metric of "how clean" the creation of the clone was, the `commits(PC)` is first step, but this can be better, such as: were other files affected when the clone was copied to `A` in the same commits, or even if there were commits to completely different files in the project while the clone was being built. 
 
-Project clone happens if entire project is cloned into a directory of another project. More formally we can say that:
+## Subtree Clone
 
-Given two projects `A` and `B`, `A` contains project clone of `B` if there are times `Ta` and `Tb` such that `Ta >= Tb` and directory `Da` in project `A` so that for every file path `Fb` at `(Tb, Hb)` there exists `Fa` at `(Ta, Ha)` where `Ha == Hb` and `Fa` == `Da / Fb` and there are no other file paths in `Da`.
+The subtree clone corresponds to a situation where folder from `B` is cloned in `A`, but not entirely, some subfolders are missing.
 
-Furthermore both `Ta` and `Tb` must be minimal times such that the relation above holds.
+`A` contains subtree clone of directory `Db` in `B` iff:
 
-> I require this mostly because for each two projects there may be different times ta and tb at which the project clone relation holds. In this case i am only interested in the earliest such occurence. An example would be: At time t2, A clones B (as of time t0). Then at time t2 B moves to B' and at t3 A moves to A' (which contains B'). t0 < t1 < t2 < t3. So times (t1, t0) and (t3, t2) both satisfy the definition above, but I only want to report the first.
+- `FilesA` = `files(A, Ta, Da)` and `FilesB` = `files(B, Tb, Db)`, both `FilesA` and `FilesB` are not empty
+- for each directory `Fd` such that `Db / Fd` is a directory in `FilesB` with at least one file:
+- either there is no file `F` such that `Da / Fd / F` that exists in both `FilesA` and `FilesB`
+- or for all files `F` such that `(Db / Fd / F, FH)` is in `FilesB`, there exists `(Da / Fd / F, FH)` in `FilesA`
 
-Folder clones can be characterized by the following properties:
+Subtree clones (`SC`) can have all the properties of folder clones plus the following:
 
-- maximum number of changes to a file belonging to the project clone from project `A` before the project clone status could be established (from the beginning, or deletion of the file). 
-- number of commits required to establish the clone relationship (i.e. how many commits were required to update the files to the required hashes)
-- number of commits from the first required to the last required (similar to above, but counting also commits that changed only files outside of the project clone folder).
-- percentage of files in `A` at `Ta` which belong to the project clone 
+- `clonedDirRatio(SC)` is the number of unique directories with at least one file in `FilesA` / number of unique directories with at least one file in `FilesB`
+- `clonedFilesRatio(SC)` is the number of `FilesA` / number of files in `FilesB`
 
-> We can make tuple of these numbers and say for instance that we are only interested in project clones `(0, 1, 1)`, which means that none of the affected files existed in the project before the clone and the whole project was cloned in one commit.
+## Partial Clone
 
-## Folder clone
+Partial clone corresponds to a situation where folder `B` is cloned in `A`, but some files are missing and these missing files are not localized into directories.
 
-> This is what shabbir called import clone. 
+`A` contains partial clone of directory `Db` in project `B` iff:
 
-Folder clone happens if a folder from from project `B` has a clone in project `A`. More formally:
+- `FilesA` = `files(A, Ta, Da)` and `FilesB` = `files(B, Tb, Db)`, both `FilesA` and `FilesB` are not empty
+- for each file  `(Da / F, FH)` from `FilesA` there is `(Db / F, FH)` in `FilesB`
 
-Given two projects `A` and `B` and two directories `Da` and `Db`, if there are times `Ta` and `Tb` such that `Ta >= Tb` so that for every file path `Db/Fb` at `(Tb, Hb)` there is file path `Da/Fa` at `(Ta, Ha)` such that `Ha == Hb` and `Fa == Fb` and there are no other file paths in `Da`.
+Partial clones (`PC`) can be characterized by the same properties as subtree clones.
 
-Furthermore both `Ta` and `Tb` must be minimal times such that the relation above holds.
+> Perhaps knowing how far away from a subtree the partial clone is will be useful, depending on how many of these we'll see. 
 
-The same properties that apply for the project clones applies for the folder clones, we can also specify:
+## File Clone
 
-- percentage of files in `B` at `Tb` which belong to the clone
+The simplest case where only a single fil is cloned.
 
-## Project Subtree Clone
+`A` contains clone of file path `FPb` of `B` if there exists file path `FPa` such that `contents(A, FPa, Ta)` == `contents(B, FPb, Tb)`.
 
-Project subtree clone happens when project `A` contains clone of `B` with some directories of `B` removed in their entirety. 
+## Hierarchy of clones
 
+- file clone is the smallest possible partial clone (of one file only)
+- subtree clone is special class of partial clone
+- directory clone is subtree clone where no files are missing
+- project clone is a directory clone where `Db` is empty
 
-## Folder Subtree clone
+# Determining Originals
 
-Folder subtree clone happens when project `A` contains clone of directory in `B`, but some subfolders of the directory are missing (again whole subfolders).
+Let `FilesA` be `files(A, Da, Ta)`, i.e. the cloned files in project `A`. For each `B`,`Db` and `Tb` such that `(A, B, Da, Db, Ta, Tb)` is a partial clone, original is such `B` and `Db` for which the corresponding `Tb` is the smallest.
 
-## Partial Project Clone
+> Perhaps interestingly, originals only concern with the files present and the oldest time these were seen together.
 
-Partial project clone is `A` contains `B`, but some files are missing (i.e. files are cherrypicked to be included/excluded, while the subtree clones use whole folders). 
+# Nested Clones
 
-## Partial Folder Clone
+Nested clones happen when there is a big folder that seems to be cloned, but it is in fact two or more smaller folders that just happen to be often cloned together.
 
-Partial folder clone is like the project clone. 
+> How to determine these? Perhaps by using the effectB? The greater the `effectB` the better the clone? (effectB * clonedFilesRatio). Also it is rather hard to determine how this happened, i.e. was it that the smaller clones are really what happened, or is it that they were put together first and then the whole thing copied?
 
-## File clone
-
-This is easy.
-
+> Another way is saying that the split in nested clones happens by taking file and growing around it for as long as the original remains the same project and directory (and time, sort of)
 
 # TODO
 
-- how to determine the originals of the respective categories
 - what if the project containing the clone has some extra stuff in as well ? This can be for most of the categories.
+- how to update the definitions so that we do not get swamped by stuff like partial clones with 2 files, etc. 
 
 
 
