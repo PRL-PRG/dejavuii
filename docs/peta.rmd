@@ -146,7 +146,7 @@ hist(log10(commits$numProjects), breaks = 100)
 ```
 OK, this is as expected... 
 
-## Detecting snapshot originals
+## Detecting file hash originals
 
 For this, we use the `snapshot-originals` command. This takes the commits from previous step and snapshots and then determines for each snapshot things like its original commit, number of occurences and so on. 
 
@@ -195,6 +195,7 @@ An interresting project is a project that has at least one of the following:
 
 The criteria above should provide us with an overapproximation, i.e. some of the selected projects are likely to be pretty boring, but we should not skip any interesting project. 
 
+    peta@prl1e:~/devel/dejavuii/build$ time ./dejavu interesting-projects
     OH HAI!
     CAN I HAZ STUFFZ?
     I CAN HAZ interesting-projects NAO:
@@ -213,9 +214,9 @@ The criteria above should provide us with an overapproximation, i.e. some of the
      Writing results...
     KTHXBYE!
     
-    real    39m44.553s
-    user    35m51.339s
-    sys     3m53.039s
+    real    38m18.928s
+    user    35m11.200s
+    sys     3m7.548s
 
 ```{r}
 projects = read.csv("/data/dejavuii/data/filtered/projects-interesting.csv")
@@ -242,35 +243,48 @@ And get summaries for some overview:
 summary(projects)
 ```
 
-```{r}
-sum(projects$firstCommit == projects$lastCommit)
-```
-
-
-Now we can try different metrics for interesting projects. From Jan's email yesterday - project duration over 365 days and # of commits 
-
-
-
-
-
-
-First import the `csv` file containing the information about orginality and copies of the files (this is produced by the `calculate-originals` command). Note that this takes *a lot* of time and *a lot* of memory. 
+OK, this looks reasonable to be on the first glance. The duration gets super super big a few times, but that is most likely because of a few commits having time of 0 in the original dataset. The median and 3rd quartile look decent. 
 
 ```{r}
-originality = read.csv("/data/dejavuii/data/processed/snapshots-originality.csv", header = F, col.names = c("id", "occurences", "paths", "commits", "time"))
+hist(log10(projects$duration), breaks = 100)
 ```
+Yeah... Note its in days...
 
-Do some summaries:
+Now we can try different metrics for interesting projects. From Jan's email yesterday - project duration over 365 days and # of commits greater than 20:
 
 ```{r}
-summary(originality$occurences)
-summary(originality$paths)
-summary(originality$commits)
+sum(projects$duration > 365 & projects$commits >= 20)
 ```
 
-And some printing, when we get to it:
+Let's see if we add projects with any original content to this lot:
+
+```{r}
+sum((projects$duration > 365 & projects$commits >= 20) | projects$originalCommits > 0 | projects$originalSnapshots > 0)
+```
+
+Hm... this is much more projects than I would have guessed. Let's add to it also projects that contain unique contents: 
+
+```{r}
+sum((projects$duration > 365 & projects$commits >= 20) | projects$originalCommits > 0 | projects$originalSnapshots > 0 | projects$uniqueCommits > 0 | projects$uniqueSnapshots > 0)
+```
+
+That's almost all projects...
+
+Different way: How many projects we need if we want to see all original commits:
+
+```{r}
+sum(projects$originalCommits > 0)
+```
+
+If we add files to it, it grows back to the 900k projects. This is expected - commits should be only rarely shared:
+
+```{r}
+sum(projects$originalCommits > 0 | projects$originalSnapshots > 0)
+```
 
 ```{r}
 library(hexbin)
-plot(hexbin(log10(originality$paths[originality$occurences > 1]), log10(originality$occurences[originality$occurences > 1])), xlab = "paths", ylab = "occurences")
+plot(hexbin(x = projects$originalSnapshots / projects$snapshots, y = (projects$originalCommits + projects$uniqueCommits) / projects$commits))
 ```
+
+

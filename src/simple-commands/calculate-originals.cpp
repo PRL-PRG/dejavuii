@@ -26,7 +26,7 @@ namespace dejavu {
                 creatorCommits(0) {
             }
 
-            void update(unsigned snapshotId, unsigned commitId, unsigned pathId) {
+            void update(unsigned fileHashId, unsigned commitId, unsigned pathId) {
                 ++occurences;
                 paths.insert(pathId);
                 commits.insert(commitId);
@@ -49,10 +49,10 @@ namespace dejavu {
         class Originals : public FileRecord::Reader {
         public:
         protected:
-            void onRow(unsigned projectId, unsigned pathId, unsigned snapshotId, unsigned commitId) override {
-                if (snapshotId != Snapshot::DELETED) {
-                    assert(Snapshot::Get(snapshotId) != nullptr);
-                    originals_[snapshotId].update(snapshotId, commitId, pathId);
+            void onRow(unsigned projectId, unsigned pathId, unsigned fileHashId, unsigned commitId) override {
+                if (fileHashId != FileHash::DELETED) {
+                    assert(FileHash::Get(fileHashId) != nullptr);
+                    originals_[fileHashId].update(fileHashId, commitId, pathId);
                 }
             }
 
@@ -65,7 +65,7 @@ namespace dejavu {
                 std::cerr << "Snapshots analyzed:     " << originals_.size() << std::endl;
                 // update the snapshots
                 for (auto i : originals_) {
-                    Snapshot * s = Snapshot::Get(i.first);
+                    FileHash * s = FileHash::Get(i.first);
                     assert(s != nullptr && "All snapshots should be accounted for");
                     s->creatorCommit = i.second.creator->id;
                     s->occurences = i.second.occurences;
@@ -97,7 +97,7 @@ namespace dejavu {
         // std::string snapshotsInput = STR(DataRoot.value() << InputDir.value() << "/fileHashes.csv");
         // first import the commits we'll need to determine the originals
         std::string snapshotsInput = STR(DataRoot.value() << InputDir.value() << "/fileHashes.csv");
-        Snapshot::ImportFrom(snapshotsInput, false);
+        FileHash::ImportFrom(snapshotsInput, false);
 
         std::string commitsInput = STR(DataRoot.value() << OutputDir.value() << "/commits.csv");
         Commit::ImportFrom(commitsInput, true);
@@ -109,7 +109,7 @@ namespace dejavu {
 
         // finally save the data
         std::string outputFile = STR(DataRoot.value() << OutputDir.value() << "/snapshots.csv");
-        Snapshot::SaveAll(outputFile);
+        FileHash::SaveAll(outputFile);
     }
     
 } // namespace dejavu

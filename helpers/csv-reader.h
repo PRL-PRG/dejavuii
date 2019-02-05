@@ -53,6 +53,9 @@ namespace helpers {
                             headers = false;
                         } else {
                             row(row_);
+                            if (lineNum_ % 1000 == 0) {
+                                std::cout << " : " << lineNum_ << "k\r" << std::flush;
+                            }
                         }
                         row_.clear();
                     }

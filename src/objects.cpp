@@ -44,13 +44,13 @@ namespace dejavu {
             }
         }; // PathsLoader
 
-        class SnapshotsLoader : public Snapshot::Reader {
+        class FileHashesLoader : public FileHash::Reader {
         protected:
             void onRow(unsigned id, std::string const & hash) override {
-                new Snapshot(id, hash);
+                new FileHash(id, hash);
             }
             void onRow(unsigned id, std::string const & hash, unsigned creatorCommit, unsigned occurences, unsigned paths, unsigned commits, unsigned projects) override {
-                new Snapshot(id, hash, creatorCommit, occurences, paths, commits, projects);
+                new FileHash(id, hash, creatorCommit, occurences, paths, commits, projects);
             }
         }; // SnapshotsLoader
 
@@ -59,8 +59,8 @@ namespace dejavu {
     std::unordered_map<unsigned, Commit *> Commit::commits_;
     std::unordered_map<unsigned, Project *> Project::projects_;
     std::unordered_map<unsigned, Path *> Path::paths_;
-    std::unordered_map<unsigned, Snapshot *> Snapshot::snapshots_;
     std::set<std::string> Hash::hashes_;
+    std::unordered_map<unsigned, FileHash *> FileHash::fileHashes_;
 
 
     void Hash::ImportFrom(std::string const & filename, bool headers, unsigned int column) {
@@ -91,9 +91,9 @@ namespace dejavu {
         std::cerr << "Total number of paths " << numRows << std::endl;
     }
 
-    void Snapshot::ImportFrom(std::string const & filename, bool headers) {
+    void FileHash::ImportFrom(std::string const & filename, bool headers) {
         std::cerr << "Importing from file " << filename << std::endl;
-        SnapshotsLoader l;
+        FileHashesLoader l;
         size_t numRows = l.readFile(filename, headers);
         std::cerr << "Total number of snapshots " << numRows << std::endl;
     }
