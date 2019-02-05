@@ -6,6 +6,14 @@ namespace dejavu {
 
     namespace {
 
+        class HashLoader : public Hash::Reader {
+        protected:
+            void onRow(std::string const & hash) override {
+                //new dejavu::Hash(hash);
+                Hash::Register(hash);
+            }
+        }; // HashLoader
+
         class CommitsLoader : public Commit::Reader {
         protected:
             void onRow(unsigned id, std::string const & hash, uint64_t time) override {
@@ -52,7 +60,15 @@ namespace dejavu {
     std::unordered_map<unsigned, Project *> Project::projects_;
     std::unordered_map<unsigned, Path *> Path::paths_;
     std::unordered_map<unsigned, Snapshot *> Snapshot::snapshots_;
+    std::set<std::string> Hash::hashes_;
 
+
+    void Hash::ImportFrom(std::string const & filename, bool headers, unsigned int column) {
+        std::cerr << "Importing from file " << filename << std::endl;
+        HashLoader l;
+        size_t numRows = l.readFile(filename, headers, column);
+        std::cerr << "Total number of hashes " << numRows << std::endl;
+    }
 
     void Commit::ImportFrom(std::string const & filename, bool headers) {
         std::cerr << "Importing from file " << filename << std::endl;

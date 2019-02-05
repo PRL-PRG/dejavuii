@@ -19,6 +19,7 @@
 #include "shared-mem/shared-mem.h"
 #include "commit-order/commit-order.h"
 #include "active-projects/active-projects.h"
+#include "selective-commit-network/selective-commit-network.h"
 
 
 
@@ -62,6 +63,7 @@ void InitializeCommands() {
     AddCommand("interesting-projects", DetermineActiveProjects, "Determine which projects are, or were active for long enough time, or which are interesting for the clone analysis");
     AddCommand("project-extras", ProjectCreationDates, "Adds extra information to projects from GHTorrent.");
     AddCommand("commit-originals", CommitOriginals, "For each commit, determines project that created it");
+    AddCommand("selective-commit-network", SelectiveCommitNetwork, "For each project, removes commits from a commit graph according to a specified list, re-writes edges to preserve 'causality'");
 }
 
 /** A half decent main function.
