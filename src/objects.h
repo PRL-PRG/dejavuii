@@ -52,7 +52,7 @@ namespace dejavu {
             virtual void onDone(size_t numRows) { }
 
             void row(std::vector<std::string> & row) override {
-                assert((row.size() <= column_) && ("Invalid row: no column with index " + column_));
+                assert((row.size() >= column_) && ("Invalid row: no column with index " + column_));
                 std::string hash = row[column_];
                 ++numRows_;
                 onRow(hash);

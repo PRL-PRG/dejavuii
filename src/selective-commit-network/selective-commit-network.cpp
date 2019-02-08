@@ -50,7 +50,7 @@ namespace dejavu {
 
         void row(std::vector<std::string> &row) override {
 
-            assert(row.size() > 3 && "Unknown commit data format: invalid number of fields.");
+            //assert(row.size() > 3 && "Unknown commit data format: invalid number of fields.");
 
             const std::string hash = row[0];
 
@@ -109,11 +109,18 @@ namespace dejavu {
 
         void onProject(unsigned int project_id) override {
 
+            assert(edges.find(project_id) == edges.end());
+
+            std::list<Edge> * edge_list = new std::list<Edge>();
+
+            std::cerr << "Processing commit graph for project " << project_id << std::endl;
+            std::cerr << "No. input edges " << n_input_edges << std::endl;
+
             // Step 3
             for (auto it = temporary_edge_list.begin(); it != temporary_edge_list.end();) {
 
                 if (it->target_selected) {
-                    edges.push_back(it->edge);
+                    edge_list.push_back(it->edge);
                     temporary_edge_list.erase(it++);
                     continue;
                 }
@@ -133,15 +140,43 @@ namespace dejavu {
 
                 temporary_edge_list.erase(it++);
             }
+
+            std::cerr << "Done processing commit graph for project " << project_id << std::endl;
+            std::cerr << "No. output edges " << edges.size() << std::endl;
+
+            edges[project_id] = edge_list;
+
+            // Cleanup
+            n_input_edges = 0;
         }
 
-        std::list<Edge> edges;
+        void saveAll(std::string const &filename) {
+            std::ofstream s(filename);
+            if (! s.good())
+                ERROR("Unable to open file " << filename << " for writing");
+            int written_lines = 0;
+            s << "project_id,hash,parent_hash" << std::endl;
+            for (auto project_graph : edges) {
+                unsigned int project_id = project_graph.first;
+                std::list<Edge> *edge_list = project_graph.second;
+                for (auto edge : *edge_list) {
+                    s << project_id << "," << edge.source << "," << edge.target << std::endl;
+                    written_lines++;
+                }
+            }
+            std::cerr << "Written " << written_lines << " lines to file \"" << filename << "\"" << std::endl;
+        }
+
+        std::unordered_map<unsigned int, std::list<Edge> *> edges;
 
     private:
         //std::unordered_map<std::string const, std::vector<std::string const>> input_incidence_list;
         std::unordered_map<std::string, std::vector<std::string>> target_substitution_index;
         std::list<EdgeMeta> temporary_edge_list;
         std::function<bool(std::string const)> is_node_selected;
+
+        // auxilia
+        int n_input_edges = 0;
     };
 
     void SelectiveCommitNetwork(int argc, char *argv[]) {
@@ -162,7 +197,7 @@ namespace dejavu {
             return true;
         });
         chs.readFile(DataRoot.value() + CommitsDir.value() + "/files.csv");
-        //Commit::SaveAll(DataRoot.value() + OutputDir.value() + "/commits.csv");
+        chs.saveAll(DataRoot.value() + OutputDir.value() + "/selective-commit_network.csv");
     }
 
 } // namespace dejavu

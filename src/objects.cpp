@@ -62,7 +62,6 @@ namespace dejavu {
     std::set<std::string> Hash::hashes_;
     std::unordered_map<unsigned, FileHash *> FileHash::fileHashes_;
 
-
     void Hash::ImportFrom(std::string const & filename, bool headers, unsigned int column) {
         std::cerr << "Importing from file " << filename << std::endl;
         HashLoader l;
