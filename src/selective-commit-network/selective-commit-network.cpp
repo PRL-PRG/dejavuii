@@ -193,7 +193,7 @@ namespace dejavu {
         settings.check();
 
         // Import commits. This will create the set used for selection.
-        Hash::ImportFrom(DataRoot.value() + CommitsDir.value() + "/commits.csv", false, 1);
+        //Hash::ImportFrom(DataRoot.value() + CommitsDir.value() + "/commits.csv", false, 1);
 
         CommitHistorySelection chs([](std::string const hash){
             //Hash::
