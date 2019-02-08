@@ -50,7 +50,7 @@ namespace dejavu {
 
         void row(std::vector<std::string> &row) override {
 
-            //assert(row.size() > 3 && "Unknown commit data format: invalid number of fields.");
+            assert(row.size() > 3 && "Unknown commit data format: invalid number of fields.");
 
             const std::string hash = row[0];
 
@@ -196,7 +196,7 @@ namespace dejavu {
             //Hash::
             return true;
         });
-        chs.readFile(DataRoot.value() + CommitsDir.value() + "/files.csv");
+        chs.readFile(DataRoot.value() + CommitsDir.value() + "/commit_history.txt");
         chs.saveAll(DataRoot.value() + OutputDir.value() + "/selective-commit_network.csv");
     }
 
