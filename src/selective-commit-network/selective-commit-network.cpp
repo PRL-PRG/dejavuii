@@ -90,6 +90,23 @@ namespace dejavu {
     public:
         CommitHistorySelection(std::function<bool(std::string const)> node_filter) : is_node_selected(node_filter) {}
 
+        void saveAll(std::string const &filename) {
+            std::ofstream s(filename);
+            if (! s.good())
+                ERROR("Unable to open file " << filename << " for writing");
+            int written_lines = 0;
+            s << "project_id,hash,parent_hash" << std::endl;
+            for (auto project_graph : edges) {
+                unsigned int project_id = project_graph.first;
+                std::list<Edge> *edge_list = project_graph.second;
+                for (auto edge : *edge_list) {
+                    s << project_id << "," << edge.source << "," << edge.target << std::endl;
+                    written_lines++;
+                }
+            }
+            std::cerr << "Written " << written_lines << " lines to file \"" << filename << "\"" << std::endl;
+        }
+
     protected:
         void onCommit(std::string hash, std::vector<std::string> parent_list) override {
             if (!is_node_selected(hash)) {
@@ -120,7 +137,7 @@ namespace dejavu {
             for (auto it = temporary_edge_list.begin(); it != temporary_edge_list.end();) {
 
                 if (it->target_selected) {
-                    edge_list.push_back(it->edge);
+                    edge_list->push_back(it->edge);
                     temporary_edge_list.erase(it++);
                     continue;
                 }
@@ -148,23 +165,6 @@ namespace dejavu {
 
             // Cleanup
             n_input_edges = 0;
-        }
-
-        void saveAll(std::string const &filename) {
-            std::ofstream s(filename);
-            if (! s.good())
-                ERROR("Unable to open file " << filename << " for writing");
-            int written_lines = 0;
-            s << "project_id,hash,parent_hash" << std::endl;
-            for (auto project_graph : edges) {
-                unsigned int project_id = project_graph.first;
-                std::list<Edge> *edge_list = project_graph.second;
-                for (auto edge : *edge_list) {
-                    s << project_id << "," << edge.source << "," << edge.target << std::endl;
-                    written_lines++;
-                }
-            }
-            std::cerr << "Written " << written_lines << " lines to file \"" << filename << "\"" << std::endl;
         }
 
         std::unordered_map<unsigned int, std::list<Edge> *> edges;
