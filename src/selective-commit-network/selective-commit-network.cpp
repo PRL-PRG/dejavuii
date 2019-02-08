@@ -200,12 +200,11 @@ namespace dejavu {
         settings.check();
 
         // Import commits. This will create the set used for selection.
-        //Hash::ImportFrom(DataRoot.value() + CommitsDir.value() + "/commits.csv", false, 1);
+        Hash::ImportFrom(DataRoot.value() + CommitsDir.value() + "/commits.csv", false, 1);
 
-        CommitHistorySelection chs([](std::string const hash){
-            //Hash::
-            return true;
-        });
+        // Import commit history and sleect only those that are already in the commits. Re-route the edges
+        // appropriately.
+        CommitHistorySelection chs(Hash::Exists);
         chs.readFile(DataRoot.value() + CommitsDir.value() + "/commit-history.txt");
         chs.saveAll(DataRoot.value() + OutputDir.value() + "/selective-commit-network.csv");
     }
