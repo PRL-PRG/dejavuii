@@ -197,7 +197,7 @@ namespace dejavu {
             return true;
         });
         chs.readFile(DataRoot.value() + CommitsDir.value() + "/commit_history.txt");
-        chs.saveAll(DataRoot.value() + OutputDir.value() + "/selective-commit_network.csv");
+        chs.saveAll(DataRoot.value() + OutputDir.value() + "/selective-commit-network.csv");
     }
 
 } // namespace dejavu
