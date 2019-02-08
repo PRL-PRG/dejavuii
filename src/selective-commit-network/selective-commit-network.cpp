@@ -30,8 +30,11 @@ namespace dejavu {
     class CommitHistoryLoader : helpers::SectionedTextFileReader {
     public:
         size_t readFile(std::string const &filename) {
+            std::cerr << "Importing from file " << filename << std::endl;
             first_project_ = true;
-            return parse(filename);
+            size_t rows = parse(filename);
+            std::cerr << "Total number of commits " << rows << std::endl;
+            return rows;
         }
 
     protected:
