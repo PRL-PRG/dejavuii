@@ -33,6 +33,7 @@ namespace helpers {
         size_t parse(std::string const & filename) {
 
             unsigned int n_lines = 0;
+            unsigned int n_sections = 0;
             std::ifstream f = std::ifstream(filename, std::ios::in);
 
             while(!f.eof()) {
@@ -46,9 +47,13 @@ namespace helpers {
                     if (words[0][0] == section_start_) {
                         // If the line starts with #, it's a section header.
                         section_header(words);
+                        n_sections++;
                     } else {
                         // Otherwise, it's an ordinary line.
                         row(words);
+                        if (n_lines % 1000 == 0) {
+                            std::cout << " : " << n_sections << ":" << n_lines << "k\r" << std::flush;
+                        }
                     }
                 }
             }
