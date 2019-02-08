@@ -53,9 +53,9 @@ namespace helpers {
                         row(words);
                     }
 
-                    if (n_lines % 1000 == 0) {
-                        std::cout << " : " << n_sections << ":" << n_lines << "k\r" << std::flush;
-                    }
+                    //if (n_lines % 1000 == 0) {
+                    //    std::cout << " : " << n_sections << ":" << n_lines << "k\r" << std::flush;
+                    //}
                 }
             }
 

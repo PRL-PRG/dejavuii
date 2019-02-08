@@ -125,6 +125,7 @@ namespace dejavu {
                     temporary_edge_list.push_back(edge);
                 }
             }
+            n_input_edges++;
         }
 
         void onProject(unsigned int project_id) override {
@@ -133,8 +134,10 @@ namespace dejavu {
 
             std::list<Edge> * edge_list = new std::list<Edge>();
 
-            std::cerr << "Processing commit graph for project " << project_id << std::endl;
-            std::cerr << "No. input edges " << n_input_edges << std::endl;
+            //std::cerr << " : processing project " << project_id << "  " 
+            //          << "(" << n_input_edges << " -> " << "?" << ") ; "
+            //          << "finished " << edges.size() << " projects."
+            //          << "                                      \r" << std::flush;
 
             // Step 3
             for (auto it = temporary_edge_list.begin(); it != temporary_edge_list.end();) {
@@ -161,8 +164,12 @@ namespace dejavu {
                 temporary_edge_list.erase(it++);
             }
 
-            std::cerr << "Done processing commit graph for project " << project_id << std::endl;
-            std::cerr << "No. output edges " << edges.size() << std::endl;
+            std::cerr << " : " 
+                      << "processing " << edges.size() << " projects; "
+                      << "currently " << project_id << " " 
+                      << "(" << n_input_edges << " -> " << edge_list->size()  << ")"
+                      << "                                       \r" << std::flush;
+
 
             edges[project_id] = edge_list;
 
@@ -199,7 +206,7 @@ namespace dejavu {
             //Hash::
             return true;
         });
-        chs.readFile(DataRoot.value() + CommitsDir.value() + "/commit_history.txt");
+        chs.readFile(DataRoot.value() + CommitsDir.value() + "/commit-history.txt");
         chs.saveAll(DataRoot.value() + OutputDir.value() + "/selective-commit-network.csv");
     }
 
