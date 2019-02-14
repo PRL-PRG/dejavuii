@@ -14,7 +14,7 @@ namespace dejavu {
         helpers::Option<std::string> CommitsDir("commitsDir", "/processed", false);
         helpers::Option<std::string> OutputDir("outputDir", "/filtered", {"-o"}, false);
 
-        class CommitOriginalsLoader : public FileRecord::Reader {
+        class CommitOriginalsLoader : public FileChange::Reader {
         protected:
             void onRow(unsigned projectId, unsigned pathId, unsigned snapshotId, unsigned commitId) override {
 

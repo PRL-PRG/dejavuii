@@ -19,11 +19,13 @@
 #include "shared-mem/shared-mem.h"
 #include "commit-order/commit-order.h"
 #include "active-projects/active-projects.h"
+#include "clones/clones.h"
 
 
 
 namespace dejavu {
     helpers::Option<std::string> DataRoot("dataRoot", "/data/dejavuii/data", { "-dr"}, false);
+    helpers::Option<unsigned> Seed("seed", 0, false);
 
     helpers::Settings settings;
 
@@ -62,6 +64,9 @@ void InitializeCommands() {
     AddCommand("interesting-projects", DetermineActiveProjects, "Determine which projects are, or were active for long enough time, or which are interesting for the clone analysis");
     AddCommand("project-extras", ProjectCreationDates, "Adds extra information to projects from GHTorrent.");
     AddCommand("commit-originals", CommitOriginals, "For each commit, determines project that created it");
+    AddCommand("load-data", DataLoader, "Loads the data we have");
+    AddCommand("detect-clones", DetectClones, "Detects directory clones and their originals in the entire dataset");
+    AddCommand("sample", Sample, "Samples a smaller subset of the dataset");
 }
 
 /** A half decent main function.

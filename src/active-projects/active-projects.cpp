@@ -84,7 +84,7 @@ namespace dejavu {
         };
 
 
-        class ProjectActivityCalculator : public FileRecord::Reader {
+        class ProjectActivityCalculator : public FileChange::Reader {
         public:
             void sumProjectInfo() {
                 std::cerr << "Summarizing project information..." << std::endl;

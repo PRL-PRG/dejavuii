@@ -46,7 +46,7 @@ namespace dejavu {
         }; // OriginalityInfo
 
         
-        class Originals : public FileRecord::Reader {
+        class Originals : public FileChange::Reader {
         public:
         protected:
             void onRow(unsigned projectId, unsigned pathId, unsigned fileHashId, unsigned commitId) override {
@@ -71,7 +71,7 @@ namespace dejavu {
                     s->occurences = i.second.occurences;
                     s->paths = i.second.paths.size();
                     s->commits = i.second.commits.size();
-                    s->projects = i.second.commits.size();
+                    s->numProjects = i.second.commits.size();
                     if (s->occurences == 1) {
                         ++unique;
                     } else {

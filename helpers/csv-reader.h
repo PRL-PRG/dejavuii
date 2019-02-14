@@ -54,7 +54,7 @@ namespace helpers {
                         } else {
                             row(row_);
                             if (lineNum_ % 1000 == 0) {
-                                std::cout << " : " << lineNum_ << "k\r" << std::flush;
+                                std::cout << " : " << (lineNum_/1000) << "k\r" << std::flush;
                             }
                         }
                         row_.clear();

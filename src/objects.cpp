@@ -68,6 +68,13 @@ namespace dejavu {
         std::cerr << "Total number of projects " << numRows << std::endl;
     }
 
+    File * Project::getFile(Path * p) {
+        Folder * f = rootFolder_;
+        for (size_t i = 0, e = p->elements.size() - 1; i != e; ++i)
+            f = f->getOrCreateFolder(p->elements[i]);
+        return f->getOrCreateFile(p->elements.back());
+    }
+
     void Path::ImportFrom(std::string const & filename) {
         std::cerr << "Importing from file " << filename << std::endl;
         PathsLoader l;

@@ -2,7 +2,9 @@
 
 #include <cassert>
 #include <cstdint>
+#include <set>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "helpers/csv-reader.h"
 #include "helpers/strings.h"
@@ -138,26 +140,50 @@ namespace dejavu {
 
     /** Generic path segment.
 
-        Contains only a pointer to 
-
+        Contains only a pointer to parent folder. 
      */
     class PathSegment {
     public:
         Folder const * parent;
     protected:
+        PathSegment(Folder const * parent):
+            parent(parent) {
+        }
     }; // dejavu::PathSegment
-
-
-
     
     /** File contains ordered set of commits which change it and the snapshots to which the file has been updated to.
      */
     class File : public PathSegment {
     public:
+        File(Folder * parent):
+            PathSegment(parent) {
+        }
+
+        class Change {
+        public:
+            Commit * commit;
+            unsigned fileHash;
+        };
+
+
+        class ChangesOrderer {
+        public:
+            bool operator() (Change const & first, Change const & second) {
+                if (first.commit->time != second.commit->time)
+                    return first.commit->time < second.commit->time;
+                else
+                    return first.commit < second.commit;                 
+            }
+            
+        };
+        
         /** Id of the path.
          */
         unsigned pathId;
 
+        /** Changes to the file, ordered by commit id.
+         */
+        std::set<Change, ChangesOrderer> changes;
         
     }; // dejavu File
 
@@ -165,8 +191,30 @@ namespace dejavu {
     
     class Folder : public PathSegment {
     public:
-    protected:
-        std::unordered_map<std::string, PathSegment *> children_;
+
+        Folder(Folder * parent):
+            PathSegment(parent) {
+        }
+        
+        Folder * getOrCreateFolder(std::string const & name) {
+            auto i = folders_.find(name);
+            if (i == folders_.end())
+                i = folders_.insert(std::make_pair(name, new Folder(this))).first;
+            return i->second;
+        }
+
+        File * getOrCreateFile(std::string const & name) {
+            auto i = files_.find(name);
+            if (i == files_.end())
+                i = files_.insert(std::make_pair(name, new File(this))).first;
+            return i->second;
+        }
+        
+    private:
+        std::unordered_map<std::string, Folder *> folders_;
+        std::unordered_map<std::string, File *> files_;
+
+        
     }; // dejavu::Folder
 
 
@@ -234,7 +282,8 @@ namespace dejavu {
             fork(NO_FORK),
             committers(0),
             authors(0),
-            watchers(0) {
+            watchers(0),
+            rootFolder_(new Folder(nullptr)) {
             assert(projects_.find(id) == projects_.end() && "Project already exists");
             projects_[id] = this;
         }
@@ -247,7 +296,8 @@ namespace dejavu {
             fork(fork),
             committers(committers),
             authors(authors),
-            watchers(watchers) {
+            watchers(watchers),
+            rootFolder_(new Folder(nullptr)) {
             assert(projects_.find(id) == projects_.end() && "Project already exists");
             projects_[id] = this;
         }
@@ -273,6 +323,11 @@ namespace dejavu {
         
         static void ImportFrom(std::string const & filename, bool headers);
 
+
+
+        File * getFile(Path * p);
+        
+
         std::string const repo;
         std::string const user;
         uint64_t createdAt;
@@ -281,6 +336,7 @@ namespace dejavu {
         unsigned authors;
         unsigned watchers;
 
+        Folder * rootFolder_;
 
     private:
 
@@ -345,6 +401,7 @@ namespace dejavu {
             path(path) {
             assert(paths_.find(id) == paths_.end() && "Path already exists");
             paths_[id] = this;
+            elements = helpers::split(path, '/');
         }
 
         static Path * Get(unsigned id) {
@@ -357,7 +414,14 @@ namespace dejavu {
 
         std::string const path;
 
+        std::vector<std::string> elements;
+
     private:
+
+        friend std::ostream & operator << (std::ostream & s, Path const & p) {
+            s << p.id << "," << helpers::escapeQuotes(p.path);
+            return s;
+        }
 
         static std::unordered_map<unsigned, Path *> paths_;
         
@@ -425,7 +489,7 @@ namespace dejavu {
             occurences(0),
             paths(0),
             commits(0),
-            projects(0) {
+            numProjects(0) {
             assert(fileHashes_.find(id) == fileHashes_.end() && "Snapshot already exists");
             fileHashes_[id] = this;
         }
@@ -436,7 +500,7 @@ namespace dejavu {
             occurences(occurences),
             paths(paths),
             commits(commits),
-            projects(projects) {
+            numProjects(projects) {
             assert(fileHashes_.find(id) == fileHashes_.end() && "Snapshot already exists");
             fileHashes_[id] = this;
         }
@@ -470,12 +534,14 @@ namespace dejavu {
         unsigned occurences;
         unsigned paths;
         unsigned commits;
-        unsigned projects;
+        unsigned numProjects;
+
+        std::unordered_set<Project *> projects;
 
     private:
 
         friend std::ostream & operator << (std::ostream & o, FileHash const & s) {
-            o << s.id << "," << s.hash << "," << s.creatorCommit << "," << s.occurences << "," << s.paths << "," << s.commits << "," << s.projects << std::endl;
+            o << s.id << "," << s.hash << "," << s.creatorCommit << "," << s.occurences << "," << s.paths << "," << s.commits << "," << s.numProjects << std::endl;
             return o;
         }
 
@@ -484,7 +550,7 @@ namespace dejavu {
     }; // dejavu::Snapshot
 
 
-    class FileRecord {
+    class FileChange {
     public:
         /** Loads the files and builds the representation in memory so that it can be queried.
          */
@@ -519,7 +585,7 @@ namespace dejavu {
 
     private:
         
-        FileRecord() = delete;
+        FileChange() = delete;
         
     }; 
     
@@ -532,6 +598,7 @@ namespace dejavu {
     
 } //namespace dejavu
 
+/*
 namespace std {
 
     template<>
@@ -544,3 +611,5 @@ namespace std {
     }; // std::less<dejavu::Commit *>
     
 } // namespace std
+
+*/
