@@ -6,7 +6,7 @@
 namespace helpers {
 
     inline std::string escapeQuotes(std::string const & from) {
-        std::string result;
+        std::string result = "\"";
         for (char c : from) {
             switch (c) {
             case '\'':
@@ -18,6 +18,7 @@ namespace helpers {
                 result += c;
             }
         }
+        result = result + "\"";
         return result;
     }
     
