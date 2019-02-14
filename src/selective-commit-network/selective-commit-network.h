@@ -2,9 +2,6 @@
 
 #include <string>
 
-namespace dejavu {
-
-
 /**
  * Input data
  *
@@ -78,5 +75,9 @@ namespace dejavu {
  * The CSV file may contain duplicates (even within a single project).
  */
 
-    
+namespace dejavu {
+
+    extern helpers::Settings settings;
+    void SelectiveCommitNetwork(int argc, char * argv[]);
+
 } // namespace dejavu

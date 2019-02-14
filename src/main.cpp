@@ -20,6 +20,7 @@
 #include "commit-order/commit-order.h"
 #include "active-projects/active-projects.h"
 #include "clones/clones.h"
+#include "selective-commit-network/selective-commit-network.h"
 
 
 
@@ -67,6 +68,7 @@ void InitializeCommands() {
     AddCommand("load-data", DataLoader, "Loads the data we have");
     AddCommand("detect-clones", DetectClones, "Detects directory clones and their originals in the entire dataset");
     AddCommand("sample", Sample, "Samples a smaller subset of the dataset");
+    AddCommand("selective-commit-network", SelectiveCommitNetwork, "For each project, removes commits from a commit graph according to a specified list, re-writes edges to preserve 'causality'");
 }
 
 /** A half decent main function.

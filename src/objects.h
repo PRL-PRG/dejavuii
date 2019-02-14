@@ -5,6 +5,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 
 #include "helpers/csv-reader.h"
 #include "helpers/strings.h"
@@ -23,6 +24,95 @@ namespace dejavu {
 
     class Project;
     class Path;
+
+    class Hash /*: public Object*/ {
+    public:
+        class Reader : public helpers::CSVReader {
+        public:
+            /**
+             * Reads the hashes out of a file.
+             *
+             * @param filename Path to the file.
+             * @param headers Does the file contain headers? If so, skips the first line.
+             * @param column Which column contains hash information? 0-indexed.
+             * @return Number of rows in file.
+             */
+            size_t readFile(std::string const & filename, bool headers, unsigned int column) {
+                numRows_ = 0;
+                column_ = column;
+                parse(filename, headers);
+                onDone(numRows_);
+                return numRows_;
+            }
+        protected:
+
+            virtual void onRow(std::string const & hash) {
+                assert(false && "onRow method for used data layout not implemented");
+            }
+
+            virtual void onDone(size_t numRows) { }
+
+            void row(std::vector<std::string> & row) override {
+                assert((row.size() >= column_) && ("Invalid row: no column with index " + column_));
+                std::string hash = row[column_];
+                ++numRows_;
+                onRow(hash);
+            }
+
+        private:
+
+            size_t numRows_;
+            unsigned int column_;
+
+        }; // Hash::Reader
+
+        Hash(std::string const & hash) : hash(hash) {
+            //assert(hashes_.find(id) == hashes_.end() && "Hash already exists"); // Not needed.
+            //hashes_.insert(this);
+        }
+
+        // static std::unordered_set<Hash *> const & AllHashes() {
+        //   return hashes_;
+        // }
+
+        static void Register(std::string hash) {
+            hashes_.insert(hash);
+        }
+
+        static bool Exists(std::string hash) {
+
+            auto it = hashes_.find(hash);
+            return it != hashes_.end();
+        }
+
+        /**
+         * Read in commit hashes from file. Any file that contains a column of hashes is acceptable, since the column in
+         * specified explicitly.
+         *
+         * @param filename Path to the file containing commit hash data.
+         * @param headers Does the file contain headers? If so, skips the first line.
+         * @param column Which column contains hash information? 0-indexed.
+         */
+        static void ImportFrom(std::string const & filename, bool headers, unsigned int column);
+
+        static void SaveAll(std::string const & filename) {
+            std::ofstream s(filename);
+            if (! s.good())
+                ERROR("Unable to open file " << filename << " for writing");
+            s << "hash" << std::endl;
+            for (auto i : hashes_)
+                s << i << std::endl;
+        }
+
+        std::string hash;
+
+    private:
+        friend std::ostream & operator << (std::ostream & s, Hash const & h) {
+            s << h.hash;
+            return s;
+        }
+        static std::set<std::string> hashes_;
+    };
     
     class Commit : public Object {
     public:
