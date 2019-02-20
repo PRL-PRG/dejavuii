@@ -146,12 +146,14 @@ namespace dejavu {
             //          << "finished " << edges.size() << " projects."
             //          << "                                      \r" << std::flush;
 
+            unsigned c_x = 0;
             // Step 3
-            for (auto it = temporary_edge_list.begin(); it != temporary_edge_list.end();) {
-
+            for (auto it = temporary_edge_list.begin(); it != temporary_edge_list.end(); ++it) {
+                std::cout << temporary_edge_list.size() << " / " << c_x << "                        \r" << std::flush;
                 if (it->target_selected) {
                     edge_list->push_back(it->edge);
-                    it = temporary_edge_list.erase(it);
+                    //it = temporary_edge_list.erase(it);
+                    ++c_x;
                     continue;
                 }
 
@@ -165,12 +167,13 @@ namespace dejavu {
                         temporary_edge_list.push_back(edge);
                     }
                 }
+                ++c_x;
 
                 // remove from list
                 // find subs
                 // each sub, add new edge
 
-                it = temporary_edge_list.erase(it);
+                //it = temporary_edge_list.erase(it);
             }
 
             std::cerr << " : " 
@@ -184,6 +187,7 @@ namespace dejavu {
             // Cleanup
             n_input_edges = 0;
             target_substitution_index.clear();
+            temporary_edge_list.clear();
         }
 
         std::unordered_map<unsigned int, std::list<Edge> *> edges;
