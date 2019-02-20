@@ -66,21 +66,20 @@ namespace dejavu {
 
         }; // Hash::Reader
 
-        Hash(std::string const & hash) : hash(hash) {
+        /*        Hash(std::string const & hash) : hash(hash) {
             //assert(hashes_.find(id) == hashes_.end() && "Hash already exists"); // Not needed.
             //hashes_.insert(this);
-        }
+            } */
 
         // static std::unordered_set<Hash *> const & AllHashes() {
         //   return hashes_;
         // }
 
-        static void Register(std::string hash) {
+        static void Register(std::string const & hash) {
             hashes_.insert(hash);
         }
 
-        static bool Exists(std::string hash) {
-
+        static bool Exists(std::string const & hash) {
             auto it = hashes_.find(hash);
             return it != hashes_.end();
         }

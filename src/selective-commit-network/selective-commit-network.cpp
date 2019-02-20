@@ -56,6 +56,7 @@ namespace dejavu {
             assert(row.size() > 3 && "Unknown commit data format: invalid number of fields.");
 
             const std::string hash = row[0];
+            std::cout << "Commit : " << hash << std::endl;
 
             // ignoring times for now
             //const unsigned long commit_time = std::stol(row[1]);
@@ -66,7 +67,9 @@ namespace dejavu {
             for (; i < row.size(); i++) {
                 if (row[i] == "--")
                     break;
-                parent_list.push_back(row[i]);
+                std::cout << "    " << row[i] << std::endl;
+                if (row[i].size() == 40) // if it's not 40 it is not SHA-1 hash, but some garbage
+                    parent_list.push_back(row[i]);
             }
 
             // ignoring tag for now
@@ -82,7 +85,7 @@ namespace dejavu {
 
         virtual void onProject(unsigned int project_id) = 0;
 
-        virtual void onCommit(std::string hash, std::vector<std::string> const & parent_list) = 0;
+        virtual void onCommit(std::string const & hash, std::vector<std::string> const & parent_list) = 0;
 
     private:
         int project_id_;
@@ -111,7 +114,8 @@ namespace dejavu {
         }
 
     protected:
-        void onCommit(std::string hash, std::vector<std::string> const & parent_list) override {
+        void onCommit(std::string const & hash, std::vector<std::string> const & parent_list) override {
+            assert(hash.size() == 40);
             if (!is_node_selected(hash)) {
 
                 // Step 1
@@ -120,16 +124,19 @@ namespace dejavu {
             } else {
 
                 // Step 2 (simultaneous with step 1)
-                for (std::string parent : parent_list) {
+                for (std::string const & parent : parent_list) {
+                    assert(parent.size() == 40);
                     EdgeMeta edge = {{hash, parent}, true, is_node_selected(parent)};
                     temporary_edge_list.push_back(edge);
                 }
             }
-            n_input_edges++;
+            n_input_edges++; // TODO not really edges
         }
 
         void onProject(unsigned int project_id) override {
-
+            std::cout << "Entering on project... " << project_id <<  std::endl;
+            std::cout << "tsi " << target_substitution_index.size() << std::endl;
+            std::cout << "tel " << temporary_edge_list.size() << std::endl; 
             assert(edges.find(project_id) == edges.end());
 
             std::list<Edge> * edge_list = new std::list<Edge>();
@@ -144,16 +151,17 @@ namespace dejavu {
 
                 if (it->target_selected) {
                     edge_list->push_back(it->edge);
-                    temporary_edge_list.erase(it++);
+                    it = temporary_edge_list.erase(it);
                     continue;
                 }
 
                 auto sub_list_it = target_substitution_index.find(it->edge.target);
-                assert(sub_list_it != target_substitution_index.end() && "THis does not look plausible");
+                //                assert(sub_list_it != target_substitution_index.end() && "THis does not look plausible");
                 if (sub_list_it != target_substitution_index.end()) {
                     std::vector<std::string> & sub_list = sub_list_it->second;
-                    for (auto sub = sub_list.begin(); sub != sub_list.end(); sub++) {
-                        EdgeMeta edge = {{it->edge.source, *sub}, true, is_node_selected(*sub)};
+                    for (std::string const & sub : sub_list) {
+                        //                    for (auto sub = sub_list.begin(); sub != sub_list.end(); sub++) {
+                        EdgeMeta edge = {{it->edge.source, sub}, true, is_node_selected(sub)};
                         temporary_edge_list.push_back(edge);
                     }
                 }
@@ -162,20 +170,20 @@ namespace dejavu {
                 // find subs
                 // each sub, add new edge
 
-                temporary_edge_list.erase(it++);
+                it = temporary_edge_list.erase(it);
             }
 
             std::cerr << " : " 
                       << "processing " << edges.size() << " projects; "
                       << "currently " << project_id << " " 
                       << "(" << n_input_edges << " -> " << edge_list->size()  << ")"
-                      << "                                       \r" << std::flush;
-
+                      << "                                       \r" << std::endl <<  std::flush;
 
             edges[project_id] = edge_list;
 
             // Cleanup
             n_input_edges = 0;
+            target_substitution_index.clear();
         }
 
         std::unordered_map<unsigned int, std::list<Edge> *> edges;
