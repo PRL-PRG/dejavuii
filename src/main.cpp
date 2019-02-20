@@ -27,6 +27,7 @@
 namespace dejavu {
     helpers::Option<std::string> DataRoot("dataRoot", "/data/dejavuii/data", { "-dr"}, false);
     helpers::Option<unsigned> Seed("seed", 0, false);
+    helpers::Option<unsigned> NumThreads("numThreads", 72, false);
 
     helpers::Settings settings;
 
