@@ -130,7 +130,8 @@ namespace dejavu {
                     temporary_edge_list.push_back(edge);
                 }
             }
-            n_input_edges++; // TODO not really edges
+
+            n_input_edges += parent_list.size();
         }
 
         void onProject(unsigned int project_id) override {
@@ -161,6 +162,9 @@ namespace dejavu {
                 //                assert(sub_list_it != target_substitution_index.end() && "THis does not look plausible");
                 if (sub_list_it != target_substitution_index.end()) {
                     std::vector<std::string> & sub_list = sub_list_it->second;
+                    if (sub_list.size() == 1) {
+
+                    } else
                     for (std::string const & sub : sub_list) {
                         //                    for (auto sub = sub_list.begin(); sub != sub_list.end(); sub++) {
                         EdgeMeta edge = {{it->edge.source, sub}, true, is_node_selected(sub)};
