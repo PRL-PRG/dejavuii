@@ -68,7 +68,7 @@ namespace helpers {
         }
 
         void print(std::ostream & s) override {
-            Option::print(s);
+            BaseOption::print(s);
             s << value_;
         }
 

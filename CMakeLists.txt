@@ -7,6 +7,7 @@ SET( EX_PLATFORM_NAME "x64" )
 
 add_definitions(
     -std=c++11 -Wall -g
+  #   -std=c++11 -Wall -O2
 )
 
 
