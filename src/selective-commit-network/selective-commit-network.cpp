@@ -82,7 +82,7 @@ namespace dejavu {
 
         virtual void onProject(unsigned int project_id) = 0;
 
-        virtual void onCommit(std::string hash, std::vector<std::string> const parent_list) = 0;
+        virtual void onCommit(std::string hash, std::vector<std::string> const & parent_list) = 0;
 
     private:
         int project_id_;
@@ -111,7 +111,7 @@ namespace dejavu {
         }
 
     protected:
-        void onCommit(std::string hash, std::vector<std::string> parent_list) override {
+        void onCommit(std::string hash, std::vector<std::string> const & parent_list) override {
             if (!is_node_selected(hash)) {
 
                 // Step 1
@@ -149,8 +149,9 @@ namespace dejavu {
                 }
 
                 auto sub_list_it = target_substitution_index.find(it->edge.target);
+                assert(sub_list_it != target_substitution_index.end() && "THis does not look plausible");
                 if (sub_list_it != target_substitution_index.end()) {
-                    std::vector<std::string> &sub_list = sub_list_it->second;
+                    std::vector<std::string> & sub_list = sub_list_it->second;
                     for (auto sub = sub_list.begin(); sub != sub_list.end(); sub++) {
                         EdgeMeta edge = {{it->edge.source, *sub}, true, is_node_selected(*sub)};
                         temporary_edge_list.push_back(edge);
