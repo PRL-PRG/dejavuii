@@ -197,7 +197,7 @@ namespace dejavu {
         }
 
         void onProject(unsigned int project_id) override {
-            std::cout << "Entering on project... " << project_id <<  std::endl;
+            std::cerr << "Processing graph for project " << project_id <<  std::endl;
 
             std::list<Node *> queue;
             int initial_node_count = graph->nodes.size();
@@ -211,16 +211,34 @@ namespace dejavu {
                     queue.push_back(node);
                 }
             }
+            std::cerr << "Found roots: " << std::endl;;
+            for (auto n : queue) {
+                std::cerr << "     " << n->hash << std::endl;;
+            }
+            std::cerr << std::endl;;
 
             // Start processing.
+            std::cerr << "Process graph (size=" << graph->nodes.size() << "): " << std::endl;;
             for (auto q = queue.begin(); q != queue.end(); q++) {
 
                 // Boop.
                 Node *node = *q;
 
+                std::cerr << "Node: " << node->hash << std::endl;;
+                std::cerr << "Selected: " << is_node_selected(node->hash) << std::endl;;
+                std::cerr << "Parents:" << std::endl;;
+                for (auto p : node->parents) {
+                    std::cerr << "     " << p->hash << std::endl;;
+                }
+                std::cerr << "Children:" << std::endl;;
+                for (auto p : node->children) {
+                    std::cerr << "     " << c->hash << std::endl;;
+                }
+
                 // First, add all of this node's children to the processing
                 // queue. Eventually we will traverse the entire graph in
                 // topological order.
+                std::cerr << ":: push children to queue" << std::endl;;
                 for (auto c : node->children) {
                     queue.push_back(c);
                 }
@@ -228,16 +246,21 @@ namespace dejavu {
                 // If the node is selected, then carry on. If not, reroute the
                 // edges around it and remove it.
                 if (!is_node_selected(node->hash)) {
-
+                    std::cerr << ":: node is not selected" << std::endl;;
                     // Connect every child node with every parent node.
                     for (auto parent : node->parents)
                         for (auto child : node->children) {
+                            std::cerr << ":: connect (P)" << parent->hash
+                                      << " to (C)" << child->hash << std::endl;;
                             parent->children.insert(child);
                             child->parents.insert(parent);
                         }
 
                     // Remove the node from the graph and from existence.
+                    std::cerr << ":: remove node";
                     graph->remove(node);
+                } else {
+                    std::cerr << ":: node is selected, ignore" << std::endl;;
                 }
             }
 
@@ -247,7 +270,7 @@ namespace dejavu {
                       << "currently " << project_id << " "
                       << "(" << initial_node_count
                       << " -> " << graph->nodes.size() << ")"
-                      << "                               \r"
+                      //<< "                                \r"
                       << std::endl <<  std::flush;
 
             // Clean.
@@ -256,8 +279,10 @@ namespace dejavu {
 
     private:
         std::function<bool(std::string const)> is_node_selected;
-        Graph * graph;
         std::unordered_map<unsigned, Graph *> graphs;
+
+        // For communication between onCommit and onProject.
+        Graph * graph;
     };
 
     void SelectiveCommitNetwork(int argc, char *argv[]) {
