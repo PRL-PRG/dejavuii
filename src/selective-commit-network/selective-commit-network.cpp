@@ -213,7 +213,7 @@ namespace dejavu {
             }
 
             // Start processing.
-            for (auto q = queue.begin(); q == queue.end(); q++) {
+            for (auto q = queue.begin(); q != queue.end(); q++) {
 
                 // Boop.
                 Node *node = *q;
