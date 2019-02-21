@@ -204,6 +204,7 @@ namespace dejavu {
             std::cerr << "Processing graph for project " << project_id <<  std::endl;
 
             std::list<Node *> queue;
+            std::unordered_set<Node *> already_scheduled;
             int initial_node_count = graph->nodes.size();
 
             // Find the beginning point of a topological traverse: all the nodes
@@ -212,6 +213,8 @@ namespace dejavu {
             for (auto it : graph->nodes) {
                 Node *node = it.second;
                 if (node->parents.size() == 0) {
+                    assert(already_scheduled.find(node) == already_scheduled.end() 
+                           && "Duplicate root in commit tree.");
                     queue.push_back(node);
                 }
             }
@@ -246,7 +249,11 @@ namespace dejavu {
                 // topological order.
                 std::cerr << ":: push children to queue" << std::endl;;
                 for (auto c : node->children) {
-                    queue.push_back(c);
+                    
+                    if (already_scheduled.find(node) == already_scheduled.end()) {
+                        already_scheduled.insert(node);
+                        queue.push_back(c);
+                    }
                 }
 
                 // If the node is selected, then carry on. If not, reroute the
@@ -256,8 +263,8 @@ namespace dejavu {
                     // Connect every child node with every parent node.
                     for (auto parent : node->parents)
                         for (auto child : node->children) {
-                            std::cerr << ":: connect (P)" << parent->hash
-                                      << " to (C)" << child->hash << std::endl;;
+                            std::cerr << ":: connect (P) " << parent->hash
+                                      << " to (C) " << child->hash << std::endl;;
                             parent->children.insert(child);
                             child->parents.insert(parent);
                         }
