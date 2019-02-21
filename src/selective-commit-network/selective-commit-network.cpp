@@ -16,16 +16,71 @@ namespace dejavu {
 
     } // anonymous namespace
 
-    struct Edge {
-        std::string const source;
-        std::string const target;
+    class Graph;
+
+    class Node {
+    public:
+        std::string const hash;
+        std::set<Node *> parents;
+        std::set<Node *> children;
+    private:
+        Node(std::string hash) : hash(hash) {}
+
+        friend class Graph;
     };
 
-    struct EdgeMeta {
-        Edge edge;
-        bool const source_selected;
-        bool const target_selected;
+    class Graph {
+    public:
+        Node *getOrCreate(std::string hash) {
+            auto it = nodes.find(hash);
+            if (it == nodes.end()) {
+                Node *node = new Node(hash);
+                nodes[hash] = node;
+                return node;
+            } else {
+                return it->second;
+            }
+        }
+
+        void remove(Node * node) {
+            // Remove the current node from all of its the parents.
+            for (auto p : node->parents) {
+                p->children.erase(node);
+            }
+
+            // Remove the current node from all of its children.
+            for (auto c : node->children) {
+                c->parents.erase(node);
+            }
+
+            // Remove the current node from the node list.
+            nodes.erase(node->hash);
+
+            // Delete node.
+            delete(node);
+        }
+
+        int save(std::ofstream & s, std::string const & prefix) {
+            int written_lines = 0;
+            for (auto it : nodes) {
+                // Boop.
+                Node * node = it.second;
+
+                // Print an edge between the node and all its parents.
+                for (auto parent : node->parents) {
+                    s << prefix
+                      << node->hash << ","
+                      << parent->hash << std::endl;
+                    written_lines++;
+                }
+            }
+            return written_lines;
+        }
+
+        // All nodes in existence.
+        std::unordered_map<std::string, Node *> nodes;
     };
+
 
     class CommitHistoryLoader : helpers::SectionedTextFileReader {
     public:
@@ -65,11 +120,16 @@ namespace dejavu {
             std::vector<std::string> parent_list;
             size_t i = 3;
             for (; i < row.size(); i++) {
-                if (row[i] == "--")
+                if (row[i] == "--") {
                     break;
+                }
+
                 std::cout << "    " << row[i] << std::endl;
-                if (row[i].size() == 40) // if it's not 40 it is not SHA-1 hash, but some garbage
+
+                // if it's not 40 it is not SHA-1 hash, but some garbage
+                if (row[i].size() == 40) {
                     parent_list.push_back(row[i]);
+                }
             }
 
             // ignoring tag for now
@@ -80,21 +140,28 @@ namespace dejavu {
             //    tag << row[i];
             //}
 
-            onCommit(hash, /*commit_time,*/ /*author_time,*/ parent_list /*, tag.str() */);
+            onCommit(hash, /*commit_time,*/ /*author_time,*/
+                     parent_list /*, tag.str() */);
         }
 
         virtual void onProject(unsigned int project_id) = 0;
 
-        virtual void onCommit(std::string const & hash, std::vector<std::string> const & parent_list) = 0;
+        virtual void onCommit(std::string const & hash,
+                              std::vector<std::string> const & parent_list) = 0;
 
     private:
         int project_id_;
         bool first_project_;
     };
 
+    typedef std::function<bool(std::string const)> CommitFilter;
+
     class CommitHistorySelection : public CommitHistoryLoader {
     public:
-        CommitHistorySelection(std::function<bool(std::string const)> node_filter) : is_node_selected(node_filter) {}
+        CommitHistorySelection(CommitFilter node_filter) :
+                is_node_selected(node_filter) {
+            graph = new Graph();
+        }
 
         void saveAll(std::string const &filename) {
             std::ofstream s(filename);
@@ -102,108 +169,95 @@ namespace dejavu {
                 ERROR("Unable to open file " << filename << " for writing");
             int written_lines = 0;
             s << "project_id,hash,parent_hash" << std::endl;
-            for (auto project_graph : edges) {
-                unsigned int project_id = project_graph.first;
-                std::list<Edge> *edge_list = project_graph.second;
-                for (auto edge : *edge_list) {
-                    s << project_id << "," << edge.source << "," << edge.target << std::endl;
-                    written_lines++;
-                }
+            for (auto it : graphs) {
+                unsigned int project_id = it.first;
+                Graph * graph = it.second;
+                std::string prefix = STR(project_id << ",");
+                graph->save(s, prefix);
             }
-            std::cerr << "Written " << written_lines << " lines to file \"" << filename << "\"" << std::endl;
+            std::cerr << "Written " << written_lines << " lines to file \""
+                      << filename << "\"" << std::endl;
         }
 
     protected:
-        void onCommit(std::string const & hash, std::vector<std::string> const & parent_list) override {
+
+        void onCommit(std::string const & hash,
+                      std::vector<std::string> const & parent_list) override {
             assert(hash.size() == 40);
-            if (!is_node_selected(hash)) {
 
-                // Step 1
-                target_substitution_index[hash] = parent_list;
+            // Create a node.
+            Node * node = graph->getOrCreate(hash);
 
-            } else {
-
-                // Step 2 (simultaneous with step 1)
-                for (std::string const & parent : parent_list) {
-                    assert(parent.size() == 40);
-                    EdgeMeta edge = {{hash, parent}, true, is_node_selected(parent)};
-                    temporary_edge_list.push_back(edge);
-                }
+            // Connect the node to its parents and children.
+            for (auto parent_hash : parent_list) {
+                Node * parent = graph->getOrCreate(parent_hash);
+                node->parents.insert(parent);
+                parent->children.insert(node);
             }
-
-            n_input_edges += parent_list.size();
         }
 
         void onProject(unsigned int project_id) override {
             std::cout << "Entering on project... " << project_id <<  std::endl;
-            std::cout << "tsi " << target_substitution_index.size() << std::endl;
-            std::cout << "tel " << temporary_edge_list.size() << std::endl; 
-            assert(edges.find(project_id) == edges.end());
 
-            std::list<Edge> * edge_list = new std::list<Edge>();
+            std::list<Node *> queue;
+            int initial_node_count = graph->nodes.size();
 
-            //std::cerr << " : processing project " << project_id << "  " 
-            //          << "(" << n_input_edges << " -> " << "?" << ") ; "
-            //          << "finished " << edges.size() << " projects."
-            //          << "                                      \r" << std::flush;
-
-            unsigned c_x = 0;
-            // Step 3
-            for (auto it = temporary_edge_list.begin(); it != temporary_edge_list.end(); ++it) {
-                std::cout << temporary_edge_list.size() << " / " << c_x << "                        \r" << std::flush;
-                if (it->target_selected) {
-                    edge_list->push_back(it->edge);
-                    //it = temporary_edge_list.erase(it);
-                    ++c_x;
-                    continue;
+            // Find the beginning point of a topological traverse: all the nodes
+            // that have no parents. There should be just one, but the algorithm
+            // should work if there are more for some reason.
+            for (auto it : graph->nodes) {
+                Node *node = it.second;
+                if (node->parents.size() == 0) {
+                    queue.push_back(node);
                 }
-
-                auto sub_list_it = target_substitution_index.find(it->edge.target);
-                //                assert(sub_list_it != target_substitution_index.end() && "THis does not look plausible");
-                if (sub_list_it != target_substitution_index.end()) {
-                    std::vector<std::string> & sub_list = sub_list_it->second;
-                    if (sub_list.size() == 1) {
-
-                    } else
-                    for (std::string const & sub : sub_list) {
-                        //                    for (auto sub = sub_list.begin(); sub != sub_list.end(); sub++) {
-                        EdgeMeta edge = {{it->edge.source, sub}, true, is_node_selected(sub)};
-                        temporary_edge_list.push_back(edge);
-                    }
-                }
-                ++c_x;
-
-                // remove from list
-                // find subs
-                // each sub, add new edge
-
-                //it = temporary_edge_list.erase(it);
             }
 
-            std::cerr << " : " 
-                      << "processing " << edges.size() << " projects; "
-                      << "currently " << project_id << " " 
-                      << "(" << n_input_edges << " -> " << edge_list->size()  << ")"
-                      << "                                       \r" << std::endl <<  std::flush;
+            // Start processing.
+            for (auto q = queue.begin(); q == queue.end(); q++) {
 
-            edges[project_id] = edge_list;
+                // Boop.
+                Node *node = *q;
 
-            // Cleanup
-            n_input_edges = 0;
-            target_substitution_index.clear();
-            temporary_edge_list.clear();
+                // First, add all of this node's children to the processing
+                // queue. Eventually we will traverse the entire graph in
+                // topological order.
+                for (auto c : node->children) {
+                    queue.push_back(c);
+                }
+
+                // If the node is selected, then carry on. If not, reroute the
+                // edges around it and remove it.
+                if (!is_node_selected(node->hash)) {
+
+                    // Connect every child node with every parent node.
+                    for (auto parent : node->parents)
+                        for (auto child : node->children) {
+                            parent->children.insert(child);
+                            child->parents.insert(parent);
+                        }
+
+                    // Remove the node from the graph and from existence.
+                    graph->remove(node);
+                }
+            }
+
+            // Print out debug information.
+            std::cerr << " : "
+                      << "processed " << graphs.size() << " projects; "
+                      << "currently " << project_id << " "
+                      << "(" << initial_node_count
+                      << " -> " << graph->nodes.size() << ")"
+                      << "                               \r"
+                      << std::endl <<  std::flush;
+
+            // Clean.
+            graph = new Graph();
         }
 
-        std::unordered_map<unsigned int, std::list<Edge> *> edges;
-
     private:
-        //std::unordered_map<std::string const, std::vector<std::string const>> input_incidence_list;
-        std::unordered_map<std::string, std::vector<std::string>> target_substitution_index;
-        std::list<EdgeMeta> temporary_edge_list;
         std::function<bool(std::string const)> is_node_selected;
-
-        // auxilia
-        int n_input_edges = 0;
+        Graph * graph;
+        std::unordered_map<unsigned, Graph *> graphs;
     };
 
     void SelectiveCommitNetwork(int argc, char *argv[]) {
@@ -217,13 +271,16 @@ namespace dejavu {
         settings.check();
 
         // Import commits. This will create the set used for selection.
-        Hash::ImportFrom(DataRoot.value() + CommitsDir.value() + "/commits.csv", false, 1);
+        Hash::ImportFrom(DataRoot.value() + CommitsDir.value() + "/commits.csv",
+                         false, 1);
 
-        // Import commit history and sleect only those that are already in the commits. Re-route the edges
-        // appropriately.
+        // Import commit history and sleect only those that are already in the
+        // commits. Re-route the edges appropriately.
         CommitHistorySelection chs(Hash::Exists);
-        chs.readFile(DataRoot.value() + CommitsDir.value() + "/commit-history.txt");
-        chs.saveAll(DataRoot.value() + OutputDir.value() + "/selective-commit-network.csv");
+        chs.readFile(DataRoot.value() + CommitsDir.value() +
+                             "/commit-history.txt");
+        chs.saveAll(DataRoot.value() + OutputDir.value() +
+                            "/selective-commit-network.csv");
     }
 
 } // namespace dejavu
