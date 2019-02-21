@@ -44,19 +44,23 @@ namespace dejavu {
 
         void remove(Node * node) {
             // Remove the current node from all of its the parents.
+            std::cerr << ":: :: remove node from parents" << std::endl;;
             for (auto p : node->parents) {
                 p->children.erase(node);
             }
 
             // Remove the current node from all of its children.
+            std::cerr << ":: :: remove node from children" << std::endl;;
             for (auto c : node->children) {
                 c->parents.erase(node);
             }
 
-            // Remove the current node from the node list.
+            // Remove the current node from the node list
+            std::cerr << ":: :: remove node from graph" << std::endl;;
             nodes.erase(node->hash);
 
             // Delete node.
+            std::cerr << ":: :: delete node" << std::endl;;
             delete(node);
         }
 
@@ -221,6 +225,8 @@ namespace dejavu {
             std::cerr << "Process graph (size=" << graph->nodes.size() << "): " << std::endl;;
             for (auto q = queue.begin(); q != queue.end(); q++) {
 
+                std::cerr << "boop" << std::endl;;
+
                 // Boop.
                 Node *node = *q;
 
@@ -231,7 +237,7 @@ namespace dejavu {
                     std::cerr << "     " << p->hash << std::endl;;
                 }
                 std::cerr << "Children:" << std::endl;;
-                for (auto p : node->children) {
+                for (auto c : node->children) {
                     std::cerr << "     " << c->hash << std::endl;;
                 }
 
@@ -257,7 +263,7 @@ namespace dejavu {
                         }
 
                     // Remove the node from the graph and from existence.
-                    std::cerr << ":: remove node";
+                    std::cerr << ":: remove node" << std::endl;;
                     graph->remove(node);
                 } else {
                     std::cerr << ":: node is selected, ignore" << std::endl;;
