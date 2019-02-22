@@ -14,7 +14,24 @@ namespace dejavu {
 
         class Filename;
         class CloneCandidate;
-        
+
+        class Hash {
+        public:
+            static std::unordered_set<unsigned> const & GetFor(unsigned id) {
+                assert(id < hashes_.size());
+                return hashes_[id];
+            }
+
+            static void AddProject(unsigned hashId, unsigned projectId) {
+                if (hashId >= hashes_.size())
+                    hashes_.resize(hashId + 1);
+                hashes_[hashId].insert(projectId);
+            }
+            
+        private:
+            static std::vector<std::unordered_set<unsigned>> hashes_;
+        }; 
+
         /** Commit representation for cloning purposes.
 
             Commit remembers its id, time it was created, origional projects and a changeset, i.e. map from path to hash id of files the commit changes.
@@ -77,8 +94,9 @@ namespace dejavu {
         public:
             unsigned id;
             unsigned projectId;
-            // TODO this should be commit !!!
+            unsigned commitId;
             uint64_t time;
+            unsigned numOccurences;
             std::string directory;
 
             /** Verifies that the original is valid for the current clone candidate.
@@ -94,11 +112,18 @@ namespace dejavu {
                 return originals_.size();
             }
 
+            static void SaveAll(std::string const & where);
+
         private:
             CloneOriginal(unsigned id, CloneCandidate * cc);
 
+            friend std::ostream & operator << (std::ostream & s, CloneOriginal const & co) {
+                s << co. id << "," << co. projectId << "," << co. commitId << "," << co.time << "," << co.numOccurences << "," << helpers::escapeQuotes(co.directory);
+                return s;
+            }
+
             static std::mutex m_;
-            static std::unordered_map<std::string, unsigned> originals_;
+            static std::unordered_map<std::string, CloneOriginal *> originals_;
         };
         
         /** Representation of a project for cloning purposes.
@@ -145,6 +170,16 @@ namespace dejavu {
             /** Searches the project for possible older occurence of the clone candidate.
              */
             void updateCloneOriginal(CloneCandidate * cc, CloneOriginal & co, std::unordered_set<Filename *> filenames);
+
+            class CreatedAtOrderer {
+            public:
+                bool operator() (Project * first, Project * second) const {
+                    if (first->createdAt != second->createdAt)
+                        return first->createdAt < second->createdAt;
+                    else
+                        return first < second;
+                }
+            };
 
 
         private:
@@ -204,7 +239,7 @@ namespace dejavu {
         }; // clones::Filename
 
         class Directory;
-        
+
         /** File record.
 
             This is the leaf of the unified root structure. It contains the path id, pointer to the filename (which has the name of the file and projects containing such filename) and the parent directory. 
@@ -222,6 +257,8 @@ namespace dejavu {
             /** Corresponding filename, which aggregates files with identical filenames across all projects.
              */
             Filename * filename;
+
+            
 
             /** Returns the path of the file as string.
              */
@@ -357,8 +394,8 @@ namespace dejavu {
 
             /** Determines the root directory for a clone candidate which contains the given file, nullptr is returned if not found.
              */
-            ProjectDir * determineCloneCandidateRoot(clones::Commit * c);
-            
+            ProjectDir * determineCloneCandidateRoot(Commit * c);
+
         }; // ProjectFile
         
         class ProjectDir {
@@ -380,7 +417,7 @@ namespace dejavu {
             }
 
             std::string getName() {
-                if (parent == nullptr)
+                if (parent == nullptr) 
                     return "";
                 std::string result = parent->getName();
                 if (!result.empty())
@@ -399,6 +436,21 @@ namespace dejavu {
             
             CloneCandidate * createCloneCandidate(std::unordered_set<ProjectFile *> & changes, Commit * c);
 
+            /** Determines if the directory, or any of its parents can be clone original for the given candidate.
+
+                The second argument is set of already tried directories so that these can be skipped.
+             */
+            ProjectDir * determineCloneOriginal(CloneCandidate * cc, std::unordered_set<ProjectDir *> & visited);
+
+            /** Returns true if every file in current dir is also present at the same hash in the other directory and if all subdirectories are transitively the same as well.
+             */
+            bool isSubsetOf(ProjectDir * other);
+
+            /** Returns true if the directory only contains deleted files transitively.
+             */
+            bool hasOnlyDeletedFiles();
+
+            
         private:
 
             friend class ProjectFile;
@@ -491,9 +543,10 @@ namespace dejavu {
          */
         class CloneCandidate {
         public:
-            // TODO keep commit as well, perhaps keep commit not time
             unsigned projectId;
-            unsigned long time; 
+            unsigned commitId;
+            unsigned long time;
+            unsigned originalId;
             std::string directory;
             std::unordered_map<unsigned,unsigned> files;
             /** Tree of the clone candidate.
@@ -512,6 +565,10 @@ namespace dejavu {
 
 
         private:
+            friend std::ostream & operator << (std::ostream & s, CloneCandidate const & cc) {
+                s << cc.projectId << "," << cc.commitId << "," << cc.time << "," << cc.files.size() << "," << cc.originalId << "," << helpers::escapeQuotes(cc.directory);
+                return s;
+            }
             
             
         }; // clones::CloneCandidate

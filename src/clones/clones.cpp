@@ -17,11 +17,31 @@
 // Projects : 2,405,680, candidates: 16,233,482, originals: 4,862,497
 // after fix to clone candidate detecion
 // Projects : 2,405,680, candidates: 12,663,129, originals: 4,909,253
+// Projects : 1180, candidates: 474566, originals: 31502, projects scanned 181975786, commits scanned 182245172
+
+/*
+  initial run:
+      Projects : 20000, candidates: 67453, originals: 49301, projects scanned 203023581, commits scanned 206664871, took 8:57
+  skipping projects younger than the current co:
+      Projects : 20000, candidates: 67453, originals: 49301, projects scanned 156068872, commits scanned 156671561, took 8:37  
+  ordering projects by time of creation:
+      Projects : 20000, candidates: 67453, originals: 49301, projects scanned 150886103, commits scanned 151324605, took 10:04
+  filtering projects based on file hashes as well    
+      Projects : 20000, candidates: 67453, originals: 49301, projects scanned 5611924, commits scanned 5661930, took 1:48
+  projects scanned ordered by creationTime
+      Projects : 20000, candidates: 67453, originals: 49301, projects scanned 5999447, commits scanned 6053963, took 1:38
+   It is questionable whether sorting helps
+
+   The last thing we can do is toi limit the # of projects we see 
+*/
+
+
 
 namespace dejavu {
     namespace {
         helpers::Option<std::string> InputDir("inputDir", "/filtered", false);
         //helpers::Option<std::string> InputDir("inputDir", "/sample621", false);
+        helpers::Option<std::string> OutputDir("outputDir", "/filtered", false);
 
         class ProjectsReader : public Project::Reader {
         protected:
@@ -72,7 +92,8 @@ namespace dejavu {
                 // add the project to the filename
                 clones::File * f = clones::File::Get(pathId);
                 f->filename->addProject(p);
-                
+                // add the project to the hashes
+                clones::Hash::AddProject(fileHashId, projectId);
             }
                 
             void onDone(size_t numRows) override {
@@ -83,7 +104,7 @@ namespace dejavu {
 
 
 
-        /** Class for actually finding the originals. 
+        /** Class for actually finding the originals.
          */
         class CloneOriginalsFinder {
         public:
@@ -93,9 +114,20 @@ namespace dejavu {
                 done_(0),
                 numCc_(0),
                 numWorkers_(0) {
+                clonesOut_.open(DataRoot.value() + OutputDir.value() + "/folderClones");
+                clonesOut_ << "projectId,commitId,time,numFiles,originalId,directory" << std::endl;
             }
             
             void calculate(size_t numThreads) {
+                std::cout << "Ordering projects..." << std::endl;
+                for (size_t i = 0; i < clones::Project::NumProjects(); ++i) {
+                    clones::Project * p = clones::Project::Get(i);
+                    if (p == nullptr)
+                        continue;
+                    projects_.insert(p);
+                }
+                std::cout << "Num projects: " << projects_.size();
+                pIterator_ = projects_.begin();
                 for (size_t i = 0; i < numThreads; ++i) {
                     std::thread t([this, i](){
                             worker(i);
@@ -110,13 +142,19 @@ namespace dejavu {
                 std::unique_lock<std::mutex> lm(w_);
                 while (numWorkers_ != 0)
                     cv_.wait(lm);
+                printStatus();
+                std::cout << std::endl << "Writing clone originals..." << std::endl;
+                clones::CloneOriginal::SaveAll(DataRoot.value() + OutputDir.value() + "/folderCloneOriginals.csv");
             }
+
+            static std::atomic<uint64_t> NumProjectsScanned;
+            static std::atomic<uint64_t> NumCommitsScanned;
 
         private:
 
             void printStatus() {
                 std::lock_guard<std::mutex> g(cout_);
-                std::cout << "\rProjects : " << done_ << ", candidates: " << numCc_ << ", originals: " << clones::CloneOriginal::NumOriginals() << " " << std::flush;
+                std::cout << "\rProjects : " << done_ << ", candidates: " << numCc_ << ", originals: " << clones::CloneOriginal::NumOriginals() << ", projects scanned " << NumProjectsScanned << ", commits scanned " << NumCommitsScanned << "  " << std::flush;
             }
 
             void printTick() {
@@ -133,21 +171,39 @@ namespace dejavu {
                 }
                 std::vector<clones::CloneCandidate *> cc;
                 while (true) {
+                    clones::Project * p = nullptr;
+                    {
+                        std::lock_guard<std::mutex> g(cout_);
+                        if (pIterator_ == projects_.end())
+                            break;
+                        p = *pIterator_;
+                        ++pIterator_;
+                    }
+                    /*
                     size_t pid = pid_++;
                     if (pid >= clones::Project::NumProjects())
                         break;
                     clones::Project * p = clones::Project::Get(pid);
+                    
                     // there may be holes in the project's array if we work on a sample
                     if (p == nullptr)
                         continue;
+                    */
                     // get the clone candidates
                     cc = std::move(p->getCloneCandidates());
                     // process each clone candidate
                     for (clones::CloneCandidate * c : cc) {
-                        clones::CloneOriginal::GetFor(c);
+                        c->originalId = clones::CloneOriginal::GetFor(c);
                         ++numCc_;
-                        delete c;
                     }
+                    // output the clone candidates
+                    {
+                        std::lock_guard<std::mutex> g(mClonesOut_);
+                        for (clones::CloneCandidate * c : cc)
+                            clonesOut_ << *c << std::endl;
+                    }
+                    for (clones::CloneCandidate * c : cc)
+                        delete c;
                     cc.clear();
                     // output the debug stuff
                     if (++done_ % 20 == 0)
@@ -173,20 +229,29 @@ namespace dejavu {
             std::mutex w_;
             std::condition_variable cv_;
             size_t numWorkers_;
+            std::ofstream clonesOut_;
+            std::mutex mClonesOut_;
+            std::set<clones::Project *, clones::Project::CreatedAtOrderer> projects_;
+            std::set<clones::Project *, clones::Project::CreatedAtOrderer>::iterator pIterator_;
             
         }; // CloneOriginalsFinder 
+
+        std::atomic<uint64_t> CloneOriginalsFinder::NumProjectsScanned(0);
+        std::atomic<uint64_t> CloneOriginalsFinder::NumCommitsScanned(0);
+
         
     } // anonymous namespace
 
 
     namespace clones {
+        std::vector<std::unordered_set<unsigned>> Hash::hashes_;
         std::unordered_map<std::string, Filename *> Filename::filenames_;
         std::vector<File*> File::files_;
         Directory Directory::root_("",nullptr);
         size_t Directory::numDirs_ = 0;
         std::vector<Commit*> Commit::commits_;
         std::mutex CloneOriginal::m_;
-        std::unordered_map<std::string, unsigned> CloneOriginal::originals_;
+        std::unordered_map<std::string, CloneOriginal *> CloneOriginal::originals_;
         std::vector<Project*> Project::projects_;
 
         std::vector<CloneCandidate * > Project::getCloneCandidates() {
@@ -235,6 +300,7 @@ namespace dejavu {
             ProjectDir root("", nullptr);
             std::unordered_set<ProjectFile *> changes;
             for (Commit * c : commits) {
+                ++CloneOriginalsFinder::NumCommitsScanned;
                 // if the commit is younger than the original found so far, no need to look further
                 if (c->time >= co.time)
                     break;
@@ -251,10 +317,23 @@ namespace dejavu {
                         changes.insert(x);
                 }
                 // now changes contain all files that might actually make clone original to appear in the project, check them
-                while (! changes.empty()) {
-                    
+                std::unordered_set<ProjectDir *> visited;
+                ProjectDir * d = nullptr;
+                for (ProjectFile * f : changes) {
+                    d = f->parent->determineCloneOriginal(cc, visited);
+                    if (d != nullptr)
+                        break;
                 }
-                // TODO expand the clone candidate for this function into a project tree so that the trees can be compared themselves in a fast manner (i.e. for each file in changes I find the possible root and then check all the paths for that root)
+                changes.clear();
+                // if we have original candidate, then update the clone original and terminate the update for given project
+                if (d != nullptr) {
+                    co.projectId = id;
+                    co.commitId = c->id;
+                    co.time = c->time;
+                    co.directory = d->getName();
+                    break;
+                }
+                ++CloneOriginalsFinder::NumProjectsScanned;
                 
             }
         }
@@ -262,15 +341,18 @@ namespace dejavu {
         
         unsigned CloneOriginal::GetFor(CloneCandidate * cc) {
             std::string hash = cc->serialize();
-            unsigned id;
+            CloneOriginal * co;
             {
                 std::lock_guard<std::mutex> g(m_);
-                id = originals_.size(); // this will be the original id *if* the original is not found 
                 auto i = originals_.find(hash);
-                if (i != originals_.end())
-                    return i->second;
-                // patch to 0
-                i = originals_.insert(std::make_pair(hash, id)).first;
+                if (i != originals_.end()) {
+                    ++i->second->numOccurences;
+                    return i->second->id;
+                }
+                // create new clone original
+                unsigned id = originals_.size(); // this will be the original id *if* the original is not found
+                co = new CloneOriginal(id, cc);
+                originals_.insert(std::make_pair(hash, co));
             }
             // get the list of projects where the clone candidate might appear, which we get by getting a set of projects containing at least the same filenames as are in the clone candidate
             auto i = cc->files.begin();
@@ -302,23 +384,48 @@ namespace dejavu {
                 projects = std::move(p_);
                 ++i;
             }
+            // decrease the set even further by checking the project file hashes in the clone
+            for (auto c : cc->files) {
+                std::unordered_set<unsigned> p_;
+                for (auto p : projects) {
+                    auto const & projects = Hash::GetFor(c.second);
+                    if (projects.find(p) != projects.end())
+                        p_.insert(p);
+                }
+                projects = p_;
+            }
             // definitely the clone candidate itself is its original
-            CloneOriginal co(id, cc);
-
             // now for each of the remaining projects, try to find an original that would be older
-            for (auto p : projects) 
-                Project::Get(p)->updateCloneOriginal(cc, co, filenames);
+            std::set<Project *, Project::CreatedAtOrderer> projectsOrdered;
+            for (auto pid : projects)
+                projectsOrdered.insert(Project::Get(pid));
+            for (Project * p: projectsOrdered) {
+                //                Project * p = Project::Get(pid);
+                if (p->createdAt >= co->time)
+                    continue;
+                p->updateCloneOriginal(cc, *co, filenames);
+            }
             // the original should now be the oldest occurence of the files at the time, we are done
-            // TODO actually be done and output the results somewhere
-            return id;
+            return co->id;
         }
 
         CloneOriginal::CloneOriginal(unsigned id, CloneCandidate * cc):
             id(id),
             projectId(cc->projectId),
+            commitId(cc->commitId),
             time(cc->time),
+            numOccurences(1),
             directory(cc->directory) {
         }
+
+        void CloneOriginal::SaveAll(std::string const & where) {
+            std::ofstream o(where);
+            o << "id,projectId,commitId,time,numOccurences,directory" << std::endl;
+            for (auto i : originals_)
+                o << *(i.second) << std::endl;
+        }
+
+
         
         std::string CloneCandidate::serialize() {
             std::map<std::string, unsigned> x;
@@ -347,9 +454,58 @@ namespace dejavu {
         CloneCandidate * ProjectDir::createCloneCandidate(std::unordered_set<ProjectFile *> & changes, Commit * c) {
             clones::CloneCandidate * result = new clones::CloneCandidate();
             fillCloneCandidate(changes, result, & result->tree);
+            result->commitId = c->id;
             result->time = c->time;
-            result->directory == getName();
+            result->directory = getName();
             return result;
+        }
+
+        ProjectDir * ProjectDir::determineCloneOriginal(CloneCandidate * cc, std::unordered_set<ProjectDir *> & visited) {
+            if (visited.find(this) == visited.end()) {
+                if (cc->tree.isSubsetOf(this))
+                    return this;
+                visited.insert(this);
+            }
+            if (parent == nullptr)
+                return nullptr;
+            else
+                return parent->determineCloneOriginal(cc, visited);
+        }
+
+        bool ProjectDir::isSubsetOf(ProjectDir * other) {
+            for (auto f : files_) {
+                if (f.second->hashId == 0)
+                    continue; // ignore deleted files
+                auto i = other->files_.find(f.first);
+                if (i == other->files_.end())
+                    return false; // not found
+                if (f.second->hashId != i->second->hashId) // different hash
+                    return false;
+            }
+            // now we know files are the same, check directories
+            for (auto d : subdirs_) {
+                auto i = other->subdirs_.find(d.first);
+                // if the directory exists in the original, it should be the same
+                if (i != other->subdirs_.end()) {
+                    if (! d.second->isSubsetOf(i->second))
+                        return false;
+                // otherwise we must be clever, the directory can be only deleted files, in which case we do not care
+                } else {
+                    if (! d.second->hasOnlyDeletedFiles())
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        bool ProjectDir::hasOnlyDeletedFiles() {
+            for (auto f: files_)
+                if (f.second->hashId != 0)
+                    return false;
+            for (auto d : subdirs_)
+                if (! d.second->hasOnlyDeletedFiles())
+                    return false;
+            return true;
         }
 
         void ProjectDir::fillCloneCandidate(std::unordered_set<ProjectFile *> & changes, CloneCandidate * c, ProjectDir * dir) {
