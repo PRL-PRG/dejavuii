@@ -44,38 +44,42 @@ namespace dejavu {
 
         void remove(Node * node) {
             // Remove the current node from all of its the parents.
+            std::cerr << ":: :: remove node from parents" << std::endl;
             for (auto p : node->parents) {
                 p->children.erase(node);
             }
 
             // Remove the current node from all of its children.
+            std::cerr << ":: :: remove node from children" << std::endl;
             for (auto c : node->children) {
                 c->parents.erase(node);
             }
 
-            // Remove the current node from the node list.
+            // Remove the current node from the node list
+            std::cerr << ":: :: remove node from graph" << std::endl;
             nodes.erase(node->hash);
 
             // Delete node.
+            std::cerr << ":: :: delete node" << std::endl;
             delete(node);
         }
 
-        int save(std::ofstream & s, std::string const & prefix) {
-            int written_lines = 0;
-            for (auto it : nodes) {
-                // Boop.
-                Node * node = it.second;
-
-                // Print an edge between the node and all its parents.
-                for (auto parent : node->parents) {
-                    s << prefix
-                      << node->hash << ","
-                      << parent->hash << std::endl;
-                    written_lines++;
-                }
-            }
-            return written_lines;
-        }
+//        std::vector<Edges> getEdges() {
+//            int written_lines = 0;
+//            for (auto it : nodes) {
+//                // Boop.
+//                Node * node = it.second;
+//
+//                // Print an edge between the node and all its parents.
+//                for (auto parent : node->parents) {
+//                    s << prefix
+//                      << node->hash << ","
+//                      << parent->hash << std::endl;
+//                    written_lines++;
+//                }
+//            }
+//            return written_lines;
+//        }
 
         // All nodes in existence.
         std::unordered_map<std::string, Node *> nodes;
@@ -176,11 +180,24 @@ namespace dejavu {
             int written_lines = 0;
             s << "project_id,hash,parent_hash" << std::endl;
             for (auto it : graphs) {
+                // Boop.
                 unsigned int project_id = it.first;
                 Graph * graph = it.second;
-                std::string prefix = STR(project_id << ",");
-                graph->save(s, prefix);
+
+                for (auto it : graph->nodes) {
+                    // Boop.
+                    Node * node = it.second;
+    
+                    // Print an edge between the node and all its parents.
+                    for (auto parent : node->parents) {
+                        s << project_id << ","
+                          << node->hash << ","
+                          << parent->hash << std::endl;
+                        written_lines++;
+                    }
+                }
             }
+
             std::cerr << "Written " << written_lines << " lines to file \""
                       << filename << "\"" << std::endl;
         }
@@ -206,6 +223,7 @@ namespace dejavu {
             std::cerr << "Processing graph for project " << project_id <<  std::endl;
 
             std::list<Node *> queue;
+            std::unordered_set<Node *> already_scheduled;
             int initial_node_count = graph->nodes.size();
 
             // Find the beginning point of a topological traverse: all the nodes
@@ -214,59 +232,70 @@ namespace dejavu {
             for (auto it : graph->nodes) {
                 Node *node = it.second;
                 if (node->parents.size() == 0) {
+                    assert(already_scheduled.find(node) == already_scheduled.end() 
+                           && "Duplicate root in commit tree.");
                     queue.push_back(node);
                 }
             }
-            std::cerr << "Found roots: " << std::endl;;
+            std::cerr << "Found roots: " << std::endl;
             for (auto n : queue) {
-                std::cerr << "     " << n->hash << std::endl;;
+                std::cerr << "     " << n->hash << std::endl;
             }
-            std::cerr << std::endl;;
+            std::cerr << std::endl;
 
             // Start processing.
-            std::cerr << "Process graph (size=" << graph->nodes.size() << "): " << std::endl;;
+            std::cerr << "Process graph (size=" << graph->nodes.size() << "): " << std::endl;
             for (auto q = queue.begin(); q != queue.end(); q++) {
+
+                std::cerr << "boop" << std::endl;
 
                 // Boop.
                 Node *node = *q;
 
-                std::cerr << "Node: " << node->hash << std::endl;;
-                std::cerr << "Selected: " << is_node_selected(node->hash) << std::endl;;
-                std::cerr << "Parents:" << std::endl;;
+                std::cerr << "Node: " << node->hash << std::endl;
+                std::cerr << "Selected: " << is_node_selected(node->hash) << std::endl;
+                std::cerr << "Parents:" << std::endl;
                 for (auto p : node->parents) {
-                    std::cerr << "     " << p->hash << std::endl;;
+                    std::cerr << "     " << p->hash << std::endl;
                 }
-                std::cerr << "Children:" << std::endl;;
-                for (auto p : node->children) {
-                    std::cerr << "     " << p->hash << std::endl;;
+
+                std::cerr << "Children:" << std::endl;
+                for (auto c : node->children) {
+                    std::cerr << "     " << c->hash << std::endl;
                 }
 
                 // First, add all of this node's children to the processing
                 // queue. Eventually we will traverse the entire graph in
                 // topological order.
-                std::cerr << ":: push children to queue" << std::endl;;
+                std::cerr << ":: push children to queue" << std::endl;
                 for (auto c : node->children) {
-                    queue.push_back(c);
+                    if (already_scheduled.find(c) == already_scheduled.end()) {
+                        already_scheduled.insert(c);
+                        queue.push_back(c);
+                        std::cerr << ":: :: pushing " << c->hash << std::endl;
+                    } else {
+                        std::cerr << ":: :: not pushing " << c->hash << " (already scheduled)" << std::endl;
+                    }
                 }
 
                 // If the node is selected, then carry on. If not, reroute the
                 // edges around it and remove it.
                 if (!is_node_selected(node->hash)) {
-                    std::cerr << ":: node is not selected" << std::endl;;
+                    std::cerr << ":: node is not selected" << std::endl;
                     // Connect every child node with every parent node.
                     for (auto parent : node->parents)
                         for (auto child : node->children) {
-                            std::cerr << ":: connect (P)" << parent->hash
-                                      << " to (C)" << child->hash << std::endl;;
+                            std::cerr << ":: connect (P) " << parent->hash
+                                      << " to (C) " << child->hash << std::endl;
                             parent->children.insert(child);
                             child->parents.insert(parent);
                         }
 
                     // Remove the node from the graph and from existence.
-                    std::cerr << ":: remove node";
+                    std::cerr << ":: remove node" << std::endl;
                     graph->remove(node);
                 } else {
-                    std::cerr << ":: node is selected, ignore" << std::endl;;
+                    std::cerr << ":: node is selected, ignore" << std::endl;
                 }
             }
 
@@ -279,7 +308,8 @@ namespace dejavu {
                       //<< "                                \r"
                       << std::endl <<  std::flush;
 
-            // Clean.
+            // Sort out the graphs.
+            graphs[project_id] = graph;
             graph = new Graph();
         }
 
