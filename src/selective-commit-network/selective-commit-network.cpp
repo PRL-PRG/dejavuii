@@ -144,6 +144,12 @@ namespace dejavu {
                      parent_list /*, tag.str() */);
         }
 
+        void file_end(unsigned int lines) override {
+            if (!first_project_) {
+                onProject(project_id_);
+            }
+        }
+
         virtual void onProject(unsigned int project_id) = 0;
 
         virtual void onCommit(std::string const & hash,
@@ -232,7 +238,7 @@ namespace dejavu {
                 }
                 std::cerr << "Children:" << std::endl;;
                 for (auto p : node->children) {
-                    std::cerr << "     " << c->hash << std::endl;;
+                    std::cerr << "     " << p->hash << std::endl;;
                 }
 
                 // First, add all of this node's children to the processing
