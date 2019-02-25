@@ -183,6 +183,11 @@ namespace dejavu {
                 unsigned int project_id = it.first;
                 Graph * graph = it.second;
 
+                if (graph->nodes.empty()) {
+                    s << project_id << ",NA,NA" << std::endl;
+                    written_lines++;
+                    continue;
+                }
                 for (auto it : graph->nodes) {
                     // Boop.
                     Node * node = it.second;
