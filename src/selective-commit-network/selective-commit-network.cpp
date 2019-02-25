@@ -13,7 +13,6 @@ namespace dejavu {
         helpers::Option<std::string> OutputDir("outputDir", "/processed", false);
         helpers::Option<std::string> CommitsDir("commitsDir", "/processed", false);
         helpers::Option<std::string> CommitHistoryDir("commitHistoryDir", "/processed", false);
-
     } // anonymous namespace
 
     class Graph;
@@ -44,23 +43,23 @@ namespace dejavu {
 
         void remove(Node * node) {
             // Remove the current node from all of its the parents.
-            std::cerr << ":: :: remove node from parents" << std::endl;
+            // std::cerr << ":: :: remove node from parents" << std::endl;
             for (auto p : node->parents) {
                 p->children.erase(node);
             }
 
             // Remove the current node from all of its children.
-            std::cerr << ":: :: remove node from children" << std::endl;
+            // std::cerr << ":: :: remove node from children" << std::endl;
             for (auto c : node->children) {
                 c->parents.erase(node);
             }
 
             // Remove the current node from the node list
-            std::cerr << ":: :: remove node from graph" << std::endl;
+            // std::cerr << ":: :: remove node from graph" << std::endl;
             nodes.erase(node->hash);
 
             // Delete node.
-            std::cerr << ":: :: delete node" << std::endl;
+            // std::cerr << ":: :: delete node" << std::endl;
             delete(node);
         }
 
@@ -115,7 +114,7 @@ namespace dejavu {
             assert(row.size() > 3 && "Unknown commit data format: invalid number of fields.");
 
             const std::string hash = row[0];
-            std::cout << "Commit : " << hash << std::endl;
+            // std::cout << "Commit : " << hash << std::endl;
 
             // ignoring times for now
             //const unsigned long commit_time = std::stol(row[1]);
@@ -128,7 +127,7 @@ namespace dejavu {
                     break;
                 }
 
-                std::cout << "    " << row[i] << std::endl;
+                // std::cout << "    " << row[i] << std::endl;
 
                 // if it's not 40 it is not SHA-1 hash, but some garbage
                 if (row[i].size() == 40) {
@@ -197,7 +196,6 @@ namespace dejavu {
         }
 
     protected:
-
         void onCommit(std::string const & hash,
                       std::vector<std::string> const & parent_list) override {
             assert(hash.size() == 40);
@@ -231,64 +229,64 @@ namespace dejavu {
                     queue.push_back(node);
                 }
             }
-            std::cerr << "Found roots: " << std::endl;
-            for (auto n : queue) {
-                std::cerr << "     " << n->hash << std::endl;
-            }
-            std::cerr << std::endl;
+            // std::cerr << "Found roots: " << std::endl;
+            // for (auto n : queue) {
+            //    std::cerr << "     " << n->hash << std::endl;
+            // }
+            //std::cerr << std::endl;
 
             // Start processing.
-            std::cerr << "Process graph (size=" << graph->nodes.size() << "): " << std::endl;
+            // std::cerr << "Process graph (size=" << graph->nodes.size() << "): " << std::endl;
             for (auto q = queue.begin(); q != queue.end(); q++) {
 
-                std::cerr << "boop" << std::endl;
+                // std::cerr << "boop" << std::endl;
 
                 // Boop.
                 Node *node = *q;
 
-                std::cerr << "Node: " << node->hash << std::endl;
-                std::cerr << "Selected: " << is_node_selected(node->hash) << std::endl;
-                std::cerr << "Parents:" << std::endl;
-                for (auto p : node->parents) {
-                    std::cerr << "     " << p->hash << std::endl;
-                }
-                std::cerr << "Children:" << std::endl;
-                for (auto c : node->children) {
-                    std::cerr << "     " << c->hash << std::endl;
-                }
+                // std::cerr << "Node: " << node->hash << std::endl;
+                // std::cerr << "Selected: " << is_node_selected(node->hash) << std::endl;
+                // std::cerr << "Parents:" << std::endl;
+                // for (auto p : node->parents) {
+                //    std::cerr << "     " << p->hash << std::endl;
+                // }
+                // std::cerr << "Children:" << std::endl;
+                // for (auto c : node->children) {
+                //     std::cerr << "     " << c->hash << std::endl;
+                // }
 
                 // First, add all of this node's children to the processing
                 // queue. Eventually we will traverse the entire graph in
                 // topological order.
-                std::cerr << ":: push children to queue" << std::endl;
+                // std::cerr << ":: push children to queue" << std::endl;
                 for (auto c : node->children) {
                     if (already_scheduled.find(c) == already_scheduled.end()) {
                         already_scheduled.insert(c);
                         queue.push_back(c);
-                        std::cerr << ":: :: pushing " << c->hash << std::endl;
+                        // std::cerr << ":: :: pushing " << c->hash << std::endl;
                     } else {
-                        std::cerr << ":: :: not pushing " << c->hash << " (already scheduled)" << std::endl;
+                        // std::cerr << ":: :: not pushing " << c->hash << " (already scheduled)" << std::endl;
                     }
                 }
 
                 // If the node is selected, then carry on. If not, reroute the
                 // edges around it and remove it.
                 if (!is_node_selected(node->hash)) {
-                    std::cerr << ":: node is not selected" << std::endl;
+                    // std::cerr << ":: node is not selected" << std::endl;
                     // Connect every child node with every parent node.
                     for (auto parent : node->parents)
                         for (auto child : node->children) {
-                            std::cerr << ":: connect (P) " << parent->hash
-                                      << " to (C) " << child->hash << std::endl;
+                            // std::cerr << ":: connect (P) " << parent->hash
+                            //           << " to (C) " << child->hash << std::endl;
                             parent->children.insert(child);
                             child->parents.insert(parent);
                         }
 
                     // Remove the node from the graph and from existence.
-                    std::cerr << ":: remove node" << std::endl;
+                    // std::cerr << ":: remove node" << std::endl;
                     graph->remove(node);
                 } else {
-                    std::cerr << ":: node is selected, ignore" << std::endl;
+                    // std::cerr << ":: node is selected, ignore" << std::endl;
                 }
             }
 
