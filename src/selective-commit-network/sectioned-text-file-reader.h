@@ -24,6 +24,7 @@ namespace helpers {
         //virtual void section(std::vector<std::string> & r)  = 0;
         virtual void section_header(std::vector<std::string> & row)  = 0;
         virtual void row(std::vector<std::string> & row)  = 0;
+        virtual void file_end(unsigned int lines)  = 0;
 
 
 //        virtual void error(std::ios_base::failure const & e) {
@@ -54,10 +55,13 @@ namespace helpers {
                     }
 
                     //if (n_lines % 1000 == 0) {
-                    //    std::cout << " : " << n_sections << ":" << n_lines << "k\r" << std::flush;
+                    //    std::cout << " : " << n_sections << ":" << n_lines
+                    //              << "k\r" << std::flush;
                     //}
                 }
             }
+
+            file_end(n_lines);
 
             f.close();
             return n_lines;

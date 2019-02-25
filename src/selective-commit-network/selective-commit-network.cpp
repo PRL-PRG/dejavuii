@@ -147,6 +147,12 @@ namespace dejavu {
                      parent_list /*, tag.str() */);
         }
 
+        void file_end(unsigned int lines) override {
+            if (!first_project_) {
+                onProject(project_id_);
+            }
+        }
+
         virtual void onProject(unsigned int project_id) = 0;
 
         virtual void onCommit(std::string const & hash,
