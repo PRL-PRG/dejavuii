@@ -26,7 +26,7 @@
       Projects : 20000, candidates: 67453, originals: 49301, projects scanned 156068872, commits scanned 156671561, took 8:37  
   ordering projects by time of creation:
       Projects : 20000, candidates: 67453, originals: 49301, projects scanned 150886103, commits scanned 151324605, took 10:04
-  filtering projects based on file hashes as well    
+  filtering projects bas[<3;74;15m]ed on file hashes as well    
       Projects : 20000, candidates: 67453, originals: 49301, projects scanned 5611924, commits scanned 5661930, took 1:48
   projects scanned ordered by creationTime
       Projects : 20000, candidates: 67453, originals: 49301, projects scanned 5999447, commits scanned 6053963, took 1:38
@@ -42,6 +42,7 @@ namespace dejavu {
         helpers::Option<std::string> InputDir("inputDir", "/filtered", false);
         //helpers::Option<std::string> InputDir("inputDir", "/sample621", false);
         helpers::Option<std::string> OutputDir("outputDir", "/filtered", false);
+
 
         class ProjectsReader : public Project::Reader {
         protected:
@@ -238,7 +239,6 @@ namespace dejavu {
 
         std::atomic<uint64_t> CloneOriginalsFinder::NumProjectsScanned(0);
         std::atomic<uint64_t> CloneOriginalsFinder::NumCommitsScanned(0);
-
         
     } // anonymous namespace
 
