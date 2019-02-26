@@ -103,8 +103,6 @@ namespace dejavu {
             
         };
 
-
-
         /** Class for actually finding the originals.
          */
         class CloneOriginalsFinder {

@@ -8,5 +8,6 @@ namespace dejavu {
     void CommitOriginals(int argc, char * argv[]);
     void DataLoader(int argc, char * argv[]);
     void Sample(int argc, char * argv[]);
+    void CompactCommitTrees(int argc, char * argv[]);
     
 } // namespace dejavu
