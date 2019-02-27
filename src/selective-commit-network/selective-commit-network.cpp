@@ -183,15 +183,25 @@ namespace dejavu {
                 unsigned int project_id = it.first;
                 Graph * graph = it.second;
 
+                // Make a line to mark the project exists but has no commits.
                 if (graph->nodes.empty()) {
                     s << project_id << ",NA,NA" << std::endl;
                     written_lines++;
                     continue;
                 }
+
                 for (auto it : graph->nodes) {
                     // Boop.
                     Node * node = it.second;
     
+                    // Print an edge to NA if no parents.
+                    if (node->parents.empty()) {
+                        s << project_id << ","
+                          << node->hash << ","
+                          << "NA" << std::endl;
+                        written_lines++;
+                    }
+
                     // Print an edge between the node and all its parents.
                     for (auto parent : node->parents) {
                         s << project_id << ","
