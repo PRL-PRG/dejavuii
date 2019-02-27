@@ -1,7 +1,7 @@
 #include "helpers/helpers.h"
 #include "../settings.h"
 #include "src/objects.h"
-#include "sectioned-text-file-reader.h"
+#include "helpers/sectioned-text-file-reader.h"
 #include "selective-commit-network.h"
 
 #include <sstream>
