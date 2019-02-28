@@ -163,7 +163,7 @@ namespace dejavu {
         bool first_project_;
     };
 
-    typedef std::function<bool(std::string const)> CommitFilter;
+    typedef std::function<bool(unsigned int, std::string)> CommitFilter;
 
     class CommitHistorySelection : public CommitHistoryLoader {
     public:
@@ -292,7 +292,7 @@ namespace dejavu {
 
                 // If the node is selected, then carry on. If not, reroute the
                 // edges around it and remove it.
-                if (!is_node_selected(node->hash)) {
+                if (!is_node_selected(project_id, node->hash)) {
                     // std::cerr << ":: node is not selected" << std::endl;
                     // Connect every child node with every parent node.
                     for (auto parent : node->parents)
@@ -326,12 +326,52 @@ namespace dejavu {
         }
 
     private:
-        std::function<bool(std::string const)> is_node_selected;
+        CommitFilter is_node_selected;
         std::unordered_map<unsigned, Graph *> graphs;
 
         // For communication between onCommit and onProject.
         Graph * graph;
     };
+
+    // TODO this could be cleaned up and moved to objects
+    class CommitsInProject : public helpers::CSVReader {
+    public:
+        size_t readFile(std::string const & filename, bool headers) {
+            numRows_ = 0;
+            parse(filename, headers);
+            return numRows_;
+        }
+
+        static void ImportFrom(std::string const & filename, bool headers) {
+            CommitsInProject cip;
+            cip.readFile(filename, headers);
+        }
+
+        static bool Exists(unsigned int project_id, std::string hash) {
+            //return allegiance_[project_id].find(hash) !=
+            //        allegiance_[project_id].end();
+        }
+
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert((row.size() == 4) && "Invalid commit row length");
+
+            unsigned project_id = std::stoul(row[0]);
+            unsigned commit_id = std::stoul(row[3]);
+
+            ++numRows_;
+
+            Commit * commit = Commit::Get(commit_id);
+            std::string hash = commit->hash;
+            CommitsInProject::allegiance_[project_id].insert(hash);
+        }
+
+    private:
+        size_t numRows_;
+        static std::unordered_map<unsigned int, std::unordered_set<std::string>> allegiance_;
+    };
+
+    std::unordered_map<unsigned int, std::unordered_set<std::string>> CommitsInProject::allegiance_;
 
     void SelectiveCommitNetwork(int argc, char *argv[]) {
 
@@ -343,17 +383,15 @@ namespace dejavu {
         settings.parse(argc, argv);
         settings.check();
 
-        // Import commits. This will create the set used for selection.
-        Hash::ImportFrom(DataRoot.value() + CommitsDir.value() + "/commits.csv",
-                         false, 1);
+        // Import commits. This will create the set(s) used for selection.
+        Commit::ImportFrom(DataRoot.value() + CommitsDir.value() + "/commits.csv", false);
+        CommitsInProject::ImportFrom(DataRoot.value() + CommitsDir.value() + "/files.csv", false);
 
-        // Import commit history and sleect only those that are already in the
+        // Import commit history and select only those that are already in the
         // commits. Re-route the edges appropriately.
-        CommitHistorySelection chs(Hash::Exists);
-        chs.readFile(DataRoot.value() + CommitsDir.value() +
-                             "/commit-history.txt");
-        chs.saveAll(DataRoot.value() + OutputDir.value() +
-                            "/selective-commit-network.csv");
+        CommitHistorySelection chs(CommitsInProject::Exists);
+        chs.readFile(DataRoot.value() + CommitsDir.value() + "/commit-history.txt");
+        chs.saveAll(DataRoot.value() + OutputDir.value() + "/selective-commit-network.csv");
     }
 
 } // namespace dejavu
