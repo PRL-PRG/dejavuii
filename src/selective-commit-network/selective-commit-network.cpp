@@ -348,8 +348,8 @@ namespace dejavu {
         }
 
         static bool Exists(unsigned int project_id, std::string hash) {
-            //return allegiance_[project_id].find(hash) !=
-            //        allegiance_[project_id].end();
+            return allegiance_[project_id].find(hash) !=
+                    allegiance_[project_id].end();
         }
 
     protected:
