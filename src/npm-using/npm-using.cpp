@@ -93,12 +93,12 @@ namespace dejavu {
         std::unordered_map<std::string, unsigned> * projects =
                 new std::unordered_map<std::string, unsigned>();
         for (auto project_entry : Project::AllProjects()) {
-            ++projects;
+            ++n_projects;
             unsigned project_id = project_entry.first;
             std::string repository = project_entry.second->user
                                      + "/" + project_entry.second->repo;
             std::cerr << "  I MAPD " << n_projects << " PROJEKT IDZ " << "\r";
-            (*projects)[repository] = project_id;
+            projects->insert(make_pair(repository, project_id));
         }
         std::cerr << std::endl;
         std::cerr << "  NAO I HAV PROJEKT ID MAP" << std::endl;
