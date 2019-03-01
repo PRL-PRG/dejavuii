@@ -122,10 +122,12 @@ namespace dejavu {
             ++n_projects;
 
             auto it = project_ids.find(project);
-            assert(it != project_ids.end());
-            unsigned project_id = it->second;
-
-            csv_file << "\"" << project << "\"," << project_id << std::endl;
+            if (it != project_ids.end()) {
+                unsigned project_id = it->second;
+                csv_file << "\"" << project << "\"," << project_id << std::endl;
+            } else {
+                csv_file << "\"" << project << "\"," << /*NA*/ std::endl;
+            }
 
             if (n_projects % 1000 == 0)
                 std::cerr << "    I WRITED " << n_projects/1000
