@@ -77,7 +77,7 @@ namespace dejavu {
             for (auto file : read_directory(path, false)) {
                 ++inspected;
                 std::string repository = decode_string(file);
-                std::cerr << "  I INSPEKTEDZ " << inspected << " FILEZ" << "\r";
+                std::cerr << "    I INSPEKTEDZ " << inspected << " FILEZ" << "\r";
                 npm_projects.push_back(repository);
             }
         }
@@ -93,7 +93,7 @@ namespace dejavu {
             unsigned project_id = project_entry.first;
             std::string repository = project_entry.second->user
                                      + "/" + project_entry.second->repo;
-            std::cerr << "  I MAPD " << n_projects << " PROJEKT IDZ " << "\r";
+            std::cerr << "    I MAPD " << n_projects << " PROJEKT IDZ " << "\r";
             projects[repository] = project_id;
         }
         std::cerr << std::endl;
@@ -117,7 +117,7 @@ namespace dejavu {
             assert(it != project_ids.end());
             unsigned project_id = it->second;
 
-            std::cerr << "  I WRITED " << n_projects << " PROJEKTZ " << "\r";
+            std::cerr << "    I WRITED " << n_projects << " PROJEKTZ " << "\r";
 
             csv_file << "\"" << project << "\"," << project_id << std::endl;
         }
