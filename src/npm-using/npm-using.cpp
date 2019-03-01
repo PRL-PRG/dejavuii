@@ -71,44 +71,61 @@ namespace dejavu {
     }
 
     std::vector<std::string> * make_npm_project_list() {
+        std::cerr << "  NAO I MAK NPM PROJEKT LIST" << std::endl;
         std::vector<std::string> * npm_projects = new std::vector<std::string>();
+        unsigned int inspected = 0;
         for (auto path : read_directory(NodeDir.value(), true)) {
             for (auto file : read_directory(path, false)) {
-                std::cerr << "  NAO I INSPEKTZ: " << file << std::endl;
+                ++inspected;
                 std::string repository = decode_string(file);
+                std::cerr << "  I INSPEKTEDZ " << inspected << " FILEZ" << "\r";
                 npm_projects->push_back(repository);
             }
         }
+        std::cerr << std::endl;
+        std::cerr << "  NAO I HAV NPM PROJEKT LIST" << std::endl;
         return npm_projects;
     }
 
     std::unordered_map<std::string, unsigned> * make_project_id_map() {
+        std::cerr << "  NAO I MAK PROJEKT ID MAP" << std::endl;
+        unsigned int n_projects = 0;
         std::unordered_map<std::string, unsigned> * projects =
                 new std::unordered_map<std::string, unsigned>();
         for (auto project_entry : Project::AllProjects()) {
+            ++projects;
             unsigned project_id = project_entry.first;
             std::string repository = project_entry.second->user
                                      + "/" + project_entry.second->repo;
+            std::cerr << "  I MAPD " << n_projects << " PROJEKT IDZ " << "\r";
             (*projects)[repository] = project_id;
         }
+        std::cerr << std::endl;
+        std::cerr << "  NAO I HAV PROJEKT ID MAP" << std::endl;
         return projects;
     }
 
     void combine_and_output(std::unordered_map<std::string, unsigned> * project_ids, std::vector<std::string> * npm_projects) {
-
+        std::cerr << "  NAO I COMBINE ALL AND WRITEZ CSV FILE " << std::endl;
         std::string output_path(DataRoot.value() + OutputDir.value() + "/npm-using.csv");
         std::ofstream csv_file(output_path);
         if (! csv_file.good())
             ERROR("Unable to open file " << output_path << " for writing");
         csv_file << "\"repository\",\"project_id\"" << std::endl;
-
+        unsigned int n_projects = 0;
         for (std::string project : (*npm_projects)) {
+            ++n_projects;
+
             auto it = project_ids->find(project);
             assert(it != project_ids->end());
             unsigned project_id = it->second;
 
+            std::cerr << "  I WRITED " << n_projects << " PROJEKTZ " << "\r";
+
             csv_file << "\"" << project << "\"," << project_id << std::endl;
         }
+        std::cerr << std::endl;
+        std::cerr << "  NAO I DONE " << std::endl;
     }
 
     void NPMUsing(int argc, char * argv[]) {
