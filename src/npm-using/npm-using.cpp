@@ -20,14 +20,18 @@ namespace dejavu {
     std::vector<std::string> read_directory(std::string path, bool prefix) {
         DIR* dir = opendir(path.c_str());
         std::vector<std::string> result;
-        struct dirent * dp;
-        while ((dp = readdir(dir)) != NULL) {
-            std::string const file = dp->d_name;
-            if ("." == file || ".." == file)
-                continue;
-            result.push_back(prefix ? path + "/" + file : file);
+        if (dir != NULL) {
+            struct dirent *dp;
+            while ((dp = readdir(dir)) != NULL) {
+                std::string const file = dp->d_name;
+                if ("." == file || ".." == file)
+                    continue;
+                result.push_back(prefix ? path + "/" + file : file);
+            }
+            closedir(dir);
+        } else {
+            std::cerr << std::endl << "    I IGNOREZ " << path << std::endl;
         }
-        closedir(dir);
         return result;
     }
 
