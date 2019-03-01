@@ -76,7 +76,7 @@ namespace dejavu {
         settings.parse(argc, argv);
         settings.check();
 
-        std::string output_path("X");
+        std::string output_path(DataRoot.value() + OutputDir.value() + "/npm-using.csv");
         std::ofstream csv_file(output_path);
 
         if (! csv_file.good())
