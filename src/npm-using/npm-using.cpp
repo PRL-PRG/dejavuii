@@ -12,6 +12,8 @@ namespace dejavu {
         helpers::Option<std::string> OutputDir("outputDir", "/processed",
                                                false);
         helpers::Option<std::string> NodeDir("nodeDir", "/data/dejavuii/node-projects",
+                                             false);
+        helpers::Option<std::string> ProjectDir("projectDir", "/processed",
                                                 false);
     } // anonymous namespace
 
@@ -68,28 +70,61 @@ namespace dejavu {
         return std::make_pair(parts[0], parts[1]);
     }
 
+    std::vector<std::string> * make_npm_project_list() {
+        std::vector<std::string> * npm_projects = new std::vector<std::string>();
+        for (auto path : read_directory(NodeDir.value(), true)) {
+            for (auto file : read_directory(path, false)) {
+                std::cerr << "  NAO I INSPEKTZ: " << file << std::endl;
+                std::string repository = decode_string(file);
+                npm_projects->push_back(repository);
+            }
+        }
+        return npm_projects;
+    }
+
+    std::unordered_map<std::string, unsigned> * make_project_id_map() {
+        std::unordered_map<std::string, unsigned> * projects =
+                new std::unordered_map<std::string, unsigned>();
+        for (auto project_entry : Project::AllProjects()) {
+            unsigned project_id = project_entry.first;
+            std::string repository = project_entry.second->user
+                                     + "/" + project_entry.second->repo;
+            (*projects)[repository] = project_id;
+        }
+        return projects;
+    }
+
+    void combine_and_output(std::unordered_map<std::string, unsigned> * project_ids, std::vector<std::string> * npm_projects) {
+
+        std::string output_path(DataRoot.value() + OutputDir.value() + "/npm-using.csv");
+        std::ofstream csv_file(output_path);
+        if (! csv_file.good())
+            ERROR("Unable to open file " << output_path << " for writing");
+        csv_file << "\"repository\",\"project_id\"" << std::endl;
+
+        for (std::string project : (*npm_projects)) {
+            auto it = project_ids->find(project);
+            assert(it != project_ids->end());
+            unsigned project_id = it->second;
+
+            csv_file << "\"" << project << "\"," << project_id << std::endl;
+        }
+    }
+
     void NPMUsing(int argc, char * argv[]) {
         // Something to do with settings.
         settings.addOption(DataRoot);
         settings.addOption(NodeDir);
         settings.addOption(OutputDir);
+        settings.addOption(ProjectDir);
         settings.parse(argc, argv);
         settings.check();
 
-        std::string output_path(DataRoot.value() + OutputDir.value() + "/npm-using.csv");
-        std::ofstream csv_file(output_path);
+        Project::ImportFrom(DataRoot.value() + ProjectDir.value() + "/projects.csv", false);
 
-        if (! csv_file.good())
-            ERROR("Unable to open file " << output_path << " for writing");
+        std::unordered_map<std::string, unsigned> * project_ids = make_project_id_map();
+        std::vector<std::string> * npm_projects = make_npm_project_list();
 
-        csv_file << "\"owner\",\"project\"" << std::endl;
-        for (auto path : read_directory(NodeDir.value(), true)) {
-            for (auto file : read_directory(path, false)) {
-                std::cerr << file << std::endl;
-                std::pair<std::string, std::string> repo = to_owner_and_project(file);
-                csv_file << "\"" << repo.first << "\",\"" << repo.second
-                         << "\"" << std::endl;
-            }
-        }
+        combine_and_output(project_ids, npm_projects);
     }
 }
