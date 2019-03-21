@@ -22,7 +22,7 @@ namespace dejavu {
         size_t size = segments.size();
 
         if (size < 2) {
-            std::cerr << "::: " << url << " => " << "" << std::endl;
+            std::cerr << "invalid credentials for url: " << std::endl;
             return "";
         }
 
@@ -31,7 +31,6 @@ namespace dejavu {
             size_t p_size = project.size();
             if (p_size >= 4) {
                 std::string tail = project.substr(p_size - 4, p_size - 1);
-
                 if(tail == ".git") {
                     project = project.substr(0, p_size - 4);
                 }
@@ -51,45 +50,52 @@ namespace dejavu {
     }
 
     std::vector<std::string> extract_from_json(std::string file) {
-        nlohmann::json data;
-
-        std::ifstream input(file);
-        assert(input.is_open());
-        input >> data;
 
         std::vector<std::string> repos;
 
-        for (auto version : data["versions"]) {
-            auto package_json = version["package_json"];
-            auto repository = package_json["repository"];
+        try {
+            nlohmann::json data;
 
-            if (repository.is_string()) {
-                std::string url = repository.get<std::string>();
-                std::string repo_info = url_to_repository(url);
-                repos.push_back(repo_info);
-            }
+            std::ifstream input(file);
+            assert(input.is_open());
+            input >> data;
 
-            if (repository.is_object()) {
-                auto type = repository["type"];
-                if (type.is_string()) {
-                    if (type.get<std::string>() == "git") {
-                        if (repository["url"].is_string() ) {
-                            auto url = repository["url"].get<std::string>();
-                            std::string repo_info = url_to_repository(url);
-                            repos.push_back(repo_info);
+            for (auto version : data["versions"]) {
+                auto package_json = version["package_json"];
+                auto repository = package_json["repository"];
 
+                if (repository.is_string()) {
+                    std::string url = repository.get<std::string>();
+                    std::string repo_info = url_to_repository(url);
+                    repos.push_back(repo_info);
+                }
+
+                if (repository.is_object()) {
+                    auto type = repository["type"];
+                    if (type.is_string()) {
+                        if (type.get<std::string>() == "git") {
+                            if (repository["url"].is_string()) {
+                                auto url = repository["url"].get<std::string>();
+                                std::string repo_info = url_to_repository(url);
+                                repos.push_back(repo_info);
+                            }
                         }
                     }
                 }
             }
+            return repos;
+            
+        } catch (nlohmann::json::parse_error& e) {
+            std::cerr << "could not parse: " << file
+                      << " ("<< e.what() << ")" << std::endl;
+            return repos;
         }
-        return repos;
     }
 
     void fill_npm_package_list(std::vector<std::string> & npm_projects) {
         std::cerr << "NAO I MAK NPM PROJEKT LIST" << std::endl;
         unsigned int inspected = 0;
-        std::cerr<<NPMDir.value()<<std::endl;
+
         for (auto path : helpers::read_directory(NPMDir.value(), true)) {
             for (auto dir : helpers::read_directory(path, true)) {
                 for (auto file : helpers::read_directory(dir, true)) {
