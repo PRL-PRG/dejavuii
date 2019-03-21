@@ -31,7 +31,7 @@ namespace helpers {
         virtual void row(std::vector<std::string> & row)  = 0;
 
         virtual void error(std::ios_base::failure const & e) {
-            std::cout << "line " << lineNum_  << ": " << e.what() << std::endl;
+            std::cerr << "line " << lineNum_  << ": " << e.what() << std::endl;
         }
 
 

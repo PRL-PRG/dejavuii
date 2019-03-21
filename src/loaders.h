@@ -324,7 +324,7 @@ namespace dejavu {
 
         void row(std::vector<std::string> & row) override {
             if (row.size() != 2)
-                std::cout << row.size() << " -- " << row[0] << std::endl;
+                std::cerr << row.size() << " -- " << row[0] << std::endl;
             assert(row.size() == 2);
             f_(row[0], row[1]);
         }

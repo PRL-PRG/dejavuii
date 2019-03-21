@@ -614,7 +614,6 @@ namespace dejavu {
             unsigned cnt =0;
             for (auto i : commits) {
                 Commit * c = i.second;
-                std::cout << ++cnt << std::endl;
                 compactedEdges += c->compactChildEdges();
             }
             std::cerr << compactedEdges << " edges compacted" << std::endl;
