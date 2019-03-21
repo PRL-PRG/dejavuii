@@ -336,7 +336,7 @@ namespace dejavu {
                                 p->filterMasterBranch();
                                 p->ignoreSubmodules(path);
                                 p->removeEmptyCommits();
-                                p->compactCommitHierarchy();
+                                //p->compactCommitHierarchy();
                                 p->write();
                                 ++validProjects;
                             } else {
@@ -611,8 +611,10 @@ namespace dejavu {
         void Project::compactCommitHierarchy() {
             std::cerr << "    compacting commit hierarchy ";
             unsigned compactedEdges = 0;
+            unsigned cnt =0;
             for (auto i : commits) {
                 Commit * c = i.second;
+                std::cout << ++cnt << std::endl;
                 compactedEdges += c->compactChildEdges();
             }
             std::cerr << compactedEdges << " edges compacted" << std::endl;
