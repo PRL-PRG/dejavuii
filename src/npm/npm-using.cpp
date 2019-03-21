@@ -73,7 +73,7 @@ namespace dejavu {
         settings.parse(argc, argv);
         settings.check();
 
-        std::string output_path(DataRoot.value() + OutputDir.value() + "/npm.csv");
+        std::string output_path(DataRoot.value() + OutputDir.value() + "/npm-using.csv");
 
         Project::ImportFrom(DataRoot.value() + ProjectDir.value() + "/projects.csv", false);
 
