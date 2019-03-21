@@ -9,5 +9,6 @@ namespace dejavu {
     void DataLoader(int argc, char * argv[]);
     void Sample(int argc, char * argv[]);
     void CompactCommitTrees(int argc, char * argv[]);
+    void FilterVerifier(int argc, char * argv[]);
     
 } // namespace dejavu

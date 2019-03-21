@@ -42,6 +42,7 @@ namespace helpers {
         void parse(std::string const & filename, bool headers) {
             f_ = std::ifstream(filename, std::ios::in);
             lineNum_ = 1;
+            numRows_ = 0;
             //        f_.open(filename, std::ios::in);
             if (! f_.good())
                 ERROR("Unable to openfile " << filename);
@@ -53,9 +54,10 @@ namespace helpers {
                             headers = false;
                         } else {
                             row(row_);
+                            ++numRows_;
                             if (lineNum_ % 1000 == 0) {
                                 std::cout << " : " << (lineNum_/1000) << "k\r" << std::flush;
-                            }
+                            } 
                         }
                         row_.clear();
                     }
@@ -155,6 +157,18 @@ namespace helpers {
             }
         }
 
+        /** Returns the number of rows properly read.
+         */
+        size_t numRows() const {
+            return numRows_;
+        }
+
+        /** Returns the number of lines read. A row may span multiple lines.
+          */
+        size_t numLines() const {
+            return lineNum_;
+        }
+
     private:
 
         /** Reads next line from the input file.
@@ -181,6 +195,7 @@ namespace helpers {
         std::ifstream f_;
         std::vector<std::string> row_;
         size_t lineNum_;
+        size_t numRows_;
 
         char quote_;
         char separator_;

@@ -5,15 +5,83 @@
 #include "../settings.h"
 #include "../objects.h"
 
+
+/*
+
+  OH HAI!
+  CAN I HAZ STUFFZ?
+  I CAN HAZ compact-commit-trees NAO:
+  Loaded 42383751 commits
+  Rows read:         83027069
+  Projects:          1799907
+  Empty projects:    73779
+  Commit edges:      82953291
+  Compacted edges:   2280213
+  Visited commits:   40887098
+  Written edges:     49551469
+
+When this is fixed to account for projects with single commit:
+
+Loaded 42383751 commits
+Rows read:         85453125
+Projects:          2405680
+Empty projects:    73779
+Commit edges:      85379347
+Compacted edges:   2279887
+Visited commits:   41484184
+Written edges:     49552070
+KTHXBYE!
+
+real    16m7.998s
+user    14m16.311s
+sys     1m51.549s
+
+
+  
+ */
+
+
+
+
 namespace dejavu {
 
     namespace {
         
         helpers::Option<std::string> InputDir("inputDir", "/processed", false);
-        helpers::Option<std::string> OutputDir("outputDir", "/filtered", false);
+        helpers::Option<std::string> OutputDir("outputDir", "/verified", false);
 
+        class CommitsLoader : public helpers::CSVReader {
+        public:
+            void readFile(std::string const & filename) {
+                parse(filename, true);
+                std::cout << numRows() << " commits loaded" << std::endl;
+            }
+            static int IdOf(std::string const & hash) {
+                auto i = hashToId_.find(hash);
+                if (i == hashToId_.end())
+                    return -1;
+                return i->second;
+            }
+            
+        protected:
+            void row(std::vector<std::string> & row) override {
+                unsigned id = std::stoul(row[0]);
+                hashToId_[row[1]] = id;
+                
+            }
+            /*            void onRow(unsigned id, std::string const & hash, uint64_t time) {
+                hashToId_[hash] = id;
+                } */
+
+            /*            void onDone(size_t numRows) {
+                std::cout << "Loaded " << hashToId_.size() << " commits" << std::endl;
+                } */
+            
+            static std::unordered_map<std::string, unsigned> hashToId_;
+        };
 
         
+        /*
         class CommitsLoader : public Commit::Reader {
         public:
             static unsigned IdOf(std::string const & hash) {
@@ -33,6 +101,7 @@ namespace dejavu {
             
             static std::unordered_map<std::string, unsigned> hashToId_;
         };
+        */
 
         std::unordered_map<std::string, unsigned> CommitsLoader::hashToId_;
 
@@ -131,9 +200,13 @@ namespace dejavu {
                     if (commitsDone_.find(c->id) != commitsDone_.end())
                         continue;
                     commitsDone_.insert(c->id);
-                    for (Commit * p : c->parents) {
-                        compacted_ << c->id << "," << p->id << std::endl;
-                        ++writtenEdges_;
+                    if (c->parents.empty()) {
+                        compacted_ << c->id << ",NA" << std::endl; 
+                    } else {
+                        for (Commit * p : c->parents) {
+                            compacted_ << c->id << "," << p->id << std::endl;
+                            ++writtenEdges_;
+                        }
                     }
                 }
                 for (auto i : commits_)
@@ -149,15 +222,27 @@ namespace dejavu {
                 activeProject_ = pid;
                 if (row[1] != "NA") {
                     Commit * commit = getOrCreateCommit(CommitsLoader::IdOf(row[1]));
-                    Commit * parent = getOrCreateCommit(CommitsLoader::IdOf(row[2]));
-                    commit->parents.insert(parent);
-                    parent->children.insert(commit);
+                    if (commit == nullptr) // the commit is skipped
+                        return;
+                    if (row[2] != "NA") {
+                        Commit * parent = getOrCreateCommit(CommitsLoader::IdOf(row[2]));
+                        if (parent == nullptr) {
+                            std::cout << "Project " << pid << ":" << std::endl;
+                            std::cout << "  commit : " << row[1] << " (known)" << std::endl;
+                            std::cout << "  parent : " << row[2] << " (unknown)" << std::endl;
+                        }
+                        assert(parent != nullptr); // if commit is not skipped, then its parent must be known...
+                        commit->parents.insert(parent);
+                        parent->children.insert(commit);
+                    }
                     ++numCommits_;
                 }
                 ++numRows_;
             }
 
-            Commit * getOrCreateCommit(unsigned id) {
+            Commit * getOrCreateCommit(int id) {
+                if (id == -1)
+                    return nullptr;
                 auto i = commits_.find(id);
                 if (i == commits_.end())
                     i = commits_.insert(std::make_pair(id, new Commit(id))).first;
@@ -198,7 +283,7 @@ namespace dejavu {
         settings.check();
         {
             CommitsLoader cl;
-            cl.readFile(DataRoot.value() + InputDir.value() + "/commits.csv", false);
+            cl.readFile(DataRoot.value() + OutputDir.value() + "/commits.csv");
         }
         {
             CommitsTreeCompactor ctc;
