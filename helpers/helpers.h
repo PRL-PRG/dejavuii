@@ -1,10 +1,16 @@
 #pragma once
 
+#ifndef __HELPERS
+#define __HELPERS
+
 #include <ctime>
 
 #include <memory>
 #include <cstdlib>
 #include <sstream>
+#include <vector>
+#include <dirent.h>
+#include <string>
 
 #define STR(WHAT) static_cast<std::stringstream &&>(std::stringstream() << WHAT).str()
 
@@ -79,6 +85,24 @@ namespace helpers {
         return std::mktime(&time);
     }
 
-    
+    inline std::vector<std::string> read_directory(std::string path, bool prefix) {
+        DIR* dir = opendir(path.c_str());
+        std::vector<std::string> result;
+        if (dir != NULL) {
+            struct dirent *dp;
+            while ((dp = readdir(dir)) != NULL) {
+                std::string const file = dp->d_name;
+                if ("." == file || ".." == file)
+                    continue;
+                result.push_back(prefix ? path + "/" + file : file);
+            }
+            closedir(dir);
+        } else {
+            //std::cerr << std::endl << "    I IGNOREZ " << path << std::endl;
+        }
+        return result;
+    }
     
 } // namespace helpers
+
+#endif //__HELPERS
