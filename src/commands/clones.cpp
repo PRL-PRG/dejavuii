@@ -1,3 +1,5 @@
+#ifdef HAHA
+
 #include <vector>
 #include <unordered_set>
 #include <map>
@@ -553,3 +555,6 @@ namespace dejavu {
     }
     
 } //namespace dejavu
+
+
+#endif

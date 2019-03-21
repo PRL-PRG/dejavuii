@@ -56,7 +56,7 @@ namespace helpers {
                             row(row_);
                             ++numRows_;
                             if (lineNum_ % 1000 == 0) {
-                                std::cout << " : " << (lineNum_/1000) << "k\r" << std::flush;
+                                std::cerr << " : " << (lineNum_/1000) << "k\r" << std::flush;
                             } 
                         }
                         row_.clear();
@@ -92,7 +92,7 @@ namespace helpers {
                     size_t quoteStart = lineNum_;
                     ++i;
                     while (line[i] != quote_) {
-                        if (eof())
+                        if (i == line.size() - 1 && eof())
                             throw std::ios_base::failure(STR("Unterminated quote, starting at line " + quoteStart));
                         if (line[i] == '\\') {
                             ++i;
@@ -155,6 +155,8 @@ namespace helpers {
                 addColumn(col, isFirst);
                 isFirst = false;
             }
+            if (line[line.size() - 1] == separator_)
+                addColumn("", false);
         }
 
         /** Returns the number of rows properly read.
