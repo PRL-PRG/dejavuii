@@ -608,17 +608,6 @@ namespace dejavu {
             std::cerr << commits.size() << " commits left" << std::endl;
         }
 
-        void Project::compactCommitHierarchy() {
-            std::cerr << "    compacting commit hierarchy ";
-            unsigned compactedEdges = 0;
-            unsigned cnt =0;
-            for (auto i : commits) {
-                Commit * c = i.second;
-                compactedEdges += c->compactChildEdges();
-            }
-            std::cerr << compactedEdges << " edges compacted" << std::endl;
-        }
-
         /** Writes the project to the output files.
 
             Since file hash to id and path to id outputs were already created when the input data was read, we only output file changes, commits and the project info itself this time. 
