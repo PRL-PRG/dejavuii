@@ -64,6 +64,18 @@ namespace dejavu {
         std::cerr << "NAO I HAV NPM PROJEKT LIST" << std::endl;
     }
 
+    std::string npm_using_header() {
+        return "\"repository\",\"project_id\"";
+    }
+
+    std::string npm_using_formatter(std::string repo, unsigned project_id) {
+        return STR("\"" << repo << "\"," << project_id);
+    }
+
+    std::string npm_using_formatter_NA(std::string repo) {
+        return STR("\"" << repo << "\",");
+    }
+
     void NPMUsing(int argc, char * argv[]) {
         // Something to do with settings.
         settings.addOption(DataRoot);

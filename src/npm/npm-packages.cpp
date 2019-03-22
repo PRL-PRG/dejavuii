@@ -21,6 +21,11 @@ namespace dejavu {
         std::vector<std::string> segments = helpers::split(url, '/');
         size_t size = segments.size();
 
+        if (url.find("github.com") == std::string::npos) {
+            std::cerr << "apparently not a github url: " << url << std::endl;
+            return "";
+        }
+
         if (size < 2) {
             std::cerr << "invalid credentials for url: " << std::endl;
             return "";
@@ -49,9 +54,33 @@ namespace dejavu {
         return user + "/" + project;
     }
 
-    std::vector<std::string> extract_from_json(std::string file) {
+    void extract_data_from_repository(nlohmann::json json, std::vector<std::pair<std::string, std::string>> & repos) {
+        if (json.is_string()) {
+            std::string url = json.get<std::string>();
+            std::string repo_info = url_to_repository(url);
+            if (repo_info != "" || url != "") {
+                repos.push_back(std::make_pair(repo_info, url));
+            }
+        }
+        if (json.is_object()) {
+            auto type = json["type"];
+            if (type.is_string()) {
+                if (type.get<std::string>() == "git") {
+                    if (json["url"].is_string()) {
+                        auto url = json["url"].get<std::string>();
+                        std::string repo_info = url_to_repository(url);
+                        if (repo_info != "" || url != "") {
+                            repos.push_back(std::make_pair(repo_info, url));
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-        std::vector<std::string> repos;
+    std::vector<std::pair<std::string, std::string>> extract_from_json(std::string file) {
+        std::cerr << "opening " << file << std::endl;
+        std::vector<std::pair<std::string, std::string>> repos;
 
         try {
             nlohmann::json data;
@@ -61,30 +90,20 @@ namespace dejavu {
             input >> data;
 
             for (auto version : data["versions"]) {
+
+                if (!version.is_object()) {
+                    auto repository = data["repository"];
+                    extract_data_from_repository(repository, repos);
+                    continue;
+                }
+
                 auto package_json = version["package_json"];
                 auto repository = package_json["repository"];
 
-                if (repository.is_string()) {
-                    std::string url = repository.get<std::string>();
-                    std::string repo_info = url_to_repository(url);
-                    repos.push_back(repo_info);
-                }
-
-                if (repository.is_object()) {
-                    auto type = repository["type"];
-                    if (type.is_string()) {
-                        if (type.get<std::string>() == "git") {
-                            if (repository["url"].is_string()) {
-                                auto url = repository["url"].get<std::string>();
-                                std::string repo_info = url_to_repository(url);
-                                repos.push_back(repo_info);
-                            }
-                        }
-                    }
-                }
+                extract_data_from_repository(repository, repos);
             }
             return repos;
-            
+
         } catch (nlohmann::json::parse_error& e) {
             std::cerr << "could not parse: " << file
                       << " ("<< e.what() << ")" << std::endl;
@@ -92,28 +111,60 @@ namespace dejavu {
         }
     }
 
-    void fill_npm_package_list(std::vector<std::string> & npm_projects) {
-        std::cerr << "NAO I MAK NPM PROJEKT LIST" << std::endl;
+    std::vector<std::string> filter_files_by_extension(std::vector<std::string> files, std::string extension = ".json") {
+        std::vector<std::string> result;
+        std::copy_if (files.begin(), files.end(),
+                      std::back_inserter(result),
+                      [extension] (std::string s){
+                          if (s.size() < extension.size())
+                                  return false;
+                          return std::equal(extension.rbegin(),
+                                            extension.rend(),
+                                            s.rbegin());
+                      });
+        return result;
+    }
+
+    void fill_npm_package_list(std::vector<std::pair<std::string, std::string>> & npm_projects) {
+        std::cerr << "NAO I MAK NPM PACKAGE LIST FROM " << NPMDir.value() << std::endl;
         unsigned int inspected = 0;
 
-        for (auto path : helpers::read_directory(NPMDir.value(), true)) {
-            for (auto dir : helpers::read_directory(path, true)) {
-                for (auto file : helpers::read_directory(dir, true)) {
-                    //std::cerr << file << " --> "; // << std::endl;
-                    ++inspected;
-                    std::vector<std::string> repos = extract_from_json(file);
+        std::vector<std::string> files = filter_files_by_extension(
+                helpers::read_directory_recursive(NPMDir.value()));
 
-                    npm_projects.insert(npm_projects.end(), repos.begin(),
-                                        repos.end());
+        for(std::string file : files) {
+            std::cerr << " file " << file << std::endl;
+            ++inspected;
+            std::vector<std::pair<std::string, std::string>> repos =
+                    extract_from_json(file);
 
-                    if (inspected % 1000 == 0)
-                        std::cerr << "    I INSPEKTEDZ " << inspected / 1000
-                                  << "K FILEZ" << "\r";
-                }
-            }
+            npm_projects.insert(npm_projects.end(), repos.begin(),
+                                repos.end());
+
+            if (inspected % 1000 == 0)
+                std::cerr << "    I INSPEKTEDZ " << inspected / 1000
+                          << "K FILEZ" << "\r";
         }
+
         std::cerr << std::endl;
-        std::cerr << "NAO I HAV NPM PROJEKT LIST" << std::endl;
+        std::cerr << "NAO I HAV NPM PACKAGE LIST" << std::endl;
+    }
+
+    std::string npm_packages_header() {
+        return "\"repository\",\"project_id\",\"url\"";
+    }
+
+    std::string npm_packages_formatter(std::pair<std::string, std::string> repo,
+                                       unsigned project_id) {
+        return STR("\"" << std::get<0>(repo) << "\","
+                        << project_id << ","
+                        << "\"" << std::get<1>(repo) << "\"");
+    }
+
+    std::string npm_packages_formatter_NA(std::pair<std::string, std::string> repo) {
+        return STR("\"" << std::get<0>(repo) << "\","
+                        << ","
+                        << "\"" << std::get<1>(repo) << "\"");
     }
 
     void NPMPackages(int argc, char * argv[]) {
@@ -130,7 +181,7 @@ namespace dejavu {
         Project::ImportFrom(DataRoot.value() + ProjectDir.value() + "/projects.csv", false);
 
         std::unordered_map<std::string, unsigned> project_ids;
-        std::vector<std::string> npm_packages;
+        std::vector<std::pair<std::string,std::string>> npm_packages;
 
         fill_project_id_map(project_ids);
         fill_npm_package_list(npm_packages);
