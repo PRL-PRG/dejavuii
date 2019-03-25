@@ -11,7 +11,7 @@ namespace dejavu {
     namespace {
         helpers::Option<std::string> OutputDir("outputDir", "/processed",
                                                false);
-        helpers::Option<std::string> NPMDir("nodeDir", "/data/dejavuii/npm-packages",
+        helpers::Option<std::string> NPMDir("NPMDir", "/data/dejavuii/npm-packages",
                                             false);
         helpers::Option<std::string> ProjectDir("projectDir", "/processed",
                                                 false);
