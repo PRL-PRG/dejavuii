@@ -73,8 +73,6 @@ namespace dejavu {
 
         };
 
-
-
         void addChildren(QueueItem * i) {
             // get the children of current commit, if there are no current children, detete the queue item
             auto children = i->c->childrenCommits();
@@ -100,6 +98,7 @@ namespace dejavu {
                             i->replaceCommit(child);
                             schedule(i);
                         } else {
+                            std::cout << "Creating new queue item " << std::endl;
                             schedule(new QueueItem(child, i->s));
                         }
                     }

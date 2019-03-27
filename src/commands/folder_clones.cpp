@@ -100,6 +100,7 @@ namespace dejavu {
         private:
 
             Directory(Directory * parent, std::string const & name):
+                parent(parent),
                 name(name) {
             }
 
@@ -168,6 +169,215 @@ namespace dejavu {
         
         };
 
+        /** Contains information about files in given project and commit.
+
+         */
+        class ProjectTree {
+        public:
+            class Dir {
+            public:
+
+                bool taint;
+                
+                /** Link to parent dir structure.
+                 */
+                Dir * parent;
+                
+                /** Link to the global tree structure for the given project directory.
+                 */
+                Directory * directory;
+
+                /** Subdirectories - addressed by their global Directory objects.
+                 */
+                std::unordered_map<Directory *, Dir*> dirs;
+
+                /** Files - addressed by their path ids, value is the hash of the file
+                 */
+                std::unordered_map<unsigned, unsigned> files;
+
+
+                Dir(Dir * parent, Directory * directory):
+                    taint(true),
+                    parent(parent),
+                    directory(directory) {
+                }
+
+                Dir(Dir * parent, Dir const * from):
+                    taint(true),
+                    parent(parent),
+                    directory(from->directory) {
+                    for (auto const & i : from->dirs)
+                        dirs.insert(std::make_pair(i.first, new Dir(this, i.second)));
+                    for (auto const & i : from->files)
+                        files.insert(i);
+                }
+
+                ~Dir() {
+                    for (auto i : dirs)
+                        delete i.second;
+                }
+
+                bool isEmpty() const {
+                    return dirs.empty() && files.empty();
+                }
+
+                void untaint() {
+                    assert(taint == true);
+                    taint = false;
+                    for (auto i : dirs)
+                        i.second->untaint();
+                }
+
+                size_t numFiles() const {
+                    size_t result = 0;
+                    for (auto i : dirs)
+                        result += i.second->numFiles();
+                    result += files.size();
+                    return result;
+                }
+
+                std::string path() const {
+                    if (parent == nullptr)
+                        return "";
+                    else
+                        return parent->path() + "/" + directory->name;
+                } 
+
+            };
+
+            ProjectTree():
+                root_(nullptr) {
+            }
+
+            ProjectTree(ProjectTree const & from):
+                root_(nullptr) {
+                mergeWith(from);
+            }
+
+            ProjectTree(ProjectTree &&) = delete;
+
+            ProjectTree & operator = (ProjectTree const &) = delete;
+            ProjectTree & operator = (ProjectTree &&) = delete;
+
+            ~ProjectTree() {
+                delete root_;
+            }
+
+            /** Merges two states (i.e. branches) together. The merge retains all valid files from either of the branches.
+             */
+            void mergeWith(ProjectTree const & from) {
+                std::cout << "merging!!!!!!!!!!!!!!!!" << std::endl;
+                for (auto i : from.files_) {
+                    if (i.first == 12049)
+                        std::cout << "merging 3850" << std::endl;
+                    if (files_.find(i.first) != files_.end())
+                        continue;
+                    File * f = File::Get(i.first);
+                    assert(f != nullptr);
+                    Dir * d = getOrCreateDir(f->parent);
+                    unsigned hash = i.second->files[i.first];
+                    d->files.insert(std::make_pair(i.first, hash));
+                    files_.insert(std::make_pair(i.first, d));
+                }
+            }
+
+            /** Updates state with changes in given commit and returns 
+             */
+            void updateBy(Commit * commit, std::vector<Dir *> & cloneCandidates) {
+                // firstdo all removes so that if commit deletes a folder and then creates it again, we will capture it
+                for (auto const & change : commit->changes)
+                    if (change.second == 0)
+                        deleteFile(change.first);
+                // then add all files in the commit
+                for(auto const & change : commit->changes) {
+                    if (change.second != 0)
+                        updateFile(change.first, change.second, cloneCandidates);
+                }
+            }
+
+        private:
+            friend class Dir;
+
+            void deleteFile(unsigned pathId) {
+                if (pathId == 12049) {
+                    std::cout << "deleting 3850, object " << this << std::endl;
+                }
+                if (files_.find(pathId) == files_.end())
+                    std::cout << pathId << std::endl;
+                assert(files_.find(pathId) != files_.end());
+                // get the file and its directory
+                Dir * d = files_.find(pathId)->second;
+                // erase the file from its directory
+                d->files.erase(pathId);
+                // erase the file from the list of files
+                files_.erase(pathId);
+                // while the directory contains no files, delete it
+                while (d != nullptr && d->isEmpty()) {
+                    Dir * x = d;
+                    d = d->parent;
+                    dirs_.erase(x->directory);
+                    if (x == root_) 
+                        root_ = nullptr;
+                    else
+                        d->dirs.erase(x->directory); // erase from parent
+                    delete x;
+                }
+            }
+
+            void updateFile(unsigned pathId, unsigned hash, std::vector<Dir *> & cloneCandidates) {
+                if (pathId == 12049)
+                    std::cout << "updating 3850, object " << this << std::endl;
+                // if the file is not created new, but only updated, there is nothing to do, but change the 
+                if (files_.find(pathId) != files_.end()) {
+                    files_[pathId]->files[pathId] = hash;
+                    return;
+                }
+                // otherwise add the file and create any directories required for it, first of these will be a clone candidate
+                File * f = File::Get(pathId);
+                assert(f != nullptr);
+                Dir * d = getOrCreateDir(f->parent, & cloneCandidates);
+                d->files[pathId] = hash;
+                files_.insert(std::make_pair(pathId, d));
+            }
+
+            Dir * getOrCreateDir(Directory * d, std::vector<Dir *> * cloneCandidates =nullptr) {
+                assert(d != nullptr);
+                auto i = dirs_.find(d);
+                if (i != dirs_.end())
+                    return i->second;
+                if (d == Directory::Root()) {
+                    root_ = new Dir(nullptr, d);
+                    dirs_.insert(std::make_pair(d, root_));
+                    if (cloneCandidates == nullptr)
+                        root_->taint = false;
+                    else
+                        cloneCandidates->push_back(root_);
+                    return root_;
+                }
+                assert(d->parent != nullptr);
+                Dir * parent = getOrCreateDir(d->parent, cloneCandidates);
+                Dir * result = new Dir(parent, d);
+                dirs_.insert(std::make_pair(d, result));
+                if (cloneCandidates == nullptr)
+                    result->taint = false;
+                else if (!parent->taint)
+                    cloneCandidates->push_back(result);
+                parent->dirs.insert(std::make_pair(d, result));
+                return result;
+            }
+
+            
+            Dir * root_;
+            std::unordered_map<unsigned, Dir *> files_;
+            std::unordered_map<Directory *, Dir *> dirs_;
+        }; 
+
+
+        /** The issue is that I have file A B C. a gets renamed to B and C gets renamed to A. Thus I see delete to A, and update to A in same commit, this needs to be purged.
+
+            The join script can perhaps keep all purges? 
+         */
+
         class Project {
         public:
             unsigned id;
@@ -187,7 +397,14 @@ namespace dejavu {
                 assert(id < Projects_.size());
                 return Projects_[id];
             }
-            
+
+            static std::vector<Project *> const & GetAll() {
+                return Projects_;
+            }
+
+            /** Detects folder clones in the given project.
+             */
+            void detectFolderClones();
             
         private:
 
@@ -198,10 +415,6 @@ namespace dejavu {
             
             static std::vector<Project *> Projects_;
         };
-
-
-    
-
 
 
         class FolderCloneDetector {
@@ -251,6 +464,14 @@ namespace dejavu {
                 std::cerr << "    triage records: " << ProjectsTriage_.size() << std::endl;
             }
 
+            void detect() {
+
+                for (Project * p : Project::GetAll()) {
+                    std::cout << "next..." << std::endl;
+                    p->detectFolderClones();
+                    //                    exit(-1);
+                }
+            }
 
         private:
 
@@ -273,6 +494,32 @@ namespace dejavu {
 
         std::unordered_map<uint64_t, std::unordered_set<unsigned>> FolderCloneDetector::ProjectsTriage_;
 
+
+
+        /** First, we find the clone candidates.
+         */
+        void Project::detectFolderClones() {
+            std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
+            CommitForwardIterator<Commit,ProjectTree> it([this](Commit * c, ProjectTree & tree) {
+                    std::cout << c->id << " : chages " << c->changes.size() << std::endl;
+                    std::cout << "    " << c->childrenCommits().size() << " children" << std::endl;
+                    std::vector<ProjectTree::Dir *> candidates;
+                    tree.updateBy(c, candidates);
+                    for (ProjectTree::Dir * d : candidates) {
+                        size_t numFiles = d->numFiles();
+                        if (numFiles >= 2)
+                            std::cout << d->path() << " : " << numFiles << std::endl;
+                        d->untaint();
+                    }
+                    return true;
+                });
+            for (auto i : commits)
+                if (i->numParentCommits() == 0)
+                    it.addInitialCommit(i);
+            it.process();
+        }
+
+        
         
     } // anonymous namespace
 
@@ -282,6 +529,7 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
         FolderCloneDetector fcd;
+        fcd.detect();
 
         
     }

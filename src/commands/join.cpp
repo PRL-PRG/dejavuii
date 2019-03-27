@@ -13,11 +13,6 @@ namespace dejavu {
 
     namespace {
 
-        struct FileChange {
-            unsigned pathId;
-            unsigned contentsId;
-        };
-
         /** Information about a single commit taken.
          */
         class Commit {
@@ -31,9 +26,9 @@ namespace dejavu {
             std::unordered_set<Commit *> parents;
             std::unordered_set<Commit *> children;
 
-            /** Changes made to files by the commit.
+            /** Changes made to files by the commit (pathId -> contentsId)
              */
-            std::vector<FileChange> changes;
+            std::unordered_map<unsigned, unsigned> changes;
 
             /** Commit message.
              */
@@ -55,6 +50,28 @@ namespace dejavu {
 
             std::unordered_set<Commit *> const & childrenCommits() const {
                 return children;
+            }
+
+            /** Adds the specified change to the commit.
+
+                It may happen that a change to the path specified has already been recorded in the following cases:
+
+                - the first change is a delete, the current change is update. This can happen if a commit renames two files A -> B and C -> A. We might first see the delete of A and create of B an then delete of C and create of A
+                - the first change is valid, the second change is delete (the reverse of the above - there is no order for changes in single commit)
+                - multiple updates to the same file as long as all updates change the path to the same contents id (merge commits report diffs to all their parents)
+             */
+            void addChange(unsigned pathId, unsigned contentsId) {
+                auto i = changes.find(pathId);
+                if (i == changes.end()) {
+                    changes.insert(std::make_pair(pathId, contentsId));
+                } else {
+                    if (i->second == FILE_DELETED) {
+                        i->second = contentsId;
+                    } else {
+                        if (contentsId != FILE_DELETED)
+                            assert(contentsId == i->second);
+                    }
+                }
             }
 
             /** Detaches the commit from the hierarchy of commits.
@@ -214,7 +231,7 @@ namespace dejavu {
         public:
 
             static bool IsValidPath(std::string const & path) {
-                return helpers::endsWith(path, ".js") || helpers::endsWith(path, ".json");
+                return helpers::endsWith(path, ".js") || helpers::endsWith(path, ".json") || path == ".gitmodules";
             }
 
             static void Initialize() {
@@ -282,11 +299,13 @@ namespace dejavu {
                     std::ofstream f(filename);
                     f << "#commit id, author id, committer id" << std::endl;
                 }
+                /*
                 filename = DataDir.value() + "/commitMessages.csv";
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
                     f << "#commit id, message" << std::endl;
                 }
+                */
                 filename = DataDir.value() +"/commitParents.csv";
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
@@ -494,23 +513,19 @@ namespace dejavu {
             DownloaderCommitChangesLoader{filename, [& validChanges, this](std::string const & commitHash, std::string const & fileHash, char changeType, std::string const & path, std::string const & path2) {
                     assert(commits.find(commitHash) != commits.end());
                     Commit * c = commits[commitHash];
-                    if (ProjectAnalyzer::IsValidPath(path) || ProjectAnalyzer::IsValidPath(path2) || path == ".gitmodules" || path2 == ".gitmodules") {
-                        unsigned pathId;
-                        unsigned contentsId;
-                        // if the change is not a rename, proceed as normal
-                        if (changeType != 'R' ) {
-                            assert(changeType == 'C' || &path2 == & DownloaderCommitChangesLoader::NOT_A_RENAME);
-                            pathId = ProjectAnalyzer::GetOrCreatePathId(path);
-                            contentsId = ProjectAnalyzer::GetOrCreateHashId(fileHash);
-                        // if we have rename, first emit delete of the old file, then report the new file change
-                        } else {
-                            assert(&path2 != & DownloaderCommitChangesLoader::NOT_A_RENAME);
-                            pathId = ProjectAnalyzer::GetOrCreatePathId(path2);
-                            c->changes.push_back(FileChange{pathId, FILE_DELETED});
-                            pathId = ProjectAnalyzer::GetOrCreatePathId(path);
-                            contentsId = ProjectAnalyzer::GetOrCreateHashId(fileHash);
+                    if (changeType == 'R' || changeType == 'C') {
+                        assert(&path2 != & DownloaderCommitChangesLoader::NOT_A_RENAME);
+                        if (ProjectAnalyzer::IsValidPath(path2)) { // if source is valid path, emit delete of the source
+                            unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(path2);
+                            c->addChange(pathId, FILE_DELETED);
                         }
-                        c->changes.push_back(FileChange{pathId,contentsId});
+                    } else {
+                        assert(&path2 == & DownloaderCommitChangesLoader::NOT_A_RENAME);
+                    }
+                    if (ProjectAnalyzer::IsValidPath(path)) {
+                        unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(path);
+                        unsigned contentsId = ProjectAnalyzer::GetOrCreateHashId(fileHash);
+                        c->addChange(pathId, contentsId);
                         ++validChanges;
                     }
                 }};
@@ -569,11 +584,12 @@ namespace dejavu {
                     q.push_back(p);
                 // check if the commit changes any submodule information, if it does the commits contains submodules and we must deal with them
                 if (containsSubmodules_ == false)
-                    for (FileChange const & change : c->changes)
-                        if (change.pathId == gitmodulesId) {
+                    for (auto i : c->changes) {
+                        if (i.first == gitmodulesId) {
                             containsSubmodules_ = true;
                             break;
                         }
+                    }
                 masterCommits.insert(c);
             }
             // now remove all commits that are not in master commits
@@ -643,9 +659,10 @@ namespace dejavu {
                 std::ofstream changes(DataDir.value() + "/fileChanges.csv", std::ios_base::app);
                 assert(changes.good());
                 for (auto i : commits) {
-                    for (FileChange const & fc : i.second->changes)
+                    for (auto ch : i.second->changes) {
                         // project, commit, path, hash
-                        changes << id << "," << i.second->id << "," << fc.pathId << "," << fc.contentsId << std::endl;
+                        changes << id << "," << i.second->id << "," << ch.first << "," << ch.second << std::endl;
+                    }
                 }
             }
             {
@@ -661,9 +678,9 @@ namespace dejavu {
         void SubmoduleInfo::updateWith(Commit * c, std::string const & path) {
             unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(".gitmodules");
             for (auto i = c->changes.begin(), e = c->changes.end(); i != e; ++i) {
-                if (i->pathId == pathId) {
+                if (i->first == pathId) {
                     submodules.clear();
-                    if (i->contentsId != FILE_DELETED) {
+                    if (i->second != FILE_DELETED) {
                         std::ifstream f(path + c->hash);
                         std::string line;
                         while (std::getline(f, line)) {
@@ -681,7 +698,7 @@ namespace dejavu {
                 }
             }
             for (auto i = c->changes.begin(); i != c->changes.end(); ) {
-                if (submodules.find(i->pathId) != submodules.end()) {
+                if (submodules.find(i->first) != submodules.end()) {
                     //std::cout << "Removing change to file " << i->pathId << std::endl;
                     i = c->changes.erase(i);
                 } else {
