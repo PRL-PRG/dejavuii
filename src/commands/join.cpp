@@ -1,5 +1,7 @@
 #include <unordered_map>
 #include <unordered_set>
+#include <algorithm>
+#include <string>
 
 #include "helpers/strings.h"
 
@@ -140,6 +142,7 @@ namespace dejavu {
         };
 
 
+        
         class SubmoduleInfo {
         public:
 
@@ -150,8 +153,15 @@ namespace dejavu {
             }
 
             void mergeWith(SubmoduleInfo const & other) {
-                for (auto s : other.submodules)
+                for (auto s : other.submodules) {
                     submodules.insert(s);
+                    if (submodulesPendingDelete.find(s) != submodulesPendingDelete.end())
+                        submodulesPendingDelete.erase(s);
+                }
+                for (auto s : other.submodulesPendingDelete) {
+                    if (submodules.find(s) == submodules.end())
+                        submodulesPendingDelete.insert(s);
+                }
             }
 
             /** Determine if the commit changes the .gitmodules path and if it does, update the submodules information according to the contents of that file.
@@ -161,6 +171,11 @@ namespace dejavu {
             /** Path ids of submodule files.
              */
             std::unordered_set<unsigned> submodules;
+            /** It may happen that a submodule is deleted from gitmodules, but the actual file stays in the repo. In this case the path is moved to this set and any delete of a path from this set is ignored.
+
+                Both change and delete of a path in this list removes the path from the list.
+             */
+            std::unordered_set<unsigned> submodulesPendingDelete;
         };
 
 
@@ -376,6 +391,8 @@ namespace dejavu {
 
             static Project * CreateProject(std::string const & name, std::string const & repo) {
                 std::string mangledName = Project::MangleName(name, repo);
+                // transform the mangled name to lowercase for keeping - we can't change the user & repo just yet because the grabber is case sensitive
+                std::transform(mangledName.begin(), mangledName.end(), mangledName.begin(), ::tolower);
                 auto i = completedProjects_.find(mangledName);
                 if (i != completedProjects_.end())
                     return nullptr;
@@ -553,7 +570,6 @@ namespace dejavu {
                 return;
             std::cerr << "Removing submodule changes..." << std::flush;
             CommitForwardIterator<Commit,SubmoduleInfo> it([this, spath](Commit * c, SubmoduleInfo & submodules) {
-                    // first update the submodule information
                     submodules.updateWith(c, spath);
                     return true;
                 });
@@ -667,6 +683,9 @@ namespace dejavu {
             }
             {
                 std::ofstream projects(DataDir.value() + "/projects.csv", std::ios_base::app);
+                // now we can switch to lowercase because all data has been reade from case sensitive downloader
+                std::transform(user.begin(), user.end(), user.begin(), ::tolower);
+                std::transform(repo.begin(), repo.end(), repo.begin(), ::tolower);
                 // pid, user, repo
                 projects << id << "," << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << "," << createdAt << std::endl;
             }
@@ -676,10 +695,14 @@ namespace dejavu {
 
 
         void SubmoduleInfo::updateWith(Commit * c, std::string const & path) {
+            // first see if there is a change to gitmodules
             unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(".gitmodules");
             for (auto i = c->changes.begin(), e = c->changes.end(); i != e; ++i) {
                 if (i->first == pathId) {
-                    submodules.clear();
+                    // if there is submodules, move all existing submodules into pending delete submodules
+                    for (auto i : submodules)
+                        submodulesPendingDelete.insert(i);
+                    // analyze the new version of submodules
                     if (i->second != FILE_DELETED) {
                         std::ifstream f(path + c->hash);
                         std::string line;
@@ -689,7 +712,12 @@ namespace dejavu {
                                 continue;
                             line = line.substr(x + 7);
                             // std::cout << line << " -- " << c->hash << std::endl;
-                            submodules.insert(ProjectAnalyzer::GetOrCreatePathId(line));
+                            unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(line);
+                            submodules.insert(pathId);
+                            // check that the submodule is not in the pending deletes and remove it if so
+                            auto j = submodulesPendingDelete.find(pathId);
+                            if (j != submodulesPendingDelete.end())
+                                submodulesPendingDelete.erase(j);
                         }
                     }
                     // if we see a change to gitmodules, we can stop, there can be only one change per commit
@@ -697,6 +725,32 @@ namespace dejavu {
                     break;
                 }
             }
+            // now process the file changes, ignoring anything that is in submodules, and anything that is in 
+            for (auto i = c->changes.begin(); i != c->changes.end(); ) {
+                if (submodules.find(i->first) != submodules.end()) {
+                    //std::cout << "Removing change to file " << i->pathId << std::endl;
+                    i = c->changes.erase(i);
+                } else if (submodulesPendingDelete.find(i->first) != submodulesPendingDelete.end()) {
+                    submodulesPendingDelete.erase(i->first);
+                    i = c->changes.erase(i);
+                } else {
+                    ++i;
+                }
+            }
+            /*
+
+
+            
+            // first ignore all deletes to files we recognize as submodules - this is important in case commit removes submodule (shown as delete of a file previously known as submodule and a change to gitmodules) and then create normal file of the same name as the submodule used to be
+            for (auto i = c->changes.begin(); i != c->changes.end(); ) {
+                if (i->second == FILE_DELETED && submodules.find(i->first) != submodules.end()) {
+                    i = c->changes.erase(i);
+                } else {
+                    ++i;
+                }
+            }
+            //now see if the commit changes gitmodule file, which means we should update our submodules information to reflect that of the gitmodules change
+            // now that we know the submodules delete any access to a submodule 
             for (auto i = c->changes.begin(); i != c->changes.end(); ) {
                 if (submodules.find(i->first) != submodules.end()) {
                     //std::cout << "Removing change to file " << i->pathId << std::endl;
@@ -704,7 +758,7 @@ namespace dejavu {
                 } else {
                     ++i;
                 }
-            }
+                } */
         }
         
         
