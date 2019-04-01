@@ -338,6 +338,7 @@ namespace dejavu {
                             return;
                         }
                         std::cerr << "Analyzing file " << filename << std::endl;
+                        std::cout << "Chunk " << filename << std::endl;
                         helpers::TempDir t(TempDir.value());
                         std::cerr << "Decompressing " << filename << " into " << t.path() << "..." << std::endl;
                         helpers::System(STR("tar -zxf " << filename << " -C " << t.path()));
