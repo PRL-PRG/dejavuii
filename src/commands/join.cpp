@@ -379,6 +379,9 @@ namespace dejavu {
                         } catch (char const * e) {
                             std::cout << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << "," << helpers::escapeQuotes(e) << std::endl;
                             ++errorProjects;
+                        } catch (std::exception const & e) {
+                            std::cout << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << "," << helpers::escapeQuotes(e.what()) << std::endl;
+                            ++errorProjects;
                         }
                         delete p;
                     });

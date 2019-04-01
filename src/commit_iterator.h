@@ -98,7 +98,6 @@ namespace dejavu {
                             i->replaceCommit(child);
                             schedule(i);
                         } else {
-                            std::cout << "Creating new queue item " << std::endl;
                             schedule(new QueueItem(child, i->s));
                         }
                     }
