@@ -12,7 +12,7 @@ namespace dejavu {
         public:
             static void LoadTimestamps() {
                 CommitLoader([](unsigned id, uint64_t author_time, uint64_t commit_time) {
-                    assert(timestamps.find(id) != timestamps.end());
+                    assert(timestamps.find(id) == timestamps.end());
                     timestamps[id] = author_time;
                 });
             }
