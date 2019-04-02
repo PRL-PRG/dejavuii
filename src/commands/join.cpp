@@ -338,6 +338,7 @@ namespace dejavu {
                             return;
                         }
                         std::cerr << "Analyzing file " << filename << std::endl;
+                        std::cout << "Chunk " << filename << std::endl;
                         helpers::TempDir t(TempDir.value());
                         std::cerr << "Decompressing " << filename << " into " << t.path() << "..." << std::endl;
                         helpers::System(STR("tar -zxf " << filename << " -C " << t.path()));
@@ -378,6 +379,9 @@ namespace dejavu {
                             }
                         } catch (char const * e) {
                             std::cout << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << "," << helpers::escapeQuotes(e) << std::endl;
+                            ++errorProjects;
+                        } catch (std::exception const & e) {
+                            std::cout << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << "," << helpers::escapeQuotes(e.what()) << std::endl;
                             ++errorProjects;
                         }
                         delete p;
