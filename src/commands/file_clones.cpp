@@ -12,7 +12,7 @@ namespace dejavu {
         public:
             static void LoadTimestamps() {
                 CommitLoader([](unsigned id, uint64_t author_time, uint64_t commit_time) {
-                    assert(timestamps.find(id) != timestamps.end());
+                    assert(timestamps.find(id) == timestamps.end());
                     timestamps[id] = author_time;
                 });
             }
@@ -45,33 +45,32 @@ namespace dejavu {
         class ModificationCluster {
         public:
             static void LoadClusters() {
-                std::unordered_map<unsigned, std::vector<Modification *>> possible_clusters;
-                FileChangeLoader::RowHandler handler = [possible_clusters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
-                    Modification *modification = new Modification(project_id, commit_id, path_id, contents_id);
-                    possible_clusters[contents_id].push_back(modification);
-                };
-                FileChangeLoader loader = FileChangeLoader(handler);
+                std::cerr << "COWTING REPEATZ OF CONE TENTS" << std::endl;
+                std::unordered_map<unsigned, unsigned> counters;
+                FileChangeLoader([counters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
+                    counters[contents_id]++;
+                });
+                std::cerr << "DONE COWTING REPEATZ OF CONE TENTS" << std::endl;
 
-                for (auto & it : possible_clusters) {
-                    // Only preserve those clusters that have more than one
+                std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
+                FileChangeLoader([counters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
+                    // Only collect those clusters that have more than one
                     // modification.
-                    if (it.second.size() < 2) {
-                        for (auto modification : it.second) {
-                            delete modification;
-                        }
-                        continue;
-                    }
+                    if (counters[commit_id] < 2)
+                        return;
+                    // Collect modification information.
+                    clusters[contents_id].push_back(new Modification(project_id, commit_id, path_id, contents_id));
+                });
+                std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
 
-                    // Copy the cluster to the actual output data structure.
-                    clusters[it.first] = it.second;
-
+                std::cerr << "MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
+                for (auto & it : clusters) {
                     // Mark oldest modification in cluster;
-                    std::vector<Modification *> &modifications = clusters[it.first];
+                    std::vector<Modification *> modifications = it.second;
 
                     // Elect first modification as provisionally oldest.
                     Modification *oldest = modifications[0];
                     oldest->timestamp = Commit::GetTimestamp(oldest->commit_id);
-
 
                     // Select oldest modification.
                     for (int i = 1, size = modifications.size(); i < size; i++) {
@@ -84,7 +83,9 @@ namespace dejavu {
                     // Mark oldest modification.
                     oldest->original = true;
                 }
+                std::cerr << "DONE MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
             }
+
         protected:
             static std::unordered_map<unsigned, std::vector<Modification *>> clusters;
         };
