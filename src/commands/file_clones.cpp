@@ -104,7 +104,7 @@ namespace dejavu {
 
             static void SaveClusters() {
                 std::cerr << "WRITINK OUT KLUSTER INFORMESHON" << std::endl;
-                const std::string filename = DataDir.value() + "/fileChanges.csv";
+                const std::string filename = DataDir.value() + "/fileClusters.csv";
                 std::ofstream s(filename);
                 if (! s.good()) {
                     ERROR("Unable to open file " << filename << " for writing");
