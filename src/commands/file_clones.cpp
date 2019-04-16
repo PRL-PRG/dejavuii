@@ -94,11 +94,19 @@ namespace dejavu {
                 std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
 
                 std::cerr << "MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
+                int counter = 0;
                 for (auto & it : clusters) {
                     // Mark oldest modification in cluster;
                     ModificationCluster *cluster = new ModificationCluster(it.second);
                     ModificationCluster::clusters[it.first] = cluster;
+
+                    // Count processed lines
+                    counter++;
+                    if (counter % 1000 == 0) {
+                        std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
+                    }
                 }
+                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
                 std::cerr << "DONE MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
             }
 
@@ -113,14 +121,21 @@ namespace dejavu {
                 s << "\"content id\",\"cluster size\",\"original commit id\""
                   << std::endl;
 
+                int counter = 0;
                 for (auto & it : clusters) {
                     unsigned content_id = it.first;
                     unsigned cluster_size = it.second->size();
                     unsigned original = it.second->get_original()->commit_id;
                     s << content_id << "," << cluster_size << "," << original
                       << std::endl;
-                }
 
+                    // Count processed lines
+                    counter++;
+                    if (counter % 1000 == 0) {
+                        std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
+                    }
+                }
+                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
                 std::cerr << "DONE WRITINK OUT KLUSTER INFORMESHON" << std::endl;
             }
 
@@ -142,7 +157,9 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
+        std::cerr << "LOAD TIMESTAMPZ" << std::endl;
         Commit::LoadTimestamps();
+        std::cerr << "DONE LOAD TIMESTAMPZ" << std::endl;
         ModificationCluster::LoadClusters();
         ModificationCluster::SaveClusters();
     }
