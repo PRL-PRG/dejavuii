@@ -78,6 +78,15 @@ namespace dejavu {
                 });
                 std::cerr << "DONE COWTING REPEATZ OF CONE TENTS" << std::endl;
 
+                std::cerr << "CONTING CONTENT KLUSTERS" << std::endl;
+                int pluralities = 0;
+                for (auto it : counters) {
+                    if (it.second > 1) {
+                        pluralities++;
+                    }
+                }
+                std::cerr << "DER " << pluralities << "CKONTENT CKLUSTERZ" << std::endl;
+
                 std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
                 std::unordered_map<unsigned, std::vector<Modification*>> clusters;
                 FileChangeLoader([counters,clusters](unsigned project_id,
