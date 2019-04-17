@@ -16,10 +16,12 @@ namespace dejavu {
 
             GHTorrentProjectLoader(std::string const & filename, RowHandler f): f_(f) {
                 readFile(filename);
+                showProblems();
             }
 
             GHTorrentProjectLoader(RowHandler f): f_(f) {
                 readFile(DataDir.value() + "/ghtorrent_projects.csv");
+                showProblems();
             }
 
         protected:
@@ -37,21 +39,38 @@ namespace dejavu {
              * [10]: ?
              */
             void row(std::vector<std::string> & row) override {
-                assert((row[1] == "\\N") ||
-                       (row[1].rfind("https://api.github.com/repos/", 0) == 0));
+                if(!((row[1] == "\\N") ||
+                    (row[1].rfind("https://api.github.com/repos/", 0) == 0))) {
+                    int i = 0;
+                    for (std::string column : row) {
+                        std::cerr << "row[" << i << "]" << column << std::endl;
+                        ++i;
+                    }
+                    _problems.push_back(row);
+                    return;
+                }
                 std::string url = (row[1] == "\\N") ? "" : row[1].substr(0, 30);
 
                 std::string language = row[5];
 
                 bool forked = row[7] == "\\N";
 
-                assert(row[8] == "1" || row[8] == "0");
+                if (!(row[8] == "1" || row[8] == "0")) {
+                    _problems.push_back(row);
+                    return;
+                }
+                //assert(row[8] == "1" || row[8] == "0");
                 bool deleted = (row[8] == "1");
 
                 f_(language, url, forked, deleted);
             }
 
+            void showProblems() {
+                std::cerr << "There were " << _problems.size() << " problems which caused rows to be ignored." << std::endl;
+            }
+
         private:
+            std::vector<std::vector<std::string>> _problems;
             RowHandler f_;
         };
 
