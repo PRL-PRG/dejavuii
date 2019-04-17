@@ -39,23 +39,35 @@ namespace dejavu {
              * [10]: ?
              */
             void row(std::vector<std::string> & row) override {
-                if(!((row[1] == "\\N") ||
-                    (row[1].rfind("https://api.github.com/repos/", 0) == 0))) {
+                std::string url;
+                if (row[1].rfind("https://api.github.com/repos/", 0) == 0) {
+                    url = row[1].substr(0, 30);
+                } else if (row[1].rfind("https://api./repos/", 0) == 0) {
+                    url = row[1].substr(0, 20);
+                } else if (row[1] == "\\N") {
+                    /* NOTHING */
+                } else {
                     int i = 0;
                     for (std::string column : row) {
-                        std::cerr << "row[" << i << "]" << column << std::endl;
+                        std::cerr << "row[" << i << "] = " << column << std::endl;
                         ++i;
                     }
+                    std::cerr << std::endl;
                     _problems.push_back(row);
                     return;
                 }
-                std::string url = (row[1] == "\\N") ? "" : row[1].substr(0, 30);
 
                 std::string language = row[5];
 
                 bool forked = row[7] == "\\N";
 
                 if (!(row[8] == "1" || row[8] == "0")) {
+                    int i = 0;
+                    for (std::string column : row) {
+                        std::cerr << "row[" << i << "] = " << column << std::endl;
+                        ++i;
+                    }
+                    std::cerr << std::endl;
                     _problems.push_back(row);
                     return;
                 }
