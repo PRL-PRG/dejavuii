@@ -94,14 +94,24 @@ namespace helpers {
                     while (line[i] != quote_) {
                         if (i == line.size() - 1 && eof())
                             throw std::ios_base::failure(STR("Unterminated quote, starting at line " + quoteStart));
+                        // check for escaped characters
                         if (line[i] == '\\') {
                             ++i;
-                            while (i == line.size() && ! eof()) {
-                                line = readLine();
-                                i = 0;
+                            // if the new line is escaped, we already have the escaped character
+                            if (i == line.size()) {
+                                while (i == line.size() && ! eof()) {
+                                    col += '\n';
+                                    line = readLine();
+                                    i = 0;
+                                }
+                                // otherwise just add the escaped character
+                            } else {
+                                col += line[i++];
                             }
+                        // normal character, just append
+                        } else {
+                            col += line[i++];
                         }
-                        col += line[i++];
                         while (i == line.size() && ! eof()) {
                             line = readLine();
                             i = 0;
