@@ -465,6 +465,8 @@ namespace dejavu {
             }
 
             void detect() {
+                std::cerr << "Waiting in loop" << std::endl;
+                while(true) {}
 
                 for (Project * p : Project::GetAll()) {
                     std::cout << "next..." << std::endl;
