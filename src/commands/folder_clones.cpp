@@ -266,10 +266,7 @@ namespace dejavu {
             /** Merges two states (i.e. branches) together. The merge retains all valid files from either of the branches.
              */
             void mergeWith(ProjectTree const & from) {
-                std::cout << "merging!!!!!!!!!!!!!!!!" << std::endl;
                 for (auto i : from.files_) {
-                    if (i.first == 12049)
-                        std::cout << "merging 3850" << std::endl;
                     if (files_.find(i.first) != files_.end())
                         continue;
                     File * f = File::Get(i.first);
@@ -299,9 +296,6 @@ namespace dejavu {
             friend class Dir;
 
             void deleteFile(unsigned pathId) {
-                if (pathId == 12049) {
-                    std::cout << "deleting 3850, object " << this << std::endl;
-                }
                 if (files_.find(pathId) == files_.end())
                     std::cout << pathId << std::endl;
                 assert(files_.find(pathId) != files_.end());
@@ -325,8 +319,6 @@ namespace dejavu {
             }
 
             void updateFile(unsigned pathId, unsigned hash, std::vector<Dir *> & cloneCandidates) {
-                if (pathId == 12049)
-                    std::cout << "updating 3850, object " << this << std::endl;
                 // if the file is not created new, but only updated, there is nothing to do, but change the 
                 if (files_.find(pathId) != files_.end()) {
                     files_[pathId]->files[pathId] = hash;
@@ -465,13 +457,12 @@ namespace dejavu {
             }
 
             void detect() {
-                std::cerr << "Waiting in loop" << std::endl;
-                while(true) {}
 
                 for (Project * p : Project::GetAll()) {
-                    std::cout << "next..." << std::endl;
+                    // skip any missing projects
+                    if (p == nullptr)
+                        continue;
                     p->detectFolderClones();
-                    //                    exit(-1);
                 }
             }
 
@@ -503,8 +494,8 @@ namespace dejavu {
         void Project::detectFolderClones() {
             std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
             CommitForwardIterator<Commit,ProjectTree> it([this](Commit * c, ProjectTree & tree) {
-                    std::cout << c->id << " : chages " << c->changes.size() << std::endl;
-                    std::cout << "    " << c->childrenCommits().size() << " children" << std::endl;
+                    //std::cout << c->id << " : chages " << c->changes.size() << std::endl;
+                    //std::cout << "    " << c->childrenCommits().size() << " children" << std::endl;
                     std::vector<ProjectTree::Dir *> candidates;
                     tree.updateBy(c, candidates);
                     for (ProjectTree::Dir * d : candidates) {
