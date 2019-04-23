@@ -252,6 +252,10 @@ namespace dejavu {
             ProjectTree(ProjectTree const & from):
                 root_(nullptr) {
                 mergeWith(from);
+                if (from.root_ != nullptr)
+                    assert(root_ != nullptr);
+                assert(dirs_.size() == from.dirs_.size());
+                assert(files_.size() == from.files_.size());
             }
 
             ProjectTree(ProjectTree &&) = delete;
@@ -357,7 +361,6 @@ namespace dejavu {
                 parent->dirs.insert(std::make_pair(d, result));
                 return result;
             }
-
             
             Dir * root_;
             std::unordered_map<unsigned, Dir *> files_;
@@ -492,16 +495,14 @@ namespace dejavu {
         /** First, we find the clone candidates.
          */
         void Project::detectFolderClones() {
-            std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
+            //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
             CommitForwardIterator<Commit,ProjectTree> it([this](Commit * c, ProjectTree & tree) {
-                    //std::cout << c->id << " : chages " << c->changes.size() << std::endl;
-                    //std::cout << "    " << c->childrenCommits().size() << " children" << std::endl;
                     std::vector<ProjectTree::Dir *> candidates;
                     tree.updateBy(c, candidates);
                     for (ProjectTree::Dir * d : candidates) {
                         size_t numFiles = d->numFiles();
-                        if (numFiles >= 2)
-                            std::cout << d->path() << " : " << numFiles << std::endl;
+                        //if (numFiles >= 2)
+                            //std::cout << d->path() << " : " << numFiles << std::endl;
                         d->untaint();
                     }
                     return true;
