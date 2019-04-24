@@ -252,6 +252,18 @@ namespace dejavu {
                     serialize(s);
                     return s.str();
                 }
+
+
+                void getTriageIndices(std::unordered_set<uint64_t> & indices) {
+                    for (auto i : dirs)
+                        i.second->getTriageIndices(indices);
+                    for (auto i : files) {
+                        uint64_t id = File::Get(i.first)->filename->id;
+                        id = (id << 32) | i.second;
+                        indices.insert(id);
+                    }
+                }
+                
             private:
                 void serialize(std::stringstream & s) {
                     s << "(";
@@ -327,7 +339,7 @@ namespace dejavu {
             friend class Dir;
 
             void deleteFile(unsigned pathId) {
-                if (files_.find(pathId) != files_.end()) {
+                if (files_.find(pathId) == files_.end()) {
                     std::cerr << "pathId: " << pathId << std::endl;
                     throw "HERE";
                 }
@@ -508,13 +520,32 @@ namespace dejavu {
             static void FindOriginalFor(Project * p, Commit * c, ProjectTree::Dir * clone) {
                 ++NumClones_;
                 std::string id = clone->serialize();
-                auto i = CloneOriginals_.find(id);
-                if (i != CloneOriginals_.end()) {
+                auto ci = CloneOriginals_.find(id);
+                if (ci != CloneOriginals_.end()) {
                     // TODO output the project commit id and original info
                     return;
                 }
-                // now we must actually find the original
-                
+                // now we must actually find the original, so first determine set of projects that are worth checking, which is projects which contain all of the files involved in the clone
+                std::unordered_set<unsigned> projects;
+                std::unordered_set<uint64_t> indices;
+                clone->getTriageIndices(indices);
+                auto i = indices.begin(), e = indices.end();
+                // add all projects for the first file indice
+                for (auto j : ProjectsTriage_[*i])
+                    projects.insert(j);
+                ++i;
+                // now check the rest
+                while (! projects.empty() && i != e) {
+                    auto iprojects = ProjectsTriage_[*i];
+                    for (auto j = projects.begin(), je = projects.end(); j != je;) {
+                        if (iprojects.find(*j) == iprojects.end())
+                            j = projects.erase(j);
+                        else 
+                            ++j;
+                    }
+                    ++i;
+                }
+                std::cout << "Possible original projects reduced to " << projects.size() << std::endl;
                     
                 CloneOriginals_.insert(std::make_pair(id, CloneOriginals_.size() + 1));
             }
@@ -542,6 +573,7 @@ namespace dejavu {
         std::unordered_map<unsigned, Commit *> Commit::Commits_;
         std::vector<Project *> Project::Projects_;
 
+        // path + contentsId -> set of projects
         std::unordered_map<uint64_t, std::unordered_set<unsigned>> FolderCloneDetector::ProjectsTriage_;
         std::unordered_map<std::string, unsigned> FolderCloneDetector::CloneOriginals_;
         unsigned long FolderCloneDetector::NumClones_ = 0;
@@ -551,20 +583,22 @@ namespace dejavu {
         void Project::detectFolderClones() {
             //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
             CommitForwardIterator<Commit,ProjectTree> it([this](Commit * c, ProjectTree & tree) {
-                    std::vector<ProjectTree::Dir *> candidates;
-                    tree.updateBy(c, candidates);
-                    for (ProjectTree::Dir * d : candidates) {
-                        try {
-                        size_t numFiles = d->numFiles();
-                        //if the clone candidate passes the threshold, find its clone
-                        if (numFiles >= Threshold.value())
-                            FolderCloneDetector::FindOriginalFor(this, c,  d);
-                        d->untaint();
-                        } catch (...) {
-                            std::cout << "Commit id" << c->id << std::endl;
-                            std::cout << "Project id" << id << std::endl;
-                            assert(false);
+                    try {
+                        std::vector<ProjectTree::Dir *> candidates;
+                        tree.updateBy(c, candidates);
+                        for (ProjectTree::Dir * d : candidates) {
+                            size_t numFiles = d->numFiles();
+                            //if the clone candidate passes the threshold, find its clone
+                            if (numFiles >= Threshold.value())
+                                FolderCloneDetector::FindOriginalFor(this, c,  d);
+                            d->untaint();
+                                
+                                
                         }
+                    } catch (...) {
+                        std::cout << "Commit id" << c->id << std::endl;
+                        std::cout << "Project id" << id << std::endl;
+                        assert(false);
                     }
                     return true;
                 });
