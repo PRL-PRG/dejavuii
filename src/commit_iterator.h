@@ -76,9 +76,8 @@ namespace dejavu {
         void addChildren(QueueItem * i) {
             // get the children of current commit, if there are no current children, detete the queue item
             auto children = i->c->childrenCommits();
-            if (children.empty()) {
-                delete i;
-            } else {
+            bool shouldDelete = true;
+            if (! children.empty()) {
                 //otherwise for each child
                 bool canReuse = true;
                 for (COMMIT * child : i->c->childrenCommits()) {
@@ -91,18 +90,21 @@ namespace dejavu {
                             pending_.erase(j);
                             schedule(qi);
                         }
-                        // otherwise either reuse current item & state for the queued commit, or create a new one and schedule it
+                    // otherwise either reuse current item & state for the queued commit, or create a new one and schedule it
                     } else {
                         if (canReuse) {
                             canReuse = false;
                             i->replaceCommit(child);
                             schedule(i);
+                            shouldDelete = false;
                         } else {
                             schedule(new QueueItem(child, i->s));
                         }
                     }
                 }
             }
+            if (shouldDelete)
+                delete i;
         }
 
         void schedule(QueueItem * i) {
