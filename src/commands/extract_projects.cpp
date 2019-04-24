@@ -20,7 +20,8 @@ namespace dejavu {
             }
 
             GHTorrentProjectLoader(RowHandler f): f_(f) {
-                readFile(DataDir.value() + "/ghtorrent_projects.csv");
+                //readFile(DataDir.value() + "/ghtorrent_projects.csv");
+                readFile("/data/dejavuii/javascript_projects/ghtorrent_projects_all_10.csv");
                 showProblems();
             }
 
@@ -41,9 +42,11 @@ namespace dejavu {
             void row(std::vector<std::string> & row) override {
                 std::string url;
                 if (row[1].rfind("https://api.github.com/repos/", 0) == 0) {
-                    url = row[1].substr(0, 30);
+                    url = row[1].substr(29);
+                    //std::cerr << "url : " << url << std::endl;
                 } else if (row[1].rfind("https://api./repos/", 0) == 0) {
-                    url = row[1].substr(0, 20);
+                    url = row[1].substr(19);
+                    //std::cerr << "url : " << url << std::endl;
                 } else if (row[1] == "\\N") {
                     /* NOTHING */
                 } else {
@@ -59,7 +62,7 @@ namespace dejavu {
 
                 std::string language = row[5];
 
-                bool forked = row[7] == "\\N";
+                bool forked = row[7] != "\\N";
 
                 if (!(row[8] == "1" || row[8] == "0")) {
                     int i = 0;
@@ -97,7 +100,7 @@ namespace dejavu {
                     if (deleted) {
                         return;
                     }
-                    if (language == "JavaScript") {
+                    if (language != "JavaScript") {
                         return;
                     }
                     if (forked) {
@@ -111,12 +114,14 @@ namespace dejavu {
 
             static void SaveFreshJSProjects() {
                 Project::_save_projects(Project::fresh_projects,
-                                        DataDir.value() + "/js_projects.csv");
+//                                        DataDir.value() + "/js_projects.csv");
+                                        "/data/dejavuii/javascript_projects/js_projects.csv");
             }
 
             static void SaveForkedJSProjects() {
                 Project::_save_projects(Project::forked_projects,
-                                        DataDir.value() + "/js_projects_forked.csv");
+                                        //DataDir.value() + "/js_projects_forked.csv");
+                                        "/data/dejavuii/javascript_projects/js_projects_forked.csv");
             }
 
         private:
