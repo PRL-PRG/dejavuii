@@ -20,6 +20,7 @@ namespace dejavu {
     helpers::Option<std::string> TempDir("tmp", "/tmp", false);
     helpers::Option<unsigned> NumThreads("numThreads", 32, {"-n"}, false);
     helpers::Option<unsigned> Seed("seed", 0, false);
+    helpers::Option<unsigned> Threshold("threshold", 2, false);
     
 } // namespace dejavu
 

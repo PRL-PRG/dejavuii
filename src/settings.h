@@ -31,5 +31,9 @@ namespace dejavu {
     /** Random seed to be used for any operations requiring random numbers. 
      */
     extern helpers::Option<unsigned> Seed;
+
+    /** threshold for various things. See the commands which use it for more details. 
+     */
+    extern helpers::Option<unsigned> Threshold;
     
 } // dejavu

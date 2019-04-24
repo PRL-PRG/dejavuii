@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
+#include <map>
+#include <set>
 
 #include "../loaders.h"
 #include "../commands.h"
@@ -241,7 +243,32 @@ namespace dejavu {
                         return "";
                     else
                         return parent->path() + "/" + directory->name;
-                } 
+                }
+
+                /** Serializes the directory and its contents (recursively) into a single string.
+                 */
+                std::string serialize() {
+                    std::stringstream s;
+                    serialize(s);
+                    return s.str();
+                }
+            private:
+                void serialize(std::stringstream & s) {
+                    s << "(";
+                    // first get all subdirectories, order them by name and add them to the result
+                    std::map<std::string, Directory *> d;
+                    for (auto i : dirs)
+                        d.insert(std::make_pair(i.first->name, i.first));
+                    for (auto i : d)
+                        s << i.first << ":" << dirs[i.second]->serialize() <<  ",";
+                    // then get all files, order by name again and serialize them with the id of their contents
+                    std::set<unsigned> f;
+                    for (auto i : files)
+                        f.insert(i.first);
+                    for (auto i : f) 
+                        s << i << ":" << files[i] << ",";
+                    s << ")";
+                }
 
             };
 
@@ -300,8 +327,10 @@ namespace dejavu {
             friend class Dir;
 
             void deleteFile(unsigned pathId) {
-                if (files_.find(pathId) == files_.end())
-                    std::cout << pathId << std::endl;
+                if (files_.find(pathId) != files_.end()) {
+                    std::cerr << "pathId: " << pathId << std::endl;
+                    throw "HERE";
+                }
                 assert(files_.find(pathId) != files_.end());
                 // get the file and its directory
                 Dir * d = files_.find(pathId)->second;
@@ -459,7 +488,9 @@ namespace dejavu {
                 std::cerr << "    triage records: " << ProjectsTriage_.size() << std::endl;
             }
 
-            void detect() {
+            /** Detects folder clones and their originals for all projects loaded.
+             */
+            static void Detect() {
 
                 for (Project * p : Project::GetAll()) {
                     // skip any missing projects
@@ -467,6 +498,25 @@ namespace dejavu {
                         continue;
                     p->detectFolderClones();
                 }
+
+                std::cout << "Number of clones:        " << NumClones_ << std::endl;
+                std::cout << "Number of unique clones: " << CloneOriginals_.size() << std::endl;
+            }
+
+            /** Finds original for the given clone candidate represented as a directory in a project tree.
+             */
+            static void FindOriginalFor(Project * p, Commit * c, ProjectTree::Dir * clone) {
+                ++NumClones_;
+                std::string id = clone->serialize();
+                auto i = CloneOriginals_.find(id);
+                if (i != CloneOriginals_.end()) {
+                    // TODO output the project commit id and original info
+                    return;
+                }
+                // now we must actually find the original
+                
+                    
+                CloneOriginals_.insert(std::make_pair(id, CloneOriginals_.size() + 1));
             }
 
         private:
@@ -479,6 +529,10 @@ namespace dejavu {
             }
 
             static std::unordered_map<uint64_t, std::unordered_set<unsigned>> ProjectsTriage_;
+
+            static std::unordered_map<std::string, unsigned> CloneOriginals_;
+
+            static unsigned long NumClones_;
         };
 
         std::unordered_map<std::string, Filename *> Filename::Filenames_;
@@ -489,8 +543,8 @@ namespace dejavu {
         std::vector<Project *> Project::Projects_;
 
         std::unordered_map<uint64_t, std::unordered_set<unsigned>> FolderCloneDetector::ProjectsTriage_;
-
-
+        std::unordered_map<std::string, unsigned> FolderCloneDetector::CloneOriginals_;
+        unsigned long FolderCloneDetector::NumClones_ = 0;
 
         /** First, we find the clone candidates.
          */
@@ -500,10 +554,17 @@ namespace dejavu {
                     std::vector<ProjectTree::Dir *> candidates;
                     tree.updateBy(c, candidates);
                     for (ProjectTree::Dir * d : candidates) {
+                        try {
                         size_t numFiles = d->numFiles();
-                        //if (numFiles >= 2)
-                            //std::cout << d->path() << " : " << numFiles << std::endl;
+                        //if the clone candidate passes the threshold, find its clone
+                        if (numFiles >= Threshold.value())
+                            FolderCloneDetector::FindOriginalFor(this, c,  d);
                         d->untaint();
+                        } catch (...) {
+                            std::cout << "Commit id" << c->id << std::endl;
+                            std::cout << "Project id" << id << std::endl;
+                            assert(false);
+                        }
                     }
                     return true;
                 });
@@ -512,18 +573,18 @@ namespace dejavu {
                     it.addInitialCommit(i);
             it.process();
         }
-
-        
         
     } // anonymous namespace
 
     void DetectFolderClones(int argc, char * argv[]) {
+        Threshold.updateDefaultValue(2);
         Settings.addOption(DataDir);
         Settings.addOption(NumThreads);
         Settings.parse(argc, argv);
         Settings.check();
         FolderCloneDetector fcd;
-        fcd.detect();
+        
+        FolderCloneDetector::Detect();
 
         
     }
