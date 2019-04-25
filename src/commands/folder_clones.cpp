@@ -171,6 +171,8 @@ namespace dejavu {
         
         };
 
+        class CloneOriginal;
+
         /** Contains information about files in given project and commit.
 
          */
@@ -254,14 +256,32 @@ namespace dejavu {
                 }
 
 
-                void getTriageIndices(std::unordered_set<uint64_t> & indices) {
+                /** Populates a map from file indices to directories containing them.  
+                 */
+                void getFileIndices(std::unordered_map<uint64_t, std::vector<Dir*>> & indices) {
                     for (auto i : dirs)
-                        i.second->getTriageIndices(indices);
+                        i.second->getFileIndices(indices);
                     for (auto i : files) {
                         uint64_t id = File::Get(i.first)->filename->id;
                         id = (id << 32) | i.second;
-                        indices.insert(id);
+                        indices[id].push_back(this);
                     }
+                }
+
+
+                /** Determines if the current directory forms a subtree in the other project tree and returns the root of the subtree in the other project tree.
+
+                 */
+                Dir * isSubtreeOf(Dir * ownAnchor, Dir * otherAnchor) {
+                    // using the anchors, determine the root candidate directory in the other tree (i.e. move back both anchors as many times as is required for own anchor to become the root dir - this)
+                    while (ownAnchor != this) {
+                        otherAnchor = otherAnchor->parent;
+                        ownAnchor = ownAnchor->parent;
+                        if (otherAnchor == nullptr)
+                            return nullptr;
+                    }
+                    // now simply check whether ownAnchor is a subtree of otherAnchor
+                    return ownAnchor->isSubtreeOf(otherAnchor) ? otherAnchor : nullptr;
                 }
                 
             private:
@@ -280,6 +300,31 @@ namespace dejavu {
                     for (auto i : f) 
                         s << i << ":" << files[i] << ",";
                     s << ")";
+                }
+                /** Determines whether given directory is a subset of the other dir.
+
+                    A directory is subset if all files it contains are also present in the other dir with the same contents and if all its subdirs are subdirs of equally named directories in the otrher dir. 
+                 */
+                bool isSubtreeOf(Dir * other) {
+                    if (files.size() < other->files.size())
+                        return false;
+                    if (dirs.size() < other->dirs.size())
+                        return false;
+                    for (auto i : files) {
+                        auto j = other->files.find(i.first);
+                        if (j == other->files.end())
+                            return false;
+                        if (i.second != j->second)
+                            return false;
+                    }
+                    for (auto i : dirs) {
+                        auto j = other->dirs.find(i.first);
+                        if (j == other->dirs.end())
+                            return false;
+                        if (! i.second->isSubtreeOf(j->second))
+                            return false;
+                    }
+                    return true;
                 }
 
             };
@@ -314,7 +359,7 @@ namespace dejavu {
                         continue;
                     File * f = File::Get(i.first);
                     assert(f != nullptr);
-                    Dir * d = getOrCreateDir(f->parent);
+                    Dir * d = getOrCreateDir(f->parent, nullptr);
                     unsigned hash = i.second->files[i.first];
                     d->files.insert(std::make_pair(i.first, hash));
                     files_.insert(std::make_pair(i.first, d));
@@ -331,9 +376,35 @@ namespace dejavu {
                 // then add all files in the commit
                 for(auto const & change : commit->changes) {
                     if (change.second != 0)
-                        updateFile(change.first, change.second, cloneCandidates);
+                        updateFile(change.first, change.second, & cloneCandidates);
                 }
             }
+
+            struct DirPair {
+                Dir * clone;
+                Dir * originalCandidate;
+
+                DirPair(Dir * clone, Dir * originalCandidate):
+                    clone(clone),
+                    originalCandidate(originalCandidate) {
+                    }
+
+                bool operator == (DirPair const & other) const {
+                    return clone == other.clone && originalCandidate == other.originalCandidate;
+                }
+            };
+
+            struct DirPairHash {
+                size_t operator () (DirPair const & x) const {
+                    std::hash<Dir *> h;
+                    return h(x.clone) + h(x.originalCandidate);
+                }
+
+            };
+
+            typedef std::unordered_set<DirPair, DirPairHash> OriginalCandidateSet;
+
+            OriginalCandidateSet updateBy(Commit * commit, CloneOriginal & original);
 
         private:
             friend class Dir;
@@ -363,21 +434,23 @@ namespace dejavu {
                 }
             }
 
-            void updateFile(unsigned pathId, unsigned hash, std::vector<Dir *> & cloneCandidates) {
+            Dir * updateFile(unsigned pathId, unsigned hash, std::vector<Dir *> * cloneCandidates) {
                 // if the file is not created new, but only updated, there is nothing to do, but change the 
                 if (files_.find(pathId) != files_.end()) {
-                    files_[pathId]->files[pathId] = hash;
-                    return;
+                    Dir * d = files_[pathId];
+                    d->files[pathId] = hash;
+                    return d;
                 }
                 // otherwise add the file and create any directories required for it, first of these will be a clone candidate
                 File * f = File::Get(pathId);
                 assert(f != nullptr);
-                Dir * d = getOrCreateDir(f->parent, & cloneCandidates);
+                Dir * d = getOrCreateDir(f->parent, cloneCandidates);
                 d->files[pathId] = hash;
                 files_.insert(std::make_pair(pathId, d));
+                return d;
             }
 
-            Dir * getOrCreateDir(Directory * d, std::vector<Dir *> * cloneCandidates =nullptr) {
+            Dir * getOrCreateDir(Directory * d, std::vector<Dir *> * cloneCandidates) {
                 assert(d != nullptr);
                 auto i = dirs_.find(d);
                 if (i != dirs_.end())
@@ -402,11 +475,46 @@ namespace dejavu {
                 parent->dirs.insert(std::make_pair(d, result));
                 return result;
             }
-            
+
             Dir * root_;
             std::unordered_map<unsigned, Dir *> files_;
             std::unordered_map<Directory *, Dir *> dirs_;
-        }; 
+        };
+
+
+        class Project;
+
+        /** Describes the original or a candidate.
+         */
+        class CloneOriginal {
+        public:
+            unsigned id;
+            Project * project;
+            Commit * commit;
+            std::string const & path;
+            
+            /** The clone candidate project subtree. 
+             */
+            ProjectTree::Dir * clone;
+
+            /** Map from filename|contents hash to directories in the clone candidate above where the particular filename|contents can be found. 
+             */
+            std::unordered_map<uint64_t, std::vector<ProjectTree::Dir*>> files;
+
+            CloneOriginal(unsigned id, Project * project, Commit * commit, std::string const & path, ProjectTree::Dir * clone):
+                id(id),
+                project(project),
+                commit(commit),
+                path(path),
+                clone(clone) {
+                clone->getFileIndices(files);
+            }
+
+            /** Returns a list of projects that could potentially contain the original of the clone. 
+             */
+            std::unordered_set<unsigned> getProjectCandidates();
+                
+        };
 
 
         /** The issue is that I have file A B C. a gets renamed to B and C gets renamed to A. Thus I see delete to A, and update to A in same commit, this needs to be purged.
@@ -441,6 +549,10 @@ namespace dejavu {
             /** Detects folder clones in the given project.
              */
             void detectFolderClones();
+
+            /** Updates the clone original if the project contains an older snapshot.
+             */
+            void findOriginal(CloneOriginal & original);
             
         private:
 
@@ -520,34 +632,31 @@ namespace dejavu {
             static void FindOriginalFor(Project * p, Commit * c, ProjectTree::Dir * clone) {
                 ++NumClones_;
                 std::string id = clone->serialize();
+
+                // this needs to be guarded for multithreaded
                 auto ci = CloneOriginals_.find(id);
                 if (ci != CloneOriginals_.end()) {
                     // TODO output the project commit id and original info
                     return;
                 }
+                CloneOriginal original(CloneOriginals_.size() + 1, p, c, clone->path(), clone);
+                CloneOriginals_.insert(std::make_pair(id, original.id));
+
                 // now we must actually find the original, so first determine set of projects that are worth checking, which is projects which contain all of the files involved in the clone
-                std::unordered_set<unsigned> projects;
-                std::unordered_set<uint64_t> indices;
-                clone->getTriageIndices(indices);
-                auto i = indices.begin(), e = indices.end();
-                // add all projects for the first file indice
-                for (auto j : ProjectsTriage_[*i])
-                    projects.insert(j);
-                ++i;
-                // now check the rest
-                while (! projects.empty() && i != e) {
-                    auto iprojects = ProjectsTriage_[*i];
-                    for (auto j = projects.begin(), je = projects.end(); j != je;) {
-                        if (iprojects.find(*j) == iprojects.end())
-                            j = projects.erase(j);
-                        else 
-                            ++j;
-                    }
-                    ++i;
-                }
+                std::unordered_set<unsigned> projects(original.getProjectCandidates());
+
+
+                // we have to examine this even if there is only one project because the project might copy from itself and the earlier instance was not a clone candidate itself
                 std::cout << "Possible original projects reduced to " << projects.size() << std::endl;
-                    
-                CloneOriginals_.insert(std::make_pair(id, CloneOriginals_.size() + 1));
+                for (auto p : projects) 
+                    Project::Get(p)->findOriginal(original);
+                // TODO output the original
+            }
+
+            static std::unordered_set<unsigned> const & GetProjectsFor(uint64_t triageIndex) {
+                auto i = ProjectsTriage_.find(triageIndex);
+                assert(i != ProjectsTriage_.end());
+                return i->second;
             }
 
         private:
@@ -578,35 +687,115 @@ namespace dejavu {
         std::unordered_map<std::string, unsigned> FolderCloneDetector::CloneOriginals_;
         unsigned long FolderCloneDetector::NumClones_ = 0;
 
+
+
+        ProjectTree::OriginalCandidateSet ProjectTree::updateBy(Commit * commit, CloneOriginal & original) {
+            OriginalCandidateSet candidates;
+            // delete files the same normal update works
+            for (auto const & change : commit->changes)
+                if (change.second == 0)
+                    deleteFile(change.first);
+            // now add files
+            for (auto const & change : commit->changes) {
+                if (change.second != 0) {
+                    Dir * d = updateFile(change.first, change.second, nullptr);
+                    // check if the file we just added is interesting, i.e. if its indice exists in the original
+                    uint64_t x = File::Get(change.first)->filename->id;
+                    x = (x << 32) | change.second;
+                    auto i = original.files.find(x);
+                    if (i != original.files.end()) {
+                        for (auto j : i->second)
+                            candidates.insert(DirPair(j,d));
+                    } 
+                }
+            }
+            return candidates;
+        }
+
+
+
+        /** Returns a list of projects that could potentially contain the original of the clone. 
+         */
+        std::unordered_set<unsigned> CloneOriginal::getProjectCandidates() {
+            std::unordered_set<unsigned> projects;
+            auto i = files.begin(), e = files.end();
+            // add all projects for the first file indice
+            for (auto j : FolderCloneDetector::GetProjectsFor(i->first))
+                projects.insert(j);
+            ++i;
+            // now check the rest
+            while (i != e) {
+                auto & iprojects = FolderCloneDetector::GetProjectsFor(i->first);
+                for (auto j = projects.begin(), je = projects.end(); j != je;) {
+                    if (iprojects.find(*j) == iprojects.end())
+                        j = projects.erase(j);
+                    else 
+                        ++j;
+                }
+                ++i;
+            }
+            // if the clones were empty it's an indication the triage is not working
+            assert(! projects.empty());
+            return projects;
+        }
+
+
         /** First, we find the clone candidates.
          */
         void Project::detectFolderClones() {
             //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
             CommitForwardIterator<Commit,ProjectTree> it([this](Commit * c, ProjectTree & tree) {
-                    try {
-                        std::vector<ProjectTree::Dir *> candidates;
-                        tree.updateBy(c, candidates);
-                        for (ProjectTree::Dir * d : candidates) {
-                            size_t numFiles = d->numFiles();
-                            //if the clone candidate passes the threshold, find its clone
-                            if (numFiles >= Threshold.value())
-                                FolderCloneDetector::FindOriginalFor(this, c,  d);
-                            d->untaint();
-                                
-                                
-                        }
-                    } catch (...) {
-                        std::cout << "Commit id" << c->id << std::endl;
-                        std::cout << "Project id" << id << std::endl;
-                        assert(false);
+                try {
+                    std::vector<ProjectTree::Dir *> candidates;
+                    tree.updateBy(c, candidates);
+                    for (ProjectTree::Dir * d : candidates) {
+                        size_t numFiles = d->numFiles();
+                        //if the clone candidate passes the threshold, find its clone
+                        if (numFiles >= Threshold.value())
+                            FolderCloneDetector::FindOriginalFor(this, c,  d);
+                        d->untaint();
+                            
+                            
                     }
-                    return true;
-                });
+                } catch (...) {
+                    std::cout << "Commit id" << c->id << std::endl;
+                    std::cout << "Project id" << id << std::endl;
+                    assert(false);
+                }
+                return true;
+            });
             for (auto i : commits)
                 if (i->numParentCommits() == 0)
                     it.addInitialCommit(i);
             it.process();
         }
+
+        void Project::findOriginal(CloneOriginal & original) {
+            //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
+            CommitForwardIterator<Commit,ProjectTree> it([this, & original](Commit * c, ProjectTree & tree) {
+                if (c->time > original.commit->time)
+                    return false;
+                // otherwise update the project tree and get the list of candidates
+                auto candidates = tree.updateBy(c, original);
+                // we now have the list of directory comparisons we must do, if any of them turns out to be valid, we have a better original
+                for (auto dp : candidates) {
+                    ProjectTree::Dir * od = original.clone->isSubtreeOf(dp.clone, dp.originalCandidate);
+                    if (od != nullptr) {
+                        original.project = this;
+                        original.commit = c;
+                        original.path = od->path;
+                        return false;
+                    }
+                }
+                return true;
+            });
+            for (auto i : commits)
+                if (i->numParentCommits() == 0)
+                    it.addInitialCommit(i);
+            it.process();
+            // now we know there is the one and only original 
+        }
+        
         
     } // anonymous namespace
 
