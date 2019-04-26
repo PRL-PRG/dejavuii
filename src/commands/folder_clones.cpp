@@ -631,7 +631,7 @@ namespace dejavu {
             ProjectCandidates getProjectCandidates();
                 
             friend std::ostream & operator << (std::ostream & s, CloneOriginal const & co) {
-                s << co.id << "," << files.size() << "," << co.project->id << "," << co.commit->id << "," << helpers::escapeQuotes(co.path) << std::endl;
+                s << co.id << "," << co.files.size() << "," << co.project->id << "," << co.commit->id << "," << helpers::escapeQuotes(co.path) << std::endl;
                 return s;
             }
         };
@@ -713,26 +713,22 @@ namespace dejavu {
                                 std::cerr << "Thread " << Running_ << " started" << std::endl;
                                 ++Running_;
                             }
-                            try {
-                                while (true) {
-                                    Project * p = nullptr;
-                                    {
-                                        std::lock_guard<std::mutex> g(Pm_);
-                                        // no more projects to analyze, stop the thread and return
-                                        if (pi == pe)
-                                            break;
-                                        // get current project and move to next project
-                                        p = *pi;
-                                        ++pi;
-                                    }
-                                    // if the project was a hole, move to next project
-                                    if (p == nullptr)
-                                        continue;
-                                    p->detectFolderClones();
-                                    ++analyzed;
-                                }ci->second
-                            } catch (...) {
-                                
+                            while (true) {
+                                Project * p = nullptr;
+                                {
+                                    std::lock_guard<std::mutex> g(Pm_);
+                                    // no more projects to analyze, stop the thread and return
+                                    if (pi == pe)
+                                        break;
+                                    // get current project and move to next project
+                                    p = *pi;
+                                    ++pi;
+                                }
+                                // if the project was a hole, move to next project
+                                if (p == nullptr)
+                                    continue;
+                                p->detectFolderClones();
+                                ++analyzed;
                             }
                             {
                                 std::lock_guard<std::mutex> g(Pm_);
