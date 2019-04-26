@@ -3,10 +3,44 @@
 #include <unordered_map>
 #include <map>
 #include <set>
+#include <atomic>
+#include <mutex>
+#include <thread>
+#include <unistd.h>
 
 #include "../loaders.h"
 #include "../commands.h"
 #include "../commit_iterator.h"
+
+/* no threads: 46m
+
+   8 threads: 27m
+       tested projects:   521 169
+       tested commits: 32 653 598
+
+
+
+ */
+
+
+
+
+/** Folder Clone Detection
+
+    This is the batch mode folder clone detector. It loads all projects, commits and paths and builds one very large project tree structure which is an unification of all paths ever seen in the corpus.
+
+    The folder detection algorithm itself then for each project (easy to parallelize) walks the commits in their topological order and for each commit reconstructs the actual project tree. If there is a folder found that contains at least given threshold of files which were all added by the commit analyzed, we call this folder to be a clone candidate.
+
+    For each candidate the set of its file indices (filename id excluding the path and the contents id of the file) is created and all projects are checked against it so that we end up with a much smaller list of projects that we know contained, over their lifetime the files in the clone candidate.
+
+    For each such project we then reconstruct its project tree commit by commit in topological order and whenever a file is added whose indice (filename id + contents id) exists in the clone candidate is added by commit, we check whether the project contains the clone candidate as its subset subtree. If it is we have found the possible original.
+
+    Of course, only the oldest original candidate is the original so whenever the search for original goes to commit younger than current original, or an older original is found, search in current project terminates and another project from the original candidates will be tried. 
+
+    
+
+
+ */
 
 namespace dejavu {
 
@@ -482,39 +516,8 @@ namespace dejavu {
         };
 
 
-        class Project;
+        class CloneOriginal;
 
-        /** Describes the original or a candidate.
-         */
-        class CloneOriginal {
-        public:
-            unsigned id;
-            Project * project;
-            Commit * commit;
-            std::string const & path;
-            
-            /** The clone candidate project subtree. 
-             */
-            ProjectTree::Dir * clone;
-
-            /** Map from filename|contents hash to directories in the clone candidate above where the particular filename|contents can be found. 
-             */
-            std::unordered_map<uint64_t, std::vector<ProjectTree::Dir*>> files;
-
-            CloneOriginal(unsigned id, Project * project, Commit * commit, std::string const & path, ProjectTree::Dir * clone):
-                id(id),
-                project(project),
-                commit(commit),
-                path(path),
-                clone(clone) {
-                clone->getFileIndices(files);
-            }
-
-            /** Returns a list of projects that could potentially contain the original of the clone. 
-             */
-            std::unordered_set<unsigned> getProjectCandidates();
-                
-        };
 
 
         /** The issue is that I have file A B C. a gets renamed to B and C gets renamed to A. Thus I see delete to A, and update to A in same commit, this needs to be purged.
@@ -546,6 +549,36 @@ namespace dejavu {
                 return Projects_;
             }
 
+            struct AgeComparator {
+                bool operator()(Project * first, Project * second) const {
+                    if (first->createdAt < second->createdAt)
+                        return true;
+                    if (first->createdAt == second->createdAt)
+                        return first < second;
+                    return false;
+                }
+            };
+            
+            struct AgeComparatorReversed {
+                bool operator()(Project * first, Project * second) const {
+                    if (first->createdAt > second->createdAt)
+                        return true;
+                    if (first->createdAt == second->createdAt)
+                        return first > second;
+                    return false;
+                }
+            };
+
+            struct CommitComparator {
+                bool operator()(Project * first, Project * second) const {
+                    if (first->commits.size() > second->commits.size())
+                        return true;
+                    if (first->commits.size() == second->commits.size())
+                        return first < second;
+                    return false;
+                }
+            };
+
             /** Detects folder clones in the given project.
              */
             void detectFolderClones();
@@ -565,8 +598,48 @@ namespace dejavu {
         };
 
 
+        /** Describes the original or a candidate.
+         */
+        class CloneOriginal {
+        public:
+            unsigned id;
+            Project * project;
+            Commit * commit;
+            std::string path;
+            
+            /** The clone candidate project subtree. 
+             */
+            ProjectTree::Dir * clone;
+
+            /** Map from filename|contents hash to directories in the clone candidate above where the particular filename|contents can be found. 
+             */
+            std::unordered_map<uint64_t, std::vector<ProjectTree::Dir*>> files;
+
+            CloneOriginal(unsigned id, Project * project, Commit * commit, std::string const & path, ProjectTree::Dir * clone):
+                id(id),
+                project(project),
+                commit(commit),
+                path(path),
+                clone(clone) {
+                clone->getFileIndices(files);
+            }
+            
+            typedef std::set<Project *, Project::AgeComparator> ProjectCandidates;
+
+            /** Returns a list of projects that could potentially contain the original of the clone. 
+             */
+            ProjectCandidates getProjectCandidates();
+                
+            friend std::ostream & operator << (std::ostream & s, CloneOriginal const & co) {
+                s << co.id << "," << files.size() << "," << co.project->id << "," << co.commit->id << "," << helpers::escapeQuotes(co.path) << std::endl;
+                return s;
+            }
+        };
+
+        
         class FolderCloneDetector {
         public:
+            // MAKE THIS STATIC !!!!!
             FolderCloneDetector() {
                 // load all projects
                 std::cerr << "Loading projects ... " << std::endl;
@@ -610,47 +683,121 @@ namespace dejavu {
                             AddToTriage(projectId, pathId, contentsId);
                     }};
                 std::cerr << "    triage records: " << ProjectsTriage_.size() << std::endl;
+
+
+                // now open the output streams and fill in their headers
+                CloneIds_.open(DataDir.value() + "/folderCloneIds.csv");
+                OriginalDetails_.open(DataDir.value() + "/folderCloneOriginals.csv");
+                CloneList_.open(DataDir.value() + "/folderClones.csv");
+                CloneIds_ << "#id,str" << std::endl;
+                OriginalDetails_ << "#id,numFiles,projectId,commitId,rootDir" << std::endl;
+                CloneList_ << "#projectId,commitId,folder,cloneId" << std::endl;
             }
 
             /** Detects folder clones and their originals for all projects loaded.
              */
-            static void Detect() {
-
-                for (Project * p : Project::GetAll()) {
-                    // skip any missing projects
-                    if (p == nullptr)
-                        continue;
-                    p->detectFolderClones();
+            static void Detect(size_t numThreads) {
+                std::set<Project *, Project::AgeComparatorReversed> projects;
+                for (auto i : Project::GetAll())
+                    if (i != nullptr)
+                        projects.insert(i);
+                std::atomic<unsigned> analyzed(0);
+                
+                auto pi = projects.begin(), pe = projects.end();
+                // the last thread to stop will actually subtract two to make sure that we do not end prematurely
+                Running_ = 1;    
+                for (size_t i = 0; i < numThreads; ++i) {
+                    std::thread t([&] {
+                            {
+                                std::lock_guard<std::mutex> g(Pm_);
+                                std::cerr << "Thread " << Running_ << " started" << std::endl;
+                                ++Running_;
+                            }
+                            try {
+                                while (true) {
+                                    Project * p = nullptr;
+                                    {
+                                        std::lock_guard<std::mutex> g(Pm_);
+                                        // no more projects to analyze, stop the thread and return
+                                        if (pi == pe)
+                                            break;
+                                        // get current project and move to next project
+                                        p = *pi;
+                                        ++pi;
+                                    }
+                                    // if the project was a hole, move to next project
+                                    if (p == nullptr)
+                                        continue;
+                                    p->detectFolderClones();
+                                    ++analyzed;
+                                }ci->second
+                            } catch (...) {
+                                
+                            }
+                            {
+                                std::lock_guard<std::mutex> g(Pm_);
+                                std::cerr << "Thread "<< (Running_ - 1) << " finished" << std::endl;
+                                if (--Running_ == 1)
+                                    Running_ = 0;
+                            }
+                        });
+                    t.detach();
                 }
 
-                std::cout << "Number of clones:        " << NumClones_ << std::endl;
-                std::cout << "Number of unique clones: " << CloneOriginals_.size() << std::endl;
+                while (Running_ > 0) {
+                    sleep(1);
+                    std::cerr << (analyzed * 100 / projects.size()) << " - clones: " << NumClones_ << std::flush << ", tested projects: " << TestedProjects_ << ", tested commits: " << TestedCommits_ << "\r";
+                    // display stats
+                    // sleep
+                }
+
+                std::cerr << "Number of clones:        " << NumClones_ << std::endl;
+                std::cerr << "Number of unique clones: " << CloneOriginals_.size() << std::endl;
             }
 
             /** Finds original for the given clone candidate represented as a directory in a project tree.
              */
-            static void FindOriginalFor(Project * p, Commit * c, ProjectTree::Dir * clone) {
+            static unsigned FindOriginalFor(Project * p, Commit * c, ProjectTree::Dir * clone) {
                 ++NumClones_;
                 std::string id = clone->serialize();
+                std::string path = clone->path();
 
-                // this needs to be guarded for multithreaded
-                auto ci = CloneOriginals_.find(id);
-                if (ci != CloneOriginals_.end()) {
-                    // TODO output the project commit id and original info
-                    return;
+                unsigned originalId = 0;
+                {
+                    std::lock_guard<std::mutex> g(Om_);
+                    // this needs to be guarded for multithreaded
+                    auto ci = CloneOriginals_.find(id);
+
+                    originalId = (ci != CloneOriginals_.end()) ? ci->second : CloneOriginals_.size() + 1;
+                    CloneList_ << p->id << "," << c->id << "," << helpers::escapeQuotes(path) << "," << originalId << std::endl;    
+
+                    if (ci != CloneOriginals_.end()) 
+                        return originalId;
+
+                    // already insert the original in our database so that if other clones are found while we search for it we'll pretend it is known
+                    CloneOriginals_.insert(std::make_pair(id, originalId));
                 }
-                CloneOriginal original(CloneOriginals_.size() + 1, p, c, clone->path(), clone);
-                CloneOriginals_.insert(std::make_pair(id, original.id));
+
+                CloneOriginal original(originalId, p, c, clone->path(), clone);
 
                 // now we must actually find the original, so first determine set of projects that are worth checking, which is projects which contain all of the files involved in the clone
-                std::unordered_set<unsigned> projects(original.getProjectCandidates());
-
+                CloneOriginal::ProjectCandidates projects(original.getProjectCandidates());
 
                 // we have to examine this even if there is only one project because the project might copy from itself and the earlier instance was not a clone candidate itself
-                std::cout << "Possible original projects reduced to " << projects.size() << std::endl;
-                for (auto p : projects) 
-                    Project::Get(p)->findOriginal(original);
-                // TODO output the original
+
+                
+                for (auto p : projects) {
+                    if (p->createdAt >= original.commit->time)
+                        break;
+                    p->findOriginal(original);
+                }
+                // output the original
+                {
+                    std::lock_guard<std::mutex> g(ODm_);
+                    OriginalDetails_ << original;
+                    CloneIds_ << originalId << "," << helpers::escapeQuotes(id) << std::endl;
+                }
+                return originalId;
             }
 
             static std::unordered_set<unsigned> const & GetProjectsFor(uint64_t triageIndex) {
@@ -660,6 +807,7 @@ namespace dejavu {
             }
 
         private:
+            friend class Project;
 
             static void AddToTriage(unsigned projectId, unsigned pathId, unsigned contentsId) {
                 assert(contentsId != 0);
@@ -672,7 +820,37 @@ namespace dejavu {
 
             static std::unordered_map<std::string, unsigned> CloneOriginals_;
 
-            static unsigned long NumClones_;
+            /** clone id -> string of its contents
+             */ 
+            static std::ofstream CloneIds_;
+
+            /** clone id -> project, commit, folder
+             */
+            static std::ofstream OriginalDetails_;
+            static std::mutex ODm_;
+
+            /** project, commit, folder -> clone id
+             */
+            static std::ofstream CloneList_;
+            
+            static std::atomic<size_t> NumClones_;
+
+            /** Mutex guarding the selection of next project by a worker thread.
+             */
+            static std::mutex Pm_;
+            
+            /** Mutex guarding the original clones cache.
+             */
+            static std::mutex Om_;
+
+            /** Number of currently running worker threads.
+             */
+            static volatile unsigned Running_;
+
+            /** Number of projects and commits that have been tested for containing an original so far. .
+             */
+            static std::atomic<size_t> TestedProjects_;
+            static std::atomic<size_t> TestedCommits_;
         };
 
         std::unordered_map<std::string, Filename *> Filename::Filenames_;
@@ -685,9 +863,19 @@ namespace dejavu {
         // path + contentsId -> set of projects
         std::unordered_map<uint64_t, std::unordered_set<unsigned>> FolderCloneDetector::ProjectsTriage_;
         std::unordered_map<std::string, unsigned> FolderCloneDetector::CloneOriginals_;
-        unsigned long FolderCloneDetector::NumClones_ = 0;
 
+        std::ofstream FolderCloneDetector::CloneIds_;
+        std::ofstream FolderCloneDetector::OriginalDetails_;
+        std::mutex FolderCloneDetector::ODm_;
+        std::ofstream FolderCloneDetector::CloneList_;
 
+        
+        std::atomic<size_t> FolderCloneDetector::NumClones_(0);
+        std::mutex FolderCloneDetector::Pm_;
+        std::mutex FolderCloneDetector::Om_;
+        volatile unsigned FolderCloneDetector::Running_ = 0;
+        std::atomic<size_t> FolderCloneDetector::TestedProjects_(0);
+        std::atomic<size_t> FolderCloneDetector::TestedCommits_(0);
 
         ProjectTree::OriginalCandidateSet ProjectTree::updateBy(Commit * commit, CloneOriginal & original) {
             OriginalCandidateSet candidates;
@@ -716,8 +904,8 @@ namespace dejavu {
 
         /** Returns a list of projects that could potentially contain the original of the clone. 
          */
-        std::unordered_set<unsigned> CloneOriginal::getProjectCandidates() {
-            std::unordered_set<unsigned> projects;
+        CloneOriginal::ProjectCandidates CloneOriginal::getProjectCandidates() {
+            std::set<unsigned> projects;
             auto i = files.begin(), e = files.end();
             // add all projects for the first file indice
             for (auto j : FolderCloneDetector::GetProjectsFor(i->first))
@@ -736,7 +924,10 @@ namespace dejavu {
             }
             // if the clones were empty it's an indication the triage is not working
             assert(! projects.empty());
-            return projects;
+            ProjectCandidates result;
+            for (auto i : projects) 
+                result.insert(Project::Get(i));
+            return result;
         }
 
 
@@ -751,11 +942,9 @@ namespace dejavu {
                     for (ProjectTree::Dir * d : candidates) {
                         size_t numFiles = d->numFiles();
                         //if the clone candidate passes the threshold, find its clone
-                        if (numFiles >= Threshold.value())
+                        if (numFiles >= Threshold.value()) 
                             FolderCloneDetector::FindOriginalFor(this, c,  d);
                         d->untaint();
-                            
-                            
                     }
                 } catch (...) {
                     std::cout << "Commit id" << c->id << std::endl;
@@ -773,8 +962,9 @@ namespace dejavu {
         void Project::findOriginal(CloneOriginal & original) {
             //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
             CommitForwardIterator<Commit,ProjectTree> it([this, & original](Commit * c, ProjectTree & tree) {
-                if (c->time > original.commit->time)
+                if (c->time >= original.commit->time)
                     return false;
+                ++FolderCloneDetector::TestedCommits_;
                 // otherwise update the project tree and get the list of candidates
                 auto candidates = tree.updateBy(c, original);
                 // we now have the list of directory comparisons we must do, if any of them turns out to be valid, we have a better original
@@ -783,7 +973,7 @@ namespace dejavu {
                     if (od != nullptr) {
                         original.project = this;
                         original.commit = c;
-                        original.path = od->path;
+                        original.path = od->path();
                         return false;
                     }
                 }
@@ -793,6 +983,7 @@ namespace dejavu {
                 if (i->numParentCommits() == 0)
                     it.addInitialCommit(i);
             it.process();
+            ++FolderCloneDetector::TestedProjects_;
             // now we know there is the one and only original 
         }
         
@@ -801,13 +992,15 @@ namespace dejavu {
 
     void DetectFolderClones(int argc, char * argv[]) {
         Threshold.updateDefaultValue(2);
+        NumThreads.updateDefaultValue(8);
         Settings.addOption(DataDir);
+        Settings.addOption(Threshold);
         Settings.addOption(NumThreads);
         Settings.parse(argc, argv);
         Settings.check();
         FolderCloneDetector fcd;
         
-        FolderCloneDetector::Detect();
+        FolderCloneDetector::Detect(NumThreads.value());
 
         
     }
