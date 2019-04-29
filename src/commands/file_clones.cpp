@@ -78,14 +78,21 @@ namespace dejavu {
                 });
                 std::cerr << "DONE COWTING REPEATZ OF CONE TENTS" << std::endl;
 
-                std::cerr << "CONTING CONTENT KLUSTERS" << std::endl;
-                int pluralities = 0;
+                std::cerr << "CONTING (PLURAL) CONTENT KLUSTERS" << std::endl;
+                int counter = 0, pluralities = 0;
                 for (auto it : counters) {
+
                     if (it.second > 1) {
                         pluralities++;
                     }
+
+                    counter++;
+                    if (counter % 1000 == 0) {
+                        std::cerr << " : " << (counter / 1000) << "k\r"
+                                  << std::flush;
+                    }
                 }
-                std::cerr << "DER " << pluralities << "CKONTENT CKLUSTERZ" << std::endl;
+                std::cerr << "DER " << pluralities << " (PLURAL) CKONTENT CKLUSTERZ" << std::endl;
 
                 std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
                 std::unordered_map<unsigned, std::vector<Modification*>> clusters;
@@ -103,7 +110,7 @@ namespace dejavu {
                 std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
 
                 std::cerr << "MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
-                int counter = 0;
+                /*int*/ counter = 0;
                 for (auto & it : clusters) {
                     // Mark oldest modification in cluster;
                     ModificationCluster *cluster = new ModificationCluster(it.second);
