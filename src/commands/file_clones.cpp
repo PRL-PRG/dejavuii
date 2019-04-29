@@ -71,6 +71,13 @@ namespace dejavu {
             }
 
             static void LoadClusters() {
+//                std::cerr << "LOAD HASHES" << std::endl;
+//                std::unordered_map<unsigned, std::string> hashes;
+//                HashToIdLoader([](unsigned id, std::string hash) {
+//                    hashes[id] = hash;
+//                });
+//                std::cerr << "DONE LOAD HASHES" << std::endl;
+
                 std::cerr << "COWTING REPEATZ OF CONE TENTS" << std::endl;
                 std::unordered_map<unsigned, unsigned> counters;
                 FileChangeLoader([counters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
@@ -81,17 +88,16 @@ namespace dejavu {
                 std::cerr << "CONTING (PLURAL) CONTENT KLUSTERS" << std::endl;
                 int counter = 0, pluralities = 0;
                 for (auto it : counters) {
-
                     if (it.second > 1) {
                         pluralities++;
                     }
-
                     counter++;
                     if (counter % 1000 == 0) {
                         std::cerr << " : " << (counter / 1000) << "k\r"
                                   << std::flush;
                     }
                 }
+                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
                 std::cerr << "DER " << pluralities << " (PLURAL) CKONTENT CKLUSTERZ" << std::endl;
 
                 std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
@@ -176,6 +182,7 @@ namespace dejavu {
         std::cerr << "LOAD TIMESTAMPZ" << std::endl;
         Commit::LoadTimestamps();
         std::cerr << "DONE LOAD TIMESTAMPZ" << std::endl;
+
         ModificationCluster::LoadClusters();
         ModificationCluster::SaveClusters();
     }
