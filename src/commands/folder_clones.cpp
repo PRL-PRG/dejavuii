@@ -7,6 +7,7 @@
 #include <mutex>
 #include <thread>
 #include <unistd.h>
+#include <openssl/sha.h>
 
 #include "../loaders.h"
 #include "../commands.h"
@@ -18,6 +19,9 @@
        tested projects:   521 169
        tested commits: 32 653 598
 
+
+    6.3 after load
+    30.7 mem
 
 
  */
@@ -46,6 +50,41 @@ namespace dejavu {
 
     namespace {
 
+        struct SHA1Hash {
+            unsigned char hash[20];
+
+            std::string toString() {
+                std::stringstream s;
+                s << std::hex;
+                for (size_t i = 0; i < 20; ++i)
+                    s << (unsigned) hash[i];
+                return s.str();
+            }
+
+            bool operator == (SHA1Hash const & other) const {
+                for (size_t i = 0; i < 20; ++i)
+                    if (hash[i] != other.hash[i])
+                        return false;
+                return true;
+            }
+
+            friend std::ostream & operator << (std::ostream & o, SHA1Hash & hash) {
+                o << hash.toString();
+                return o;
+            }
+
+            struct Hasher {
+                size_t operator()(SHA1Hash const &hash) const {
+                    size_t result = 0;
+                    std::hash<unsigned char> h;
+                    for (size_t i = 0; i < 20; ++i)
+                        result += h(hash.hash[i]);
+                    return result;
+                }
+            };
+
+
+        };
 
         class Directory;
 
@@ -215,6 +254,12 @@ namespace dejavu {
             class Dir {
             public:
 
+                static size_t Instances(int update) {
+                    static size_t instances = 0;
+                    instances += update;
+                    return instances;
+                }
+
                 bool taint;
                 
                 /** Link to parent dir structure.
@@ -238,6 +283,7 @@ namespace dejavu {
                     taint(true),
                     parent(parent),
                     directory(directory) {
+                        Instances(1);
                 }
 
                 Dir(Dir * parent, Dir const * from):
@@ -248,11 +294,13 @@ namespace dejavu {
                         dirs.insert(std::make_pair(i.first, new Dir(this, i.second)));
                     for (auto const & i : from->files)
                         files.insert(i);
+                    Instances(1);
                 }
 
                 ~Dir() {
                     for (auto i : dirs)
                         delete i.second;
+                    Instances(-1);
                 }
 
                 bool isEmpty() const {
@@ -289,6 +337,14 @@ namespace dejavu {
                     return s.str();
                 }
 
+                /** Determines the hash of the subtree for current directory as a root. 
+                 */
+                SHA1Hash hash() {
+                    std::string id = serialize();
+                    SHA1Hash result;
+                    SHA1((unsigned char *) id.c_str(), id.size(), (unsigned char *) & result.hash);
+                    return result;
+                }
 
                 /** Populates a map from file indices to directories containing them.  
                  */
@@ -363,8 +419,15 @@ namespace dejavu {
 
             };
 
+            static size_t Instances(int update) {
+                static size_t instances = 0;
+                instances += update;
+                return instances;
+            }
+
             ProjectTree():
                 root_(nullptr) {
+                Instances(1);
             }
 
             ProjectTree(ProjectTree const & from):
@@ -374,6 +437,7 @@ namespace dejavu {
                     assert(root_ != nullptr);
                 assert(dirs_.size() == from.dirs_.size());
                 assert(files_.size() == from.files_.size());
+                Instances(1);
             }
 
             ProjectTree(ProjectTree &&) = delete;
@@ -383,6 +447,7 @@ namespace dejavu {
 
             ~ProjectTree() {
                 delete root_;
+                Instances(-1);
             }
 
             /** Merges two states (i.e. branches) together. The merge retains all valid files from either of the branches.
@@ -742,7 +807,7 @@ namespace dejavu {
 
                 while (Running_ > 0) {
                     sleep(1);
-                    std::cerr << (analyzed * 100 / projects.size()) << " - clones: " << NumClones_ << std::flush << ", tested projects: " << TestedProjects_ << ", tested commits: " << TestedCommits_ << "\r";
+                    std::cerr << (analyzed * 100 / projects.size()) << " - clones: " << NumClones_ << std::flush << ", tested projects: " << TestedProjects_ << ", tested commits: " << TestedCommits_ << ", dirs alive: " << ProjectTree::Dir::Instances(0) << ", trees alive: " << ProjectTree::Instances(0) << "\r";
                     // display stats
                     // sleep
                 }
@@ -755,14 +820,15 @@ namespace dejavu {
              */
             static unsigned FindOriginalFor(Project * p, Commit * c, ProjectTree::Dir * clone) {
                 ++NumClones_;
-                std::string id = clone->serialize();
+                SHA1Hash hash = clone->hash();
+//                std::string id = clone->serialize();
                 std::string path = clone->path();
 
                 unsigned originalId = 0;
                 {
                     std::lock_guard<std::mutex> g(Om_);
                     // this needs to be guarded for multithreaded
-                    auto ci = CloneOriginals_.find(id);
+                    auto ci = CloneOriginals_.find(hash);
 
                     originalId = (ci != CloneOriginals_.end()) ? ci->second : CloneOriginals_.size() + 1;
                     CloneList_ << p->id << "," << c->id << "," << helpers::escapeQuotes(path) << "," << originalId << std::endl;    
@@ -771,7 +837,7 @@ namespace dejavu {
                         return originalId;
 
                     // already insert the original in our database so that if other clones are found while we search for it we'll pretend it is known
-                    CloneOriginals_.insert(std::make_pair(id, originalId));
+                    CloneOriginals_.insert(std::make_pair(hash, originalId));
                 }
 
                 CloneOriginal original(originalId, p, c, clone->path(), clone);
@@ -791,7 +857,7 @@ namespace dejavu {
                 {
                     std::lock_guard<std::mutex> g(ODm_);
                     OriginalDetails_ << original;
-                    CloneIds_ << originalId << "," << helpers::escapeQuotes(id) << std::endl;
+                    CloneIds_ << originalId << "," << helpers::escapeQuotes(hash.toString()) << std::endl;
                 }
                 return originalId;
             }
@@ -814,7 +880,7 @@ namespace dejavu {
 
             static std::unordered_map<uint64_t, std::unordered_set<unsigned>> ProjectsTriage_;
 
-            static std::unordered_map<std::string, unsigned> CloneOriginals_;
+            static std::unordered_map<SHA1Hash, unsigned, SHA1Hash::Hasher> CloneOriginals_;
 
             /** clone id -> string of its contents
              */ 
@@ -858,7 +924,7 @@ namespace dejavu {
 
         // path + contentsId -> set of projects
         std::unordered_map<uint64_t, std::unordered_set<unsigned>> FolderCloneDetector::ProjectsTriage_;
-        std::unordered_map<std::string, unsigned> FolderCloneDetector::CloneOriginals_;
+        std::unordered_map<SHA1Hash, unsigned, SHA1Hash::Hasher> FolderCloneDetector::CloneOriginals_;
 
         std::ofstream FolderCloneDetector::CloneIds_;
         std::ofstream FolderCloneDetector::OriginalDetails_;
@@ -997,7 +1063,7 @@ namespace dejavu {
         FolderCloneDetector fcd;
         
         FolderCloneDetector::Detect(NumThreads.value());
-
+        std::cout << "ProjectTree::Dir instances: " << ProjectTree::Dir::Instances(0) << std::endl;
         
     }
     

@@ -18,7 +18,7 @@ namespace dejavu {
     //helpers::Option<std::string> DataDir("data", "/home/peta/ghgrabber_join", {"-d"}, false);
     //helpers::Option<std::string> DownloaderDir("downloader", "/home/peta/xxxxxx", false);
     helpers::Option<std::string> TempDir("tmp", "/tmp", false);
-    helpers::Option<unsigned> NumThreads("numThreads", 32, {"-n"}, false);
+    helpers::Option<unsigned> NumThreads("numThreads", 8, {"-n"}, false);
     helpers::Option<unsigned> Seed("seed", 0, false);
     helpers::Option<unsigned> Threshold("threshold", 2, {"-t"}, false);
     
