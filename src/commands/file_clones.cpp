@@ -80,7 +80,7 @@ namespace dejavu {
 
                 std::cerr << "COWTING REPEATZ OF CONE TENTS" << std::endl;
                 std::unordered_map<unsigned, unsigned> counters;
-                FileChangeLoader([counters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
+                FileChangeLoader([&counters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
                     counters[contents_id]++;
                 });
                 std::cerr << "DONE COWTING REPEATZ OF CONE TENTS" << std::endl;
@@ -102,10 +102,10 @@ namespace dejavu {
 
                 std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
                 std::unordered_map<unsigned, std::vector<Modification*>> clusters;
-                FileChangeLoader([counters,clusters](unsigned project_id,
-                                                     unsigned commit_id,
-                                                     unsigned path_id,
-                                                     unsigned contents_id) mutable {
+                FileChangeLoader([&counters,&clusters](unsigned project_id,
+                                                       unsigned commit_id,
+                                                       unsigned path_id,
+                                                       unsigned contents_id) mutable {
                     if (counters[commit_id] < 2)
                         return;
                     clusters[contents_id].push_back(new Modification(project_id,
