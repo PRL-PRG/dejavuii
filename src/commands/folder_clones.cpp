@@ -255,7 +255,7 @@ namespace dejavu {
             public:
 
                 static size_t Instances(int update) {
-                    static size_t instances = 0;
+                    static std::atomic<size_t> instances(0);
                     instances += update;
                     return instances;
                 }
@@ -283,7 +283,7 @@ namespace dejavu {
                     taint(true),
                     parent(parent),
                     directory(directory) {
-                        Instances(1);
+                    //Instances(1);
                 }
 
                 Dir(Dir * parent, Dir const * from):
@@ -294,13 +294,13 @@ namespace dejavu {
                         dirs.insert(std::make_pair(i.first, new Dir(this, i.second)));
                     for (auto const & i : from->files)
                         files.insert(i);
-                    Instances(1);
+                    //Instances(1);
                 }
 
                 ~Dir() {
                     for (auto i : dirs)
                         delete i.second;
-                    Instances(-1);
+                    //Instances(-1);
                 }
 
                 bool isEmpty() const {
@@ -420,14 +420,14 @@ namespace dejavu {
             };
 
             static size_t Instances(int update) {
-                static size_t instances = 0;
+                static std::atomic<size_t> instances(0);
                 instances += update;
                 return instances;
             }
 
             ProjectTree():
                 root_(nullptr) {
-                Instances(1);
+                //Instances(1);
             }
 
             ProjectTree(ProjectTree const & from):
@@ -437,7 +437,7 @@ namespace dejavu {
                     assert(root_ != nullptr);
                 assert(dirs_.size() == from.dirs_.size());
                 assert(files_.size() == from.files_.size());
-                Instances(1);
+                //Instances(1);
             }
 
             ProjectTree(ProjectTree &&) = delete;
@@ -447,7 +447,7 @@ namespace dejavu {
 
             ~ProjectTree() {
                 delete root_;
-                Instances(-1);
+                //Instances(-1);
             }
 
             /** Merges two states (i.e. branches) together. The merge retains all valid files from either of the branches.
@@ -807,7 +807,7 @@ namespace dejavu {
 
                 while (Running_ > 0) {
                     sleep(1);
-                    std::cerr << (analyzed * 100 / projects.size()) << " - clones: " << NumClones_ << std::flush << ", tested projects: " << TestedProjects_ << ", tested commits: " << TestedCommits_ << ", dirs alive: " << ProjectTree::Dir::Instances(0) << ", trees alive: " << ProjectTree::Instances(0) << "\r";
+                    std::cerr << (analyzed * 100 / projects.size()) << " - clones: " << NumClones_ << std::flush << ", tested projects: " << TestedProjects_ << ", tested commits: " << TestedCommits_ << ", dirs alive: " << ProjectTree::Dir::Instances(0) << ", trees alive: " << ProjectTree::Instances(0) << "      \r";
                     // display stats
                     // sleep
                 }
@@ -1064,6 +1064,7 @@ namespace dejavu {
         
         FolderCloneDetector::Detect(NumThreads.value());
         std::cout << "ProjectTree::Dir instances: " << ProjectTree::Dir::Instances(0) << std::endl;
+        std::cout << "ProjectTree instances: " << ProjectTree::Instances(0) << std::endl;
         
     }
     
