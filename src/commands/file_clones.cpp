@@ -4,6 +4,7 @@
 
 #include "../loaders.h"
 #include "../commands.h"
+#include "../../helpers/strings.h"
 
 namespace dejavu {
 
@@ -166,6 +167,45 @@ namespace dejavu {
                 std::cerr << "DONE WRITINK OUT KLUSTER INFORMESHON" << std::endl;
             }
 
+            static void SaveClusterCommits() {
+                std::cerr << "WRITINK OUT KLUSTER COMMIT INFORMESHON" << std::endl;
+                const std::string filename = DataDir.value() + "/fileClustersWithCommits.csv";
+                std::ofstream s(filename);
+                if (! s.good()) {
+                    ERROR("Unable to open file " << filename << " for writing");
+                }
+
+                s << "\"content id\",\"cluster size\",\"original commit id\",\"commit list\""
+                  << std::endl;
+
+                int counter = 0;
+                for (auto & it : clusters) {
+                    unsigned content_id = it.first;
+                    unsigned cluster_size = it.second->size();
+                    unsigned original = it.second->get_original()->commit_id;
+
+                    s << content_id << "," << cluster_size << "," << original;
+                    bool first = true;
+                    for (auto & mod : it.second->modifications) {
+                        if (first) {
+                            first = false;
+                        } else {
+                            s << " ";
+                        }
+                      s << mod->commit_id;
+                    }
+                    s << std::endl;
+
+                    // Count processed lines
+                    counter++;
+                    if (counter % 1000 == 0) {
+                        std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
+                    }
+                }
+                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                std::cerr << "DONE WRITINK OUT KLUSTER COMMIT INFORMESHON" << std::endl;
+            }
+
         protected:
             std::vector<Modification *> modifications;
             Modification * original;
@@ -190,6 +230,7 @@ namespace dejavu {
 
         ModificationCluster::LoadClusters();
         ModificationCluster::SaveClusters();
+        ModificationCluster::SaveClusterCommits();
     }
     
 } // namespace dejavu
