@@ -102,20 +102,25 @@ namespace dejavu {
 
                 std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
                 std::unordered_map<unsigned, std::vector<Modification*>> clusters;
-                FileChangeLoader([&counters,&clusters](unsigned project_id,
-                                                       unsigned commit_id,
-                                                       unsigned path_id,
-                                                       unsigned contents_id) mutable {
-                    if (counters[commit_id] < 2)
+                int skipped=0;
+                pluralities=0;
+                FileChangeLoader([&](unsigned project_id,
+                                     unsigned commit_id,
+                                     unsigned path_id,
+                                     unsigned contents_id) mutable {
+                    if (counters[contents_id] < 2) {
+                        skipped++;
                         return;
+                    }
                     clusters[contents_id].push_back(new Modification(project_id,
                                                                      commit_id,
                                                                      path_id,
                                                                      contents_id));
+                    pluralities++;
                 });
-                std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
+                std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ (skipped=" << skipped << "clusters=" << pluralities << ")" << std::endl;
 
-                std::cerr << "MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
+                std::cerr << "MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ (" << clusters.size() << ")" << std::endl;
                 /*int*/ counter = 0;
                 for (auto & it : clusters) {
                     // Mark oldest modification in cluster;
