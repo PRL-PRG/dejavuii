@@ -21,7 +21,7 @@ namespace dejavu {
 
             GHTorrentProjectLoader(RowHandler f): f_(f) {
                 //readFile(DataDir.value() + "/ghtorrent_projects.csv");
-                readFile("/data/dejavuii/javascript_projects/ghtorrent_projects_all_10.csv");
+                readFile("/data/dejavuii/javascript_projects/ghtorrent_projects_all.csv");
                 showProblems();
             }
 
