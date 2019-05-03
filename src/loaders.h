@@ -67,6 +67,41 @@ namespace dejavu {
         
     };
 
+    class FileClusterLoader : public BaseLoader {
+    public:
+        typedef std::function<void(unsigned, unsigned, unsigned, std::vector<unsigned> &)> RowHandler;
+
+        FileClusterLoader(std::string const & filename, RowHandler f): f_(f) {
+            readFile(filename);
+        }
+
+        FileClusterLoader(RowHandler f): f_(f) {
+            //readFile(DataDir.value() + "/fileClusters.csv");
+            readFile(DataDir.value() + "/fileClustersWithCommits.csv");
+        }
+
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 3);
+
+            unsigned content_id = std::stoul(row[0]);
+            unsigned cluster_size = std::stoul(row[1]);
+            unsigned original_commit_id = std::stoul(row[2]);
+
+            std::vector<unsigned> commits;
+            for (auto & it : helpers::Split(row[3], ' ')) {
+                commits.push_back(std::stoul(it));
+            }
+
+            assert(commits.size() == cluster_size);
+
+            f_(content_id, cluster_size, original_commit_id, commits);
+        }
+
+    private:
+        RowHandler f_;
+    };
+
     /** Loads the projects basic information.
      */
     class ProjectLoader : public BaseLoader {
