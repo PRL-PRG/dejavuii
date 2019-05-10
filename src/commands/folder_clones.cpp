@@ -88,6 +88,22 @@ namespace dejavu {
 
         class Directory;
 
+        class FileError {
+        public:
+            unsigned pathId;
+            unsigned commitId;
+            unsigned projectId;
+
+            FileError(unsigned pathId):
+                pathId(pathId) {
+            }
+
+            friend std::ostream & operator << (std::ostream & s, FileError const & e) {
+                s << "File error - project id " << e.projectId << ", commit " << e.commitId << ", path " << e.pathId;
+                return s;
+            }
+        };
+
 
         class Filename {
         public:
@@ -509,10 +525,8 @@ namespace dejavu {
             friend class Dir;
 
             void deleteFile(unsigned pathId) {
-                if (files_.find(pathId) == files_.end()) {
-                    std::cerr << "pathId: " << pathId << std::endl;
-                    throw "HERE";
-                }
+                if (files_.find(pathId) == files_.end()) 
+                    throw FileError(pathId);
                 assert(files_.find(pathId) != files_.end());
                 // get the file and its directory
                 Dir * d = files_.find(pathId)->second;
@@ -1008,12 +1022,14 @@ namespace dejavu {
                             FolderCloneDetector::FindOriginalFor(this, c,  d);
                         d->untaint();
                     }
-                } catch (...) {
-                    std::cout << "Commit id" << c->id << std::endl;
-                    std::cout << "Project id" << id << std::endl;
-                    assert(false);
+                    return true;
+                } catch (FileError & e) {
+                    e.commitId = c->id;
+                    e.projectId = id;
+                    std::cout << e << std::endl;
+                    // terminate the analysis
+                    return false;
                 }
-                return true;
             });
             for (auto i : commits)
                 if (i->numParentCommits() == 0)
@@ -1063,8 +1079,8 @@ namespace dejavu {
         FolderCloneDetector fcd;
         
         FolderCloneDetector::Detect(NumThreads.value());
-        std::cout << "ProjectTree::Dir instances: " << ProjectTree::Dir::Instances(0) << std::endl;
-        std::cout << "ProjectTree instances: " << ProjectTree::Instances(0) << std::endl;
+        std::cerr << "ProjectTree::Dir instances: " << ProjectTree::Dir::Instances(0) << std::endl;
+        std::cerr << "ProjectTree instances: " << ProjectTree::Instances(0) << std::endl;
         
     }
     
