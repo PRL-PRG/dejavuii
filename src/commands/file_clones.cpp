@@ -184,7 +184,7 @@ namespace dejavu {
                     unsigned cluster_size = it.second->size();
                     unsigned original = it.second->get_original()->commit_id;
 
-                    s << content_id << "," << cluster_size << "," << original;
+                    s << content_id << "," << cluster_size << "," << original << ",";
                     bool first = true;
                     for (auto & mod : it.second->modifications) {
                         if (first) {
