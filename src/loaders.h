@@ -82,7 +82,7 @@ namespace dejavu {
 
     protected:
         void row(std::vector<std::string> & row) override {
-            assert(row.size() == 3);
+            assert(row.size() == 4);
 
             unsigned content_id = std::stoul(row[0]);
             unsigned cluster_size = std::stoul(row[1]);

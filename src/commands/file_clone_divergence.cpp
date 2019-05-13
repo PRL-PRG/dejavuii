@@ -17,7 +17,7 @@ namespace dejavu {
             uint64_t committer_time;
             unsigned n_parents;
             std::vector<Commit *> children;
-            std::unordered_map<unsigned, unsigned> changes; /* path -> content? */
+            std::unordered_map<unsigned, unsigned> changes; /* path -> content */
             std::unordered_set<unsigned> projects;
 
             Commit(unsigned id, uint64_t author_time, uint64_t committer_time):
@@ -97,7 +97,7 @@ namespace dejavu {
 
         std::cerr << "LOAD COMMITZ PARENTZ" << std::endl;
         CommitParentsLoader{[&commits](unsigned id, unsigned parent_id){
-            assert(commits.find(id) != commits.end());
+            //assert(commits.find(id) != commits.end());
             commits[id]->n_parents++;
             commits[parent_id]->children.push_back(commits[id]);
         }};
@@ -110,8 +110,8 @@ namespace dejavu {
                                     unsigned contents_id) {
 
             assert(commits.find(commit_id) != commits.end());
-            assert(commits[commit_id]->changes.find(path_id)
-                   == commits[commit_id]->changes.end());
+            assert((commits[commit_id]->changes.find(path_id) == commits[commit_id]->changes.end())
+                   || (commits[commit_id]->changes[path_id] == contents_id));
 
             commits[commit_id]->changes[path_id] = contents_id;
             commits[commit_id]->projects.insert(project_id);
@@ -143,12 +143,27 @@ namespace dejavu {
             unsigned content_id = cluster->content_id;
             for (unsigned commit_id : cluster->commits) {
                 CommitForwardIterator<Commit, Aggregation> cfi([&modifications,content_id,commit_id](Commit *commit, Aggregation &aggregation) -> bool {
+                    std::unordered_set paths;
                     for (unsigned project_id : commit->projects) {
                         if (commit->id == commit_id) {
-                            // Ignore initial commit.
-                            continue;
+                            // Initial commit: elect path_ids to follow.
+                            for (auto change : commit->changes) {
+                                unsigned changed_path_id = change.first;
+                                unsigned changed_content_id = change.second;
+                                if (changed_content_id == content_id) {
+                                    paths.insert(changed_path_id);
+                                }
+                            }
+                        } else {
+                            // Count commits that modify the elected paths.
+                            for (auto change : commit->changes) {
+                                unsigned changed_path_id = change.first;
+                                //unsigned changed_content_id = change.second;
+                                if (paths.find(changed_path_id) != paths.end()) {
+                                    modifications[content_id][commit_id][project_id].insert(commit->id);
+                                }
+                            }
                         }
-                        modifications[content_id][commit_id][project_id].insert(commit->id); // FIXME only commits that modify this path
                     }
                     return true;
                 });
