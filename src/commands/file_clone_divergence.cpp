@@ -110,8 +110,8 @@ namespace dejavu {
                                     unsigned contents_id) {
 
             assert(commits.find(commit_id) != commits.end());
-            assert(commits[commit_id]->changes.find(path_id)
-                   == commits[commit_id]->changes.end());
+            assert((commits[commit_id]->changes.find(path_id) == commits[commit_id]->changes.end())
+                   || (commits[commit_id]->changes[path_id] == contents_id));
 
             commits[commit_id]->changes[path_id] = contents_id;
             commits[commit_id]->projects.insert(project_id);
