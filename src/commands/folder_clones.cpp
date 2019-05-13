@@ -95,7 +95,9 @@ namespace dejavu {
             unsigned projectId;
 
             FileError(unsigned pathId):
-                pathId(pathId) {
+                pathId(pathId) ,
+                commitId(0),
+                projectId(0) {
             }
 
             friend std::ostream & operator << (std::ostream & s, FileError const & e) {
@@ -1019,14 +1021,16 @@ namespace dejavu {
                         size_t numFiles = d->numFiles();
                         //if the clone candidate passes the threshold, find its clone
                         if (numFiles >= Threshold.value()) 
-                            FolderCloneDetector::FindOriginalFor(this, c,  d);
+                                FolderCloneDetector::FindOriginalFor(this, c,  d);
                         d->untaint();
                     }
                     return true;
                 } catch (FileError & e) {
-                    e.commitId = c->id;
-                    e.projectId = id;
-                    std::cout << e << std::endl;
+                    if (e.commitId == 0) {
+                        e.commitId = c->id;
+                        e.projectId = id;
+                    }
+                    std::cout << e << "      " << std::endl;
                     // terminate the analysis
                     return false;
                 }
@@ -1040,22 +1044,28 @@ namespace dejavu {
         void Project::findOriginal(CloneOriginal & original) {
             //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
             CommitForwardIterator<Commit,ProjectTree> it([this, & original](Commit * c, ProjectTree & tree) {
-                if (c->time >= original.commit->time)
-                    return false;
-                ++FolderCloneDetector::TestedCommits_;
-                // otherwise update the project tree and get the list of candidates
-                auto candidates = tree.updateBy(c, original);
-                // we now have the list of directory comparisons we must do, if any of them turns out to be valid, we have a better original
-                for (auto dp : candidates) {
-                    ProjectTree::Dir * od = original.clone->isSubtreeOf(dp.clone, dp.originalCandidate);
-                    if (od != nullptr) {
-                        original.project = this;
-                        original.commit = c;
-                        original.path = od->path();
+                try { 
+                    if (c->time >= original.commit->time)
                         return false;
+                    ++FolderCloneDetector::TestedCommits_;
+                    // otherwise update the project tree and get the list of candidates
+                    auto candidates = tree.updateBy(c, original);
+                    // we now have the list of directory comparisons we must do, if any of them turns out to be valid, we have a better original
+                    for (auto dp : candidates) {
+                        ProjectTree::Dir * od = original.clone->isSubtreeOf(dp.clone, dp.originalCandidate);
+                        if (od != nullptr) {
+                            original.project = this;
+                            original.commit = c;
+                            original.path = od->path();
+                            return false;
+                        }
                     }
+                    return true;
+                } catch (FileError & e) {
+                    e.commitId = c->id;
+                    e.projectId = id;
+                    throw;
                 }
-                return true;
             });
             for (auto i : commits)
                 if (i->numParentCommits() == 0)
