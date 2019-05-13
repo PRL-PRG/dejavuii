@@ -192,7 +192,7 @@ namespace dejavu {
                         } else {
                             s << " ";
                         }
-                      s << mod->commit_id;
+                        s << mod->commit_id;
                     }
                     s << std::endl;
 
