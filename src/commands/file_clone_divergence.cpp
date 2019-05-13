@@ -150,6 +150,7 @@ namespace dejavu {
                         }
                         modifications[content_id][commit_id][project_id].insert(commit->id); // FIXME only commits that modify this path
                     }
+                    return true;
                 });
                 cfi.addInitialCommit(commits[commit_id]);
                 cfi.process();
@@ -172,7 +173,7 @@ namespace dejavu {
                 unsigned root_commit_id = root_commit.first;
                 for (auto & project : root_commit.second) {
                     unsigned project_id = project.first;
-                    std::unordered_set modifying_commits = project.second;
+                    std::unordered_set<unsigned> modifying_commits = project.second;
 
                     std::cerr << content_id << ","
                               << root_commit_id << ","
