@@ -143,7 +143,7 @@ namespace dejavu {
             unsigned content_id = cluster->content_id;
             for (unsigned commit_id : cluster->commits) {
                 CommitForwardIterator<Commit, Aggregation> cfi([&modifications,content_id,commit_id](Commit *commit, Aggregation &aggregation) -> bool {
-                    std::unordered_set paths;
+                    std::unordered_set<unsigned> paths;
                     for (unsigned project_id : commit->projects) {
                         if (commit->id == commit_id) {
                             // Initial commit: elect path_ids to follow.
