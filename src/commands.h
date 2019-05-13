@@ -4,6 +4,11 @@
 
 namespace dejavu {
 
+
+    /** Verifies the data obtained from the ghgrabber that commit numbers match each other.
+     */
+    void Verify(int argc, char * argv[]);
+
     /** Takes the data from the downloader, which includes non-js files and per-project redundancy uncompacted hashes being produced by the downloader and conpacts the hashes and cherrypicks the information we need removing the redundancies.
      */
     void Join(int argc, char * argv[]);

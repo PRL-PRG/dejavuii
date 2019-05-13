@@ -25,7 +25,7 @@ namespace dejavu {
         /** Called when the requested file has been all read.
          */
         virtual void onDone(size_t n) {
-            std::cerr << n << " records loaded" << std::endl;
+            //std::cerr << n << " records loaded" << std::endl;
         }
         
     }; // dejavuii::BaseLoader

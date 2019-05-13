@@ -1,0 +1,40 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+weirdProjects = read.csv("/home/peta/devel/dejavuii/build/errors.txt", header = F)
+colnames(weirdProjects) = c(
+    "user",
+    "repo",
+    "totalDiff",
+    "c_fh",
+    "fh_c",
+    "c_m",
+    "m_c",
+    "c_p",
+    "p_c",
+    "fh_m",
+    "m_fh",
+    "fh_p",
+    "p_fh",
+    "m_p",
+    "p_m")
+```
+
+
+```{r}
+
+reallyWeirdProjects = weirdProjects[weirdProjects$fh_p + weirdProjects$p_fh != 0,]
+
+reallyReallyWeirdProjects = weirdProjects[weirdProjects$c_fh != weirdProjects$m_fh || weirdProjects$m_fh != weirdProjects$p_fh || weirdProjects$c_fh != weirdProjects$p_fh,]
+
+summary(weirdProjects$totalDiff)
+
+
+```
