@@ -51,28 +51,28 @@ namespace dejavu {
                     commits(commits) {}
         };
 
-        class Aggregation {
+        class DummyState {
         public:
 
             std::unordered_map<unsigned, unsigned> path_modifications; /*path id -> count */
 
-            Aggregation() {
+            DummyState() {
             }
 
-            Aggregation(Aggregation const & from) {
+            DummyState(DummyState const & from) {
                 mergeWith(from);
             }
 
-            Aggregation(Aggregation &&) = delete;
+            DummyState(DummyState &&) = delete;
 
-            Aggregation & operator = (Aggregation const &) = delete;
-            Aggregation & operator = (Aggregation &&) = delete;
+            DummyState & operator = (DummyState const &) = delete;
+            DummyState & operator = (DummyState &&) = delete;
 
-            ~Aggregation() {
+            ~DummyState() {
                 //delete root_;
             }
 
-            void mergeWith(Aggregation const & from) {
+            void mergeWith(DummyState const & from) {
                 for (auto pm : from.path_modifications) {
                     path_modifications[pm.first] += pm.second;
                 }
@@ -142,7 +142,7 @@ namespace dejavu {
         for (auto cluster : clusters) {
             unsigned content_id = cluster->content_id;
             for (unsigned commit_id : cluster->commits) {
-                CommitForwardIterator<Commit, Aggregation> cfi([&modifications,content_id,commit_id](Commit *commit, Aggregation &aggregation) -> bool {
+                CommitForwardIterator<Commit, DummyState> cfi([&modifications,content_id,commit_id](Commit *commit, DummyState &aggregation) -> bool {
                     std::unordered_set<unsigned> paths;
                     for (unsigned project_id : commit->projects) {
                         if (commit->id == commit_id) {

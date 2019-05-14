@@ -25,7 +25,7 @@ namespace dejavu {
         }
 
         void addInitialCommit(COMMIT * c) {
-            QueueItem * qi = new QueueItem(c, STATE());
+            QueueItem * qi = new QueueItem(c);
             assert(qi->merges == 0);
             q_.push_back(qi);
         }
@@ -59,6 +59,11 @@ namespace dejavu {
                 c(c),
                 s(s),
                 merges(c->numParentCommits() == 0 ? 0 : c->numParentCommits() - 1) {
+            }
+
+            QueueItem(COMMIT * c):
+                    c(c),
+                    merges(0) {
             }
 
             void replaceCommit(COMMIT * newC) {
