@@ -177,11 +177,20 @@ namespace dejavu {
         }
         std::cerr << "DONE ANALYZE KLUSTERZ" << std::endl;
 
-        std::cerr << "SAVE ANALYSAUCE" << std::endl;
-        std::cerr << "content_id" << ","
-                  << "root_commit_id" << ","
-                  << "project_id" << ","
-                  << commits.size() << std::endl;
+        const std::string filename = DataDir.value() + "/fileClonesModifications.csv";
+        std::cerr << "SAVE ANALYSAUCE TO " << filename << std::endl;
+        counter = 0;
+        std::ofstream s(filename);
+
+        if (! s.good()) {
+            ERROR("Unable to open file " << filename << " for writing");
+        }
+
+        s << "content_id" << ","
+          << "root_commit_id" << ","
+          << "project_id" << ","
+          << "modifications" << std::endl;
+
         for (auto & content : modifications) {
             unsigned content_id = content.first;
             for (auto & root_commit : content.second) {
@@ -190,10 +199,16 @@ namespace dejavu {
                     unsigned project_id = project.first;
                     std::unordered_set<unsigned> modifying_commits = project.second;
 
-                    std::cerr << content_id << ","
-                              << root_commit_id << ","
-                              << project_id << ","
-                              << modifying_commits.size() << std::endl;
+                    s << content_id << ","
+                      << root_commit_id << ","
+                      << project_id << ","
+                      << modifying_commits.size() << std::endl;
+
+                    // Count processed lines
+                    counter++;
+                    if (counter % 1000 == 0) {
+                        std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
+                    }
                 }
             }
         }
