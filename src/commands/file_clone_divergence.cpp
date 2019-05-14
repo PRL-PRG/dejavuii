@@ -212,6 +212,7 @@ namespace dejavu {
                 }
             }
         }
+        std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
         std::cerr << "DONE SAVE ANALYSAUCE" << std::endl;
     }
     
