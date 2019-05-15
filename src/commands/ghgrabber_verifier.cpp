@@ -15,6 +15,38 @@ namespace dejavu {
 
     namespace {
 
+        class Commit {
+        public:
+            std::string hash;
+            bool inFileHashes;
+            std::unordered_set<Commit *> children;
+            std::unordered_set<Commit *> parents;
+
+            Commit(std::string const & hash):
+                hash(hash),
+                inFileHashes(false) {
+            }
+
+            void addChild(Commit * commit) {
+                children.insert(commit);
+                commit->parents.insert(this);
+            }
+
+            size_t missingStreak() {
+                if (inFileHashes)
+                    return 0;
+                // we are already accounting for this commit, this marks it as visited
+                inFileHashes = true;
+                size_t result = 0;
+                for (Commit * c : children) {
+                    size_t x = c->missingStreak();
+                    if (x > result)
+                        result = x;
+                }
+                return result + 1;
+            }
+            
+        };
 
 
         class Project {
@@ -27,15 +59,21 @@ namespace dejavu {
             std::string repo_;
             std::string name_;
 
+            std::unordered_set<std::string> commitParents_;
             std::unordered_set<std::string> commitComments_;
             std::unordered_set<std::string> commitFileHashes_;
             std::unordered_set<std::string> commitMetadata_;
-            std::unordered_set<std::string> commitParents_;
+            std::unordered_map<std::string, Commit *> commits_;
 
             Project(std::string const & user, std::string const & repo):
                 user_(user),
                 repo_(repo) {
                 name_ = MangleName(user, repo);
+            }
+
+            ~Project() {
+                for (auto i : commits_)
+                    delete i.second;
             }
 
             std::string getPath(std::string const & where) {
@@ -59,6 +97,9 @@ namespace dejavu {
             bool verify();
 
             std::pair<size_t, size_t> verifyCommitSets(std::unordered_set<std::string> const & first, std::unordered_set<std::string> const & second);
+
+            size_t getLongestStreak();
+            
 
         };
 
@@ -103,15 +144,18 @@ namespace dejavu {
                         }
                         //std::cerr << "Loading project " << user << "/" << repo << std::endl;
                         Project p(user, repo);
-                        p.loadCommits(path);
                         try {
                             p.loadCommits(path);
                             if (! p.verify())
                                 ++invalidProjects;
                         } catch (std::string const & e) {
-                            std::cerr << e << std::endl;
+                            std::cerr << user << "/" << repo << ": " << e << std::endl;
+                            ++errorProjects;
+                        } catch (...) {
+                            std::cerr << user << "/" << repo << ": Unknown error" << std::endl;
                             ++errorProjects;
                         }
+                        
                     });
                 std::cerr << "Done:" << std::endl;
                 std::cerr << "    " << projects << " total projects" << std::endl;
@@ -129,63 +173,87 @@ namespace dejavu {
         }; // ProjectVerifier
         
         void Project::loadCommits(std::string const & path) {
+
+            std::string filename = getPath(path + "/commit_parents") + ".csv";
+            DownloaderCommitParentsLoader{filename, [this](std::string const & commitHash, std::string const & parentHash) {\
+                    if (commitHash.size() != 40)
+                        throw std::string(STR("Invalid hash parents: " << commitHash));
+                    if (parentHash.size() != 40)
+                        throw std::string(STR("Invalid hash parents: " << parentHash));
+                    auto i = commits_.find(parentHash);
+                    if (i == commits_.end()) 
+                        i = commits_.insert(std::make_pair(parentHash, new Commit(parentHash))).first;
+                    auto j = commits_.find(commitHash);
+                    if (j == commits_.end())
+                        j = commits_.insert(std::make_pair(commitHash, new Commit(commitHash))).first;
+                    i->second->addChild(j->second);
+                    commitParents_.insert(commitHash);
+                    commitParents_.insert(parentHash);
+                }};
+
+            filename = getPath(path + "/commit_file_hashes") + ".csv";
+            DownloaderCommitChangesLoader{filename, [this](std::string const & commitHash, std::string const & fileHash, char changeType, std::string const & path, std::string const & path2) {
+                    if (commitHash.size() != 40)
+                        throw std::string(STR("Invalid hash fh: " << commitHash));
+                    if (fileHash.size() != 40)
+                        throw std::string(STR("Invalid file hash: " << fileHash));
+                    commitFileHashes_.insert(commitHash);
+                    auto i = commits_.find(commitHash);
+                    if (i != commits_.end())
+                        i->second->inFileHashes = true;
+                }};
             //            std::cerr << "    metadata ... ";
-            std::string filename = getPath(path + "/commit_metadata") + ".csv";
+            filename = getPath(path + "/commit_metadata") + ".csv";
             DownloaderCommitMetadataLoader{filename, [this](std::string const & hash, std::string const & authorEmail, uint64_t authorTime, std::string const & committerEmail, uint64_t committerTime, std::string const & tag) {
                     if (hash.size() != 40)
-                        throw STR("Invalid hash: " << hash);
+                        throw std::string(STR("Invalid hash metadata: " << hash));
                     commitMetadata_.insert(hash);
                 }};
             //std::cerr << std::flush;
             //std::cerr << "    commit parents ... ";
-            filename = getPath(path + "/commit_parents") + ".csv";
-            DownloaderCommitParentsLoader{filename, [this](std::string const & commitHash, std::string const & parentHash) {
-                    if (commitHash.size() != 40)
-                        throw STR("Invalid hash: " << commitHash);
-                    if (parentHash.size() != 40)
-                        throw STR("Invalid hash: " << parentHash);
-                    commitParents_.insert(commitHash);
-                    commitParents_.insert(parentHash);
-                }};
             //std::cerr << "    commit messages ... ";
             filename = getPath(path + "/commit_comments") + ".csv";
             DownloaderCommitMessagesLoader{filename, [this](std::string const & commitHash, std::string const & message){
                     if (commitHash.size() != 40)
-                        throw STR("Invalid hash: " << commitHash);
+                        throw std::string(STR("Invalid hash comments: " << commitHash));
                     commitComments_.insert(commitHash);
                 }};
             //std::cerr << "    file changes ... ";
-            unsigned validChanges = 0;
-            filename = getPath(path + "/commit_file_hashes") + ".csv";
-            DownloaderCommitChangesLoader{filename, [& validChanges, this](std::string const & commitHash, std::string const & fileHash, char changeType, std::string const & path, std::string const & path2) {
-                    if (commitHash.size() != 40)
-                        throw STR("Invalid hash: " << commitHash);
-                    if (fileHash.size() != 40)
-                        throw STR("Invalid file hash: " << fileHash);
-                    commitFileHashes_.insert(commitHash);
-                }};
         }
 
         bool Project::verify() {
-            auto commentsFileHashes = verifyCommitSets(commitComments_, commitFileHashes_);
-            auto commentsMetadata = verifyCommitSets(commitComments_, commitMetadata_);
-            auto commentsParents = verifyCommitSets(commitComments_, commitParents_);
-            auto fileHashesMetadata = verifyCommitSets(commitFileHashes_, commitMetadata_);
-            auto fileHashesParents = verifyCommitSets(commitFileHashes_, commitParents_);
-            auto metadataParents = verifyCommitSets(commitMetadata_, commitParents_);
-            size_t diff = sumPairs({commentsFileHashes, commentsMetadata, commentsParents, fileHashesMetadata, fileHashesParents, metadataParents});
+            // to determine discrepancy between parents and file hashes
+            auto parentsFileHashes = verifyCommitSets(commitParents_, commitFileHashes_);
+            // determine discrepancy between parents and comments
+            auto parentsComments = verifyCommitSets(commitParents_, commitComments_);
+            // determine discrepancy between parents and metadata
+            auto parentsMetadata = verifyCommitSets(commitParents_, commitMetadata_);
+            // determine the longest streak of missing commits starting from the oldest
+            size_t longestStreak = getLongestStreak();
+            size_t diff = sumPairs({parentsFileHashes, parentsComments, parentsMetadata}) + longestStreak;
             if (diff != 0) {
-                std::cout << helpers::escapeQuotes(user_) << "," << helpers::escapeQuotes(repo_) << "," << diff  << ","
-                          << commentsFileHashes.first << "," << commentsFileHashes.second << ","
-                    << commentsMetadata.first << "," << commentsMetadata.second << ","
-                    << commentsParents.first << "," << commentsParents.second << ","
-                    << fileHashesMetadata.first << "," << fileHashesMetadata.second << ","
-                    << fileHashesParents.first << "," << fileHashesParents.second << ","
-                    << metadataParents.first << "," << metadataParents.second << std::endl;
+                std::cout
+                    << helpers::escapeQuotes(user_) << "," << helpers::escapeQuotes(repo_) << ","
+                    << commitParents_.size() << "," << diff - longestStreak  << "," << longestStreak << ","
+                    << parentsFileHashes.first << "," << parentsFileHashes.second << ","
+                    << parentsComments.first << "," << parentsComments.second << ","
+                    << parentsMetadata.first << "," << parentsMetadata.second << std::endl;
                 return false;
             } else {
                 return true;
+            }  
+        }
+
+        size_t Project::getLongestStreak() {
+            size_t result = 0;
+            for (auto i : commits_) {
+                if (i.second->parents.empty()) {
+                    size_t x = i.second->missingStreak();
+                    if (x > result)
+                        result = x;
+                }
             }
+            return result;
         }
 
         std::pair<size_t, size_t> Project::verifyCommitSets(std::unordered_set<std::string> const & first, std::unordered_set<std::string> const & second) {
