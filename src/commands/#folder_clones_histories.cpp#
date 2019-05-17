@@ -57,16 +57,11 @@ namespace dejavu {
             unsigned id;
             uint64_t createdAt;
 
-            /** Number of unique clones whose original is in the project. 
-             */
-            size_t numOriginals;
-
             std::vector<Commit *> commits;
 
             Project(unsigned id, uint64_t createdAt):
                 id(id),
-                createdAt(createdAt),
-                numOriginals(0) {
+                createdAt(createdAt) {
             }
 
             void addCommit(Commit * c) {
@@ -143,7 +138,6 @@ namespace dejavu {
                         if (clones_.size() <= id)
                             clones_.resize(id + 1);
                         Project * project = projects_[projectId];
-                        ++project->numOriginals;
                         Commit * commit = commits_[commitId];
                         clones_[id] = new Clone(id, numFiles, project, commit, rootDir);
                     }};
@@ -163,29 +157,17 @@ namespace dejavu {
             /** Generates a summary table where for each project the number of clones and the number of clone originals is reported.
              */
             void projectsSummary() {
-                std::cerr << "Calculating project summaries..." << std::endl;
                 std::ofstream cs(DataDir.value() + "/projectFolderCloneSummary.csv");
-                cs << "#projectId,numCommits,numOriginals,numClones,numOwnClones, numUniqueClones, numUniqueOwnClones" << std::endl;
+                cs << "#projectId,numCommits,numOriginals,numClones,numUniqueClones,numOwnClones,numUniqueOwnClones" << std::endl;
                 for (Project * p : projects_) {
                     if (p == nullptr)
                         continue;
-                    size_t numClones = 0;
-                    std::unordered_set<Clone*> uniqueClones;
-                    size_t numOwnClones = 0;
-                    std::unordered_set<Clone*> uniqueOwnClones;
-                    for (Commit * c : p->commits) {
-                        for (auto i : c->introducedClones) {
-                            Clone * clone = i.second;
-                            if (clone->originalProject == p) {
-                                ++numOwnClones;
-                                uniqueOwnClones.insert(clone);
-                            } else {
-                                ++numClones;
-                                uniqueClones.insert(clone);
-                            }
-                        }
-                    }
-                    cs << p->id << "," << p->commits.size() << "," << p->numOriginals << "," << numClones << "," << numOwnClones << "," << uniqueClones.size() << "," << uniqueOwnClones.size() << std::endl;
+                    std::unordered_set<Clone*> numOriginals;
+                    std::unordered_set<Clone*> numUniqueClones;
+                    std::unordered_set<Clone*> numUniqueOwnClones;
+                    size_t numClones = 0
+                        
+                    
                 }
             }
 
@@ -218,7 +200,6 @@ namespace dejavu {
 
         Analyzer a;
         a.initialize();
-        a.projectsSummary();
         
     }
 
