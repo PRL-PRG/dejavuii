@@ -1,4 +1,5 @@
-#include <
+#include <unordered_map>
+#include <vector>
 
 #include "../loaders.h"
 #include "../commands.h"
@@ -20,6 +21,23 @@ namespace dejavu {
             unsigned numParents;
             std::unordered_map<unsigned, unsigned> changes;
             std::vector<Commit *> children;
+
+            // implementation for the commit iterator
+            std::vector<Commit *> const & childrenCommits() const {
+                return children;
+            }
+
+            unsigned numParentCommits() const {
+                return numParents;
+            }
+            
+        };
+
+        class Project {
+        public:
+            unsigned id;
+            uint64_t createdAt;
+            
         };
 
         /** Information about a clone.
