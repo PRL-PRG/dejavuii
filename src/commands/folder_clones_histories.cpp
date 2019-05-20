@@ -61,7 +61,7 @@ namespace dejavu {
              */
             size_t numOriginals;
 
-            std::vector<Commit *> commits;
+            std::unordered_set<Commit *> commits;
 
             Project(unsigned id, uint64_t createdAt):
                 id(id),
@@ -70,7 +70,7 @@ namespace dejavu {
             }
 
             void addCommit(Commit * c) {
-                commits.push_back(c);
+                commits.insert(c);
             }
         };
 
@@ -149,15 +149,22 @@ namespace dejavu {
                     }};
                 std::cerr << "    " << clones_.size() << " unique clones loaded" << std::endl;
                 std::cerr << "Loading clones..." << std::endl;
-                FolderClonesLoader{[this](unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned cloneId){
+                size_t missingClones = 0;
+                FolderClonesLoader{[this, &missingClones](unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned cloneId){
                         Commit * commit = commits_[commitId];
                         Clone * clone = clones_[cloneId];
+                        if (clone == nullptr) {
+                            ++missingClones;
+                            return;
+                        }
+                        assert(clone != nullptr);
                         auto i = commit->introducedClones.find(rootDir);
                         if (i != commit->introducedClones.end()) 
                             assert(i->second == clone && "Same commit must have same clones in same directory");
                         else
                             commit->introducedClones[rootDir] = clone;
                     }};
+                std::cerr << "    " << missingClones << " missing clones";
             }
 
             /** Generates a summary table where for each project the number of clones and the number of clone originals is reported.
@@ -174,8 +181,10 @@ namespace dejavu {
                     size_t numOwnClones = 0;
                     std::unordered_set<Clone*> uniqueOwnClones;
                     for (Commit * c : p->commits) {
+                        assert (c != nullptr);
                         for (auto i : c->introducedClones) {
                             Clone * clone = i.second;
+                            assert(clone != nullptr);
                             if (clone->originalProject == p) {
                                 ++numOwnClones;
                                 uniqueOwnClones.insert(clone);
