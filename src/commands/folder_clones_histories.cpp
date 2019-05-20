@@ -57,16 +57,11 @@ namespace dejavu {
             unsigned id;
             uint64_t createdAt;
 
-            /** Number of unique clones whose original is in the project. 
-             */
-            size_t numOriginals;
-
             std::unordered_set<Commit *> commits;
 
             Project(unsigned id, uint64_t createdAt):
                 id(id),
-                createdAt(createdAt),
-                numOriginals(0) {
+                createdAt(createdAt) {
             }
 
             void addCommit(Commit * c) {
@@ -84,12 +79,27 @@ namespace dejavu {
             Commit * originalCommit;
             std::string originalRoot;
 
+            /** Number of projects the clone has appeared. 
+             */
+            size_t weightProjects;
+
+            /** Number of total occurences of the clone. 
+             */
+            size_t weight;
+
+            /** Number of different roots the original is cloned to. 
+             */
+            size_t weightRoots;
+
             Clone(unsigned id, unsigned numFiles, Project * project, Commit * commit, std::string const & rootDir):
                 id(id),
                 numFiles(numFiles),
                 originalProject(project),
                 originalCommit(commit),
-                originalRoot(rootDir) {
+                originalRoot(rootDir),
+                weightProjects(0),
+                weight(0),
+                weightRoots(0) {
             }
         }; // Clone
 
@@ -143,7 +153,6 @@ namespace dejavu {
                         if (clones_.size() <= id)
                             clones_.resize(id + 1);
                         Project * project = projects_[projectId];
-                        ++project->numOriginals;
                         Commit * commit = commits_[commitId];
                         clones_[id] = new Clone(id, numFiles, project, commit, rootDir);
                     }};
@@ -164,15 +173,61 @@ namespace dejavu {
                         else
                             commit->introducedClones[rootDir] = clone;
                     }};
-                std::cerr << "    " << missingClones << " missing clones";
+                std::cerr << "    " << missingClones << " missing clones" << std::endl;
+            }
+
+            /** Calculates for each clone original (i.e. a clone group) the number of unique projects its clones appear in and the number of total places the original was cloned. 
+             */
+            void originalsWeight() {
+                std::cerr << "Calculating originals weight..." << std::endl;
+                std::unordered_map<Clone*, std::unordered_set<Project*>> uniqueProjects;
+                std::unordered_map<Clone*, std::unordered_set<std::string>> uniqueRoots;
+                // for each project, for each clone
+                for (Project * p : projects_) {
+                    if (p == nullptr)
+                        continue;
+                    for (Commit * c : p->commits) {
+                        for (auto i : c->introducedClones) {
+                            Clone * clone = i.second;
+                            uniqueRoots[clone].insert(i.first);
+                            uniqueProjects[clone].insert(p);
+                            ++clone->weight;
+                        }
+                    }
+                }
+                for (auto const & i : uniqueProjects) 
+                    i.first->weightProjects = i.second.size();
+                for (auto const & i : uniqueRoots)
+                    i.first->weightRoots = i.second.size();
+                std::cerr << "Writing originals weights..." << std::endl;
+                std::ofstream f(DataDir.value() + "/folderClonesWeights.csv");
+                f << "#cloneId,weight,weightProjects,weightRoots" << std::endl;
+                for (Clone * c : clones_) {
+                    if (c == nullptr)
+                        continue;
+                    f << c->id << "," << c->weight << "," << c->weightProjects << "," << c->weightRoots << std::endl;
+                }
             }
 
             /** Generates a summary table where for each project the number of clones and the number of clone originals is reported.
              */
             void projectsSummary() {
+                std::unordered_map<Project *, size_t> numOriginals;
+                std::unordered_map<Project *, size_t> originalsWeight; 
+                std::unordered_map<Project *, size_t> originalsWeightProjects; 
+                std::unordered_map<Project *, size_t> originalsWeightRoots; 
+                std::cerr << "Calculating project original summaries..." << std::endl;
+                for (Clone * c : clones_) {
+                    if (c == nullptr)
+                        continue;
+                    ++numOriginals[c->originalProject];
+                    originalsWeight[c->originalProject] += c->weight;
+                    originalsWeightProjects[c->originalProject] += c->weightProjects;
+                    originalsWeightRoots[c->originalProject] += c->weightRoots;
+                }
                 std::cerr << "Calculating project summaries..." << std::endl;
                 std::ofstream cs(DataDir.value() + "/projectFolderCloneSummary.csv");
-                cs << "#projectId,numCommits,numOriginals,numClones,numOwnClones, numUniqueClones, numUniqueOwnClones" << std::endl;
+                cs << "#projectId,numCommits,numOriginals,weightOriginals,weightProjectsOriginals,weightRootsOriginats,numClones,numOwnClones, numUniqueClones, numUniqueOwnClones" << std::endl;
                 for (Project * p : projects_) {
                     if (p == nullptr)
                         continue;
@@ -194,7 +249,7 @@ namespace dejavu {
                             }
                         }
                     }
-                    cs << p->id << "," << p->commits.size() << "," << p->numOriginals << "," << numClones << "," << numOwnClones << "," << uniqueClones.size() << "," << uniqueOwnClones.size() << std::endl;
+                    cs << p->id << "," << p->commits.size() << "," << numOriginals[p] << "," << originalsWeight[p] << "," << originalsWeightProjects[p] << "," << originalsWeightRoots[p] << "," << numClones << "," << numOwnClones << "," << uniqueClones.size() << "," << uniqueOwnClones.size() << std::endl;
                 }
             }
 
@@ -227,6 +282,7 @@ namespace dejavu {
 
         Analyzer a;
         a.initialize();
+        a.originalsWeight();
         a.projectsSummary();
         
     }
