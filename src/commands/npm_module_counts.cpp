@@ -60,7 +60,7 @@ namespace dejavu {
                     }};
                 // and now output the results
                 std::cerr << "Writing project summaries..." << std::endl;
-                std::ofstream f(DataDir.value() + "/npmModoulesCounts.csv");
+                std::ofstream f(DataDir.value() + "/npmModulesCounts.csv");
                 f << "#projectId,paths,changes,deletions,npmPaths,npmChanges,npmDeletions" << std::endl;
                 for (auto & i : projects_) {
                     ProjectInfo const & p = i.second;
