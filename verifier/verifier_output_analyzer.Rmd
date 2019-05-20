@@ -22,7 +22,7 @@ colnames(weirdProjects) = c(
 
 ```{r}
 
-reallyWeirdProjects = weirdProjects[weirdProjects$longestStreak > 0,]
+reallyWeirdProjects = weirdProjectns[weirdProjects$longestStreak > 0,]
 summary(reallyWeirdProjects$longestStreak)
 
 ```

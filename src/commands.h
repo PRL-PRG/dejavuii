@@ -19,6 +19,11 @@ namespace dejavu {
      */
     void DetectFolderClones(int argc, char * argv[]);
 
+
+    /** Calculates project level summary counts of paths, changes and deletions and node_modules paths, changes and deletions.
+     */
+    void NPMModuleCounts(int argc, char * argv[] );
+
     /** Analyzes the historical information of folder clones.
      */
     void FolderCloneHistoryAnalysis(int argc, char * argv[]);
