@@ -13,17 +13,19 @@ namespace dejavu {
         class Commit {
         public:
             unsigned id;
-            uint64_t author_time;
-            uint64_t committer_time;
+//            uint64_t author_time;
+//            uint64_t committer_time;
             unsigned n_parents;
             std::vector<Commit *> children;
-            std::unordered_map<unsigned, unsigned> changes; /* path -> content */
-            std::unordered_set<unsigned> projects;
+//            std::unordered_map<unsigned, unsigned> changes; /* path -> content */
+//            std::unordered_set<unsigned> projects;
 
-            Commit(unsigned id, uint64_t author_time, uint64_t committer_time):
-                    id(id), author_time(author_time),
-                    committer_time(committer_time),
-                    n_parents(0) {}
+            Commit(unsigned id): id(id), n_parents(0) {}
+
+//            Commit(unsigned id, uint64_t author_time, uint64_t committer_time):
+//                    id(id), author_time(author_time),
+//                    committer_time(committer_time),
+//                    n_parents(0) {}
 
             // obligatory for ForwardCommitIterator
             unsigned numParentCommits() {
@@ -35,6 +37,37 @@ namespace dejavu {
                 return children;
             }
         };
+
+//        class ProjectAlignedCommit {
+//        public:
+//            static ProjectAlignedCommit* Find(Commit* commit, unsigned project) {
+//
+//            }
+//            static ProjectAlignedCommit* Register(Commit* commit, unsigned project) {
+//
+//            }
+//
+//            Commit* commit;
+//            unsigned project;
+//            std::vector<ProjectAlignedCommit*> children;
+//
+//            ProjectAlignedCommit(unsigned project, Commit* commit): project(project), commit(commit) {
+//                assert(commit != nullptr);
+//                for (Commit * child : commit->childrenCommits()) {
+//                    ProjectAlignedCommit* possible = ProjectAlignedCommit::Find(child, project);
+//                    if(possible != nullptr) {
+//                        children.push_back(possible);
+//                    }
+//            }
+//
+//            unsigned numParentCommits() {
+//                return commit->numParentCommits();
+//            }
+//
+//            std::vector<ProjectAlignedCommit*> const & childrenCommits() const {
+//                return children;
+//            }
+//        };
 
         class FileCluster {
         public:
@@ -54,8 +87,6 @@ namespace dejavu {
         class DummyState {
         public:
 
-            std::unordered_map<unsigned, unsigned> path_modifications; /*path id -> count */
-
             DummyState() {
             }
 
@@ -73,12 +104,72 @@ namespace dejavu {
             }
 
             void mergeWith(DummyState const & from) {
-                for (auto pm : from.path_modifications) {
-                    path_modifications[pm.first] += pm.second;
-                }
+
             }
         };
-    }
+
+//        class TrackingState {
+//        protected:
+//            std::unordered_set<std::pair<unsigned, unsigned>> tracked;
+//            std::unordered_map<std::pair<unsigned, unsigned>, unsigned> boops;
+//            std::unordered_map<std::pair<unsigned, unsigned>, unsigned> source_commit;
+//            std::unordered_map<std::pair<unsigned, unsigned>, unsigned> source_content;
+//
+//        public:
+//
+//            TrackingState() {
+//            }
+//
+//            TrackingState(TrackingState const & from) {
+//                mergeWith(from);
+//            }
+//
+//            TrackingState(TrackingState &&) = delete;
+//
+//            TrackingState & operator = (TrackingState const &) = delete;
+//            TrackingState & operator = (TrackingState &&) = delete;
+//
+//            ~TrackingState() {
+//                //delete root_;
+//            }
+//
+//            void mergeWith(TrackingState const & from) {
+//                for (std::pair<unsigned, unsigned> key : from.tracked) {
+//                    tracked.insert(key);
+//                }
+//
+//                for (auto entry : from.boops) {
+//                    std::pair<unsigned, unsigned> key = entry.first;
+//                    unsigned count = entry.second;
+//                    boops[key] = std::max(count, boops[key]);
+//                }
+//            }
+//
+//            void track(unsigned content_id, unsigned commit_id, unsigned project_id, unsigned path_id) {
+//                std::pair<unsigned, unsigned> key = std::make_pair(project_id, path_id);
+//
+//                assert(source_commit.find(key) == source_commit.end());
+//                assert(source_content.find(key) == source_content.end());
+//
+//                tracked.insert(key);
+//                source_commit[key] = commit_id;
+//                source_content[key] = content_id;
+//            }
+//
+//            bool isTracked(unsigned project_id, unsigned path_id) {
+//                return tracked.find(std::make_pair(project_id, path_id)) != tracked.end();
+//            };
+//
+//            void boop(unsigned project_id, unsigned path_id) {
+//                boops[std::make_pair(project_id, path_id)]++;
+//            };
+//
+//            void stopTracking(unsigned project_id, unsigned path_id) {
+//                tracked.erase(std::make_pair(project_id, path_id));
+//            };
+//        };
+    };
+
 
     void InspectFileClones(int argc, char * argv[]) {
         Settings.addOption(DataDir);
@@ -86,134 +177,205 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
-        std::cerr << "LOAD COMMITZ" << std::endl;
-        std::unordered_map<unsigned, Commit*> commits;
-        CommitLoader([&commits](unsigned id,
-                                uint64_t author_time,
-                                uint64_t committer_time) {
-            commits[id] = new Commit(id, author_time, committer_time);
-        });
-        std::cerr << "DONE LOAD COMMITZ" << std::endl;
-
         std::cerr << "LOAD COMMITZ PARENTZ" << std::endl;
-        CommitParentsLoader{[&commits](unsigned id, unsigned parent_id){
-            //assert(commits.find(id) != commits.end());
-            commits[id]->n_parents++;
-            commits[parent_id]->children.push_back(commits[id]);
+        std::unordered_map<unsigned, std::unordered_set<unsigned>> commit_parents;
+        CommitParentsLoader{[&](unsigned id, unsigned parent_id) {
+            assert(commit_parents[id].find(parent_id) ==
+                   commit_parents[id].end());
+            commit_parents[id].insert(parent_id);
         }};
         std::cerr << "DONE LOAD COMMITZ PARENTZ" << std::endl;
 
         std::cerr << "LOAD COMMITZ CHANGES" << std::endl;
-        FileChangeLoader{[&commits](unsigned project_id,
-                                    unsigned commit_id,
-                                    unsigned path_id,
-                                    unsigned contents_id) {
-
-            assert(commits.find(commit_id) != commits.end());
-            assert((commits[commit_id]->changes.find(path_id) == commits[commit_id]->changes.end())
-                   || (commits[commit_id]->changes[path_id] == contents_id));
-
-            commits[commit_id]->changes[path_id] = contents_id;
-            commits[commit_id]->projects.insert(project_id);
-
-        }};
+        std::unordered_map<unsigned, std::unordered_set<unsigned>> project_commits;
+        std::unordered_map<unsigned, std::unordered_set<unsigned>> commit_projects;
+        std::unordered_map<unsigned, std::unordered_map<unsigned, unsigned>> commit_changes; /*path_id -> content_id*/
+        FileChangeLoader{
+                [&](unsigned project_id, unsigned commit_id, unsigned path_id,
+                    unsigned contents_id) {
+                    assert(project_commits[project_id].find(commit_id) ==
+                           project_commits[project_id].end());
+                    assert(commit_projects[commit_id].find(project_id) ==
+                           commit_projects[commit_id].end());
+                    assert(commit_changes[commit_id].find(path_id) !=
+                           commit_changes[commit_id].end());
+                    project_commits[project_id].insert(commit_id);
+                    commit_projects[commit_id].insert(project_id);
+                    commit_changes[commit_id][path_id] = contents_id;
+                }};
         std::cerr << "DONE LOAD COMMITZ CHANGES" << std::endl;
 
         std::cerr << "LOAD FILE CLONE KLUSTERZ" << std::endl;
-        //std::unordered_map<unsigned, unsigned> clusters;
-        std::vector<FileCluster*> clusters;
+        std::vector<FileCluster *> clusters;
         FileClusterLoader([&clusters](unsigned content_id,
-                             unsigned cluster_size,
-                             unsigned original_commit_id,
-                             std::vector<unsigned> & commits) {
-            //clusters[content_id] = original_commit_id;
-            clusters.push_back(new FileCluster(content_id, original_commit_id, commits));
+                                      unsigned cluster_size,
+                                      unsigned original_commit_id,
+                                      std::vector<unsigned> &commits) {
+            clusters.push_back(
+                    new FileCluster(content_id, original_commit_id, commits));
         });
         std::cerr << "DONE LOAD FILE CLONE KLUSTERZ" << std::endl;
 
-        std::cerr << "ANALYZE KLUSTERZ" << std::endl;
-        int counter = 0;
-
-        std::unordered_map<unsigned /*content_id*/,
-        std::unordered_map<unsigned /*commit_id*/,
-        std::unordered_map<unsigned /*project_id*/,
-        std::unordered_set<unsigned /*commits ids in which mods occur*/>>>> modifications;
-
-        for (auto cluster : clusters) {
-            unsigned content_id = cluster->content_id;
-            for (unsigned commit_id : cluster->commits) {
-                CommitForwardIterator<Commit, DummyState> cfi([&modifications,content_id,commit_id](Commit *commit, DummyState &aggregation) -> bool {
-                    std::unordered_set<unsigned> paths;
-                    for (unsigned project_id : commit->projects) {
-                        if (commit->id == commit_id) {
-                            // Initial commit: elect path_ids to follow.
-                            for (auto change : commit->changes) {
-                                unsigned changed_path_id = change.first;
-                                unsigned changed_content_id = change.second;
-                                if (changed_content_id == content_id) {
-                                    paths.insert(changed_path_id);
-                                }
-                            }
-                        } else {
-                            // Count commits that modify the elected paths.
-                            for (auto change : commit->changes) {
-                                unsigned changed_path_id = change.first;
-                                //unsigned changed_content_id = change.second;
-                                if (paths.find(changed_path_id) != paths.end()) {
-                                    modifications[content_id][commit_id][project_id].insert(commit->id);
-                                }
-                            }
-                        }
-                    }
-                    return true;
-                });
-                cfi.addInitialCommit(commits[commit_id]);
-                cfi.process();
-            }
-            counter++;
-            if (counter % 1000 == 0) {
-                std::cerr << " : " << (counter / 1000) << "k\r" << std::flush;
+        std::cerr << "EXTRACT PROJECTS KONTAINING CLONEZ" << std::endl;
+        std::unordered_set<unsigned> projects_containing_clones;
+        unsigned i = 0;
+        for (FileCluster *cluster : clusters) {
+            for (unsigned commit_id : cluster->commits)
+                for (unsigned project_id : commit_projects[commit_id])
+                    projects_containing_clones.insert(project_id);
+            ++i;
+            if (i % 1000 == 0) {
+                std::cerr << " : " << (i / 1000) << "k\r" << std::flush;
             }
         }
-        std::cerr << "DONE ANALYZE KLUSTERZ" << std::endl;
+        std::cerr << " : " << (i / 1000) << "k" << std::endl;
+        std::cerr << "DONE EXTRACT PROJECTS KONTAINING CLONEZ" << std::endl;
 
-        const std::string filename = DataDir.value() + "/fileClonesModifications.csv";
+        std::cerr << "CREATE COMMIT TREES FOR PROJECTZ CONTAINING CLONEZ"
+                  << std::endl;
+        i = 0;
+        std::unordered_map<unsigned, std::unordered_map<unsigned, Commit *>> project_commit_trees;
+        for (unsigned project_id : projects_containing_clones) {
+            std::unordered_set<unsigned> &this_project_commits = project_commits[project_id];
+
+            // Create a (mostly empty) commit object for each commit in this project.
+            for (unsigned commit_id : this_project_commits) {
+                project_commit_trees[project_id][commit_id] = new Commit(
+                        commit_id);
+            }
+
+            // TODO This is kind of horrible
+            // Populate commits with their children/parents relations.
+            for (unsigned commit_id : this_project_commits) {
+                std::unordered_set<unsigned> &potential_parents = commit_parents[commit_id];
+                std::unordered_set<unsigned> in_project_parents;
+                for (unsigned potential_parent : potential_parents) {
+                    if (commit_projects[potential_parent].find(project_id) !=
+                        commit_projects[potential_parent].end()) {
+                        in_project_parents.insert(potential_parent);
+                        project_commit_trees[project_id][commit_id]->n_parents++;
+                        project_commit_trees[project_id][potential_parent]->children.push_back(
+                                project_commit_trees[project_id][commit_id]);
+                    }
+                }
+            }
+
+            i++;
+            if (i % 1000 == 0) {
+                std::cerr << " : " << (i / 1000) << "k\r" << std::flush;
+            }
+        }
+        std::cerr << " : " << (i / 1000) << "k" << std::endl;
+        std::cerr << "DONE CREATE COMMIT TREES FOR PROJECTZ CONTAINING CLONEZ"
+                  << std::endl;
+
+        std::cerr << "ANALYZING KLUSTERS ONE BY ONE" << std::endl;
+        std::unordered_map<unsigned, std::unordered_map<unsigned, std::unordered_map<unsigned, std::unordered_map<unsigned, unsigned>>>> results;
+        unsigned n_clusters = 0;
+        unsigned n_traversals = 0;
+        for (FileCluster *cluster : clusters) {
+            ++n_traversals;
+            for (unsigned root_commit_id : cluster->commits) {
+                // Figure out which path to track.
+                unsigned tracked_path_id;
+                for (auto &change : commit_changes[root_commit_id]) {
+                    unsigned changed_path_id = change.first;
+                    unsigned changed_content_id = change.second;
+                    if (changed_content_id == cluster->content_id) {
+                        assert(tracked_path_id == 0);
+                        tracked_path_id = changed_path_id;
+                    }
+                }
+
+                // Figure out which projects to track.
+                std::unordered_set<unsigned> &this_commits_projects = commit_projects[root_commit_id];
+
+                // Track the selected path in each of the selected projects.
+                for (unsigned project_id : this_commits_projects) {
+                    CommitForwardIterator<Commit, DummyState> cfi(
+                            [&](Commit *commit, DummyState &_) -> bool {
+                                if (commit->id == root_commit_id) {
+                                    // Root node, ignore.
+                                    return true;
+                                }
+                                for (auto change : commit_changes[root_commit_id]) {
+                                    //unsigned changed_path_id = change.first;
+                                    unsigned changed_content_id = change.second;
+                                    if (changed_content_id == 0 /*deleted*/) {
+                                        //aggregation.stopTracking(project_id, changed_content_id);
+                                    } else {
+                                        results[cluster->content_id][root_commit_id][project_id][tracked_path_id]++;
+                                    }
+                                }
+                                ++n_traversals;
+                                if (n_traversals % 1000 == 0) {
+                                    std::cerr << " : "
+                                              << (n_clusters / 1000)
+                                              << "k clusters "
+                                              << (n_traversals / 1000)
+                                              << "k traversals\r"
+                                              << std::flush;
+                                }
+                                return true;
+                            });
+                    cfi.addInitialCommit(
+                            project_commit_trees[project_id][root_commit_id]);
+                    cfi.process();
+                }
+            }
+        }
+        std::cerr << " : "
+                  << (n_clusters / 1000) << "k clusters "
+                  << (n_traversals / 1000) << "k traversals"
+                  << std::endl;
+
+        std::cerr << "DONE ANALYZING KLUSTERS ONE BY ONE" << std::endl;
+
+        const std::string filename =
+                DataDir.value() + "/fileClonesModifications.csv";
         std::cerr << "SAVE ANALYSAUCE TO " << filename << std::endl;
-        counter = 0;
+        i = 0;
         std::ofstream s(filename);
 
-        if (! s.good()) {
+        if (!s.good()) {
             ERROR("Unable to open file " << filename << " for writing");
         }
 
         s << "content_id" << ","
           << "root_commit_id" << ","
           << "project_id" << ","
+          << "path_id" << ","
           << "modifications" << std::endl;
 
-        for (auto & content : modifications) {
+        // results[cluster->content_id][root_commit_id][project_id][tracked_path_id]++;
+        for (auto &content : results) {
             unsigned content_id = content.first;
-            for (auto & root_commit : content.second) {
+            for (auto &root_commit : content.second) {
                 unsigned root_commit_id = root_commit.first;
-                for (auto & project : root_commit.second) {
+                for (auto &project : root_commit.second) {
                     unsigned project_id = project.first;
-                    std::unordered_set<unsigned> modifying_commits = project.second;
+                    for (auto &path : project.second) {
+                        unsigned path_id = path.first;
+                        unsigned modifications = path.second;
 
-                    s << content_id << ","
-                      << root_commit_id << ","
-                      << project_id << ","
-                      << modifying_commits.size() << std::endl;
+                        s << content_id << ","
+                          << root_commit_id << ","
+                          << project_id << ","
+                          << path_id << ","
+                          << modifications << std::endl;
 
-                    // Count processed lines
-                    counter++;
-                    if (counter % 1000 == 0) {
-                        std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
+                        // Count processed lines
+                        i++;
+                        if (i % 1000 == 0) {
+                            std::cerr << " : " << (i / 1000) << "k\r"
+                                      << std::flush;
+                        }
                     }
                 }
             }
+            std::cerr << " : " << (i / 1000) << "k" << std::endl;
+            std::cerr << "DONE SAVE ANALYSAUCE" << std::endl;
         }
-        std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
-        std::cerr << "DONE SAVE ANALYSAUCE" << std::endl;
     }
     
 } // namespace dejavu
