@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
+#include <ctime>
 
 #include "../loaders.h"
 #include "../commands.h"
@@ -176,36 +177,43 @@ namespace dejavu {
         //Settings.addOption(NumThreads);
         Settings.parse(argc, argv);
         Settings.check();
+        clock_t begin;
+        clock_t end;
 
         std::cerr << "LOAD COMMITZ PARENTZ" << std::endl;
+        begin = clock();
         std::unordered_map<unsigned, std::unordered_set<unsigned>> commit_parents;
         CommitParentsLoader{[&](unsigned id, unsigned parent_id) {
             assert(commit_parents[id].find(parent_id) ==
                    commit_parents[id].end());
             commit_parents[id].insert(parent_id);
         }};
-        std::cerr << "DONE LOAD COMMITZ PARENTZ" << std::endl;
+        end = clock();
+        std::cerr << "DONE LOAD COMMITZ PARENTZ " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
 
         std::cerr << "LOAD COMMITZ CHANGES" << std::endl;
-        std::unordered_map<unsigned, std::unordered_set<unsigned>> project_commits;
+        begin = clock();
+        std::unordered_map<unsigned, std::unordered_set<unsigned>> project_commits; // 
         std::unordered_map<unsigned, std::unordered_set<unsigned>> commit_projects;
         std::unordered_map<unsigned, std::unordered_map<unsigned, unsigned>> commit_changes; /*path_id -> content_id*/
         FileChangeLoader{
                 [&](unsigned project_id, unsigned commit_id, unsigned path_id,
                     unsigned contents_id) {
-                    assert(project_commits[project_id].find(commit_id) ==
-                           project_commits[project_id].end());
-                    assert(commit_projects[commit_id].find(project_id) ==
-                           commit_projects[commit_id].end());
-                    assert(commit_changes[commit_id].find(path_id) !=
-                           commit_changes[commit_id].end());
+                    //assert(project_commits[project_id].find(commit_id) ==
+                    //       project_commits[project_id].end()); if multiple files are modified there will be multiple commits
+                    //assert(commit_projects[commit_id].find(project_id) ==
+                    //       commit_projects[commit_id].end());  like above
+                    assert(commit_changes[commit_id].find(path_id) ==
+                           commit_changes[commit_id].end() || (commit_changes[commit_id].find(path_id))->second == contents_id);
                     project_commits[project_id].insert(commit_id);
                     commit_projects[commit_id].insert(project_id);
                     commit_changes[commit_id][path_id] = contents_id;
                 }};
-        std::cerr << "DONE LOAD COMMITZ CHANGES" << std::endl;
+        end = clock();
+        std::cerr << "DONE LOAD COMMITZ CHANGES " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
 
         std::cerr << "LOAD FILE CLONE KLUSTERZ" << std::endl;
+        begin = clock();
         std::vector<FileCluster *> clusters;
         FileClusterLoader([&clusters](unsigned content_id,
                                       unsigned cluster_size,
@@ -214,9 +222,11 @@ namespace dejavu {
             clusters.push_back(
                     new FileCluster(content_id, original_commit_id, commits));
         });
-        std::cerr << "DONE LOAD FILE CLONE KLUSTERZ" << std::endl;
+        end = clock();
+        std::cerr << "DONE LOAD FILE CLONE KLUSTERZ " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
 
         std::cerr << "EXTRACT PROJECTS KONTAINING CLONEZ" << std::endl;
+        begin = clock();
         std::unordered_set<unsigned> projects_containing_clones;
         unsigned i = 0;
         for (FileCluster *cluster : clusters) {
@@ -229,10 +239,12 @@ namespace dejavu {
             }
         }
         std::cerr << " : " << (i / 1000) << "k" << std::endl;
-        std::cerr << "DONE EXTRACT PROJECTS KONTAINING CLONEZ" << std::endl;
+        end = clock();
+        std::cerr << "DONE EXTRACT PROJECTS KONTAINING CLONEZ " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
 
         std::cerr << "CREATE COMMIT TREES FOR PROJECTZ CONTAINING CLONEZ"
                   << std::endl;
+        begin = clock();
         i = 0;
         std::unordered_map<unsigned, std::unordered_map<unsigned, Commit *>> project_commit_trees;
         for (unsigned project_id : projects_containing_clones) {
@@ -265,11 +277,13 @@ namespace dejavu {
                 std::cerr << " : " << (i / 1000) << "k\r" << std::flush;
             }
         }
+        end = clock();
         std::cerr << " : " << (i / 1000) << "k" << std::endl;
-        std::cerr << "DONE CREATE COMMIT TREES FOR PROJECTZ CONTAINING CLONEZ"
+        std::cerr << "DONE CREATE COMMIT TREES FOR PROJECTZ CONTAINING CLONEZ " << (double(end - begin) / CLOCKS_PER_SEC)
                   << std::endl;
 
         std::cerr << "ANALYZING KLUSTERS ONE BY ONE" << std::endl;
+        begin = clock();
         std::unordered_map<unsigned, std::unordered_map<unsigned, std::unordered_map<unsigned, std::unordered_map<unsigned, unsigned>>>> results;
         unsigned n_clusters = 0;
         unsigned n_traversals = 0;
@@ -278,11 +292,13 @@ namespace dejavu {
             for (unsigned root_commit_id : cluster->commits) {
                 // Figure out which path to track.
                 unsigned tracked_path_id;
+                bool assigned = false;
                 for (auto &change : commit_changes[root_commit_id]) {
                     unsigned changed_path_id = change.first;
                     unsigned changed_content_id = change.second;
                     if (changed_content_id == cluster->content_id) {
-                        assert(tracked_path_id == 0);
+                        assert(!assigned);
+                        assigned = true;
                         tracked_path_id = changed_path_id;
                     }
                 }
@@ -329,11 +345,13 @@ namespace dejavu {
                   << (n_traversals / 1000) << "k traversals"
                   << std::endl;
 
-        std::cerr << "DONE ANALYZING KLUSTERS ONE BY ONE" << std::endl;
+        end = clock();
+        std::cerr << "DONE ANALYZING KLUSTERS ONE BY ONE IN " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
 
         const std::string filename =
                 DataDir.value() + "/fileClonesModifications.csv";
         std::cerr << "SAVE ANALYSAUCE TO " << filename << std::endl;
+        begin = clock();
         i = 0;
         std::ofstream s(filename);
 
@@ -373,9 +391,10 @@ namespace dejavu {
                     }
                 }
             }
-            std::cerr << " : " << (i / 1000) << "k" << std::endl;
-            std::cerr << "DONE SAVE ANALYSAUCE" << std::endl;
         }
+        end = clock();
+        std::cerr << " : " << (i / 1000) << "k" << std::endl;
+        std::cerr << "DONE SAVE ANALYSAUCE" << std::endl;
     }
     
 } // namespace dejavu
