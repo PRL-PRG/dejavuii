@@ -189,7 +189,7 @@ namespace dejavu {
             commit_parents[id].insert(parent_id);
         }};
         end = clock();
-        std::cerr << "DONE LOAD COMMITZ PARENTZ " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
+        std::cerr << "DONE LOAD COMMITZ PARENTZ IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
         std::cerr << "LOAD COMMITZ CHANGES" << std::endl;
         begin = clock();
@@ -210,7 +210,7 @@ namespace dejavu {
                     commit_changes[commit_id][path_id] = contents_id;
                 }};
         end = clock();
-        std::cerr << "DONE LOAD COMMITZ CHANGES " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
+        std::cerr << "DONE LOAD COMMITZ CHANGES IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
         std::cerr << "LOAD FILE CLONE KLUSTERZ" << std::endl;
         begin = clock();
@@ -223,7 +223,7 @@ namespace dejavu {
                     new FileCluster(content_id, original_commit_id, commits));
         });
         end = clock();
-        std::cerr << "DONE LOAD FILE CLONE KLUSTERZ " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
+        std::cerr << "DONE LOAD FILE CLONE KLUSTERZ IN " << (double(end - begin) / CLOCKS_PER_SEC)  << "s" << std::endl;
 
         std::cerr << "EXTRACT PROJECTS KONTAINING CLONEZ" << std::endl;
         begin = clock();
@@ -240,7 +240,7 @@ namespace dejavu {
         }
         std::cerr << " : " << (i / 1000) << "k" << std::endl;
         end = clock();
-        std::cerr << "DONE EXTRACT PROJECTS KONTAINING CLONEZ " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
+        std::cerr << "DONE EXTRACT PROJECTS KONTAINING CLONEZ IN " << (double(end - begin) / CLOCKS_PER_SEC)  << "s" << std::endl;
 
         std::cerr << "CREATE COMMIT TREES FOR PROJECTZ CONTAINING CLONEZ"
                   << std::endl;
@@ -279,8 +279,7 @@ namespace dejavu {
         }
         end = clock();
         std::cerr << " : " << (i / 1000) << "k" << std::endl;
-        std::cerr << "DONE CREATE COMMIT TREES FOR PROJECTZ CONTAINING CLONEZ " << (double(end - begin) / CLOCKS_PER_SEC)
-                  << std::endl;
+        std::cerr << "DONE CREATE COMMIT TREES FOR PROJECTZ CONTAINING CLONEZ IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
         std::cerr << "ANALYZING KLUSTERS ONE BY ONE" << std::endl;
         begin = clock();
@@ -291,15 +290,12 @@ namespace dejavu {
             ++n_traversals;
             for (unsigned root_commit_id : cluster->commits) {
                 // Figure out which path to track.
-                unsigned tracked_path_id;
-                bool assigned = false;
+                std::unordered_set<unsigned> tracked_paths;
                 for (auto &change : commit_changes[root_commit_id]) {
                     unsigned changed_path_id = change.first;
                     unsigned changed_content_id = change.second;
                     if (changed_content_id == cluster->content_id) {
-                        assert(!assigned);
-                        assigned = true;
-                        tracked_path_id = changed_path_id;
+                        tracked_paths.insert(changed_path_id);
                     }
                 }
 
@@ -315,12 +311,15 @@ namespace dejavu {
                                     return true;
                                 }
                                 for (auto change : commit_changes[root_commit_id]) {
-                                    //unsigned changed_path_id = change.first;
+                                    unsigned changed_path_id = change.first;
                                     unsigned changed_content_id = change.second;
+                                    if (tracked_paths.find(changed_path_id) == tracked_paths.end()) {
+                                        continue;
+                                    }
                                     if (changed_content_id == 0 /*deleted*/) {
                                         //aggregation.stopTracking(project_id, changed_content_id);
                                     } else {
-                                        results[cluster->content_id][root_commit_id][project_id][tracked_path_id]++;
+                                        results[cluster->content_id][root_commit_id][project_id][changed_path_id]++;
                                     }
                                 }
                                 ++n_traversals;
@@ -334,8 +333,7 @@ namespace dejavu {
                                 }
                                 return true;
                             });
-                    cfi.addInitialCommit(
-                            project_commit_trees[project_id][root_commit_id]);
+                    cfi.addInitialCommit(project_commit_trees[project_id][root_commit_id]);
                     cfi.process();
                 }
             }
@@ -346,7 +344,7 @@ namespace dejavu {
                   << std::endl;
 
         end = clock();
-        std::cerr << "DONE ANALYZING KLUSTERS ONE BY ONE IN " << (double(end - begin) / CLOCKS_PER_SEC) << std::endl;
+        std::cerr << "DONE ANALYZING KLUSTERS ONE BY ONE IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
         const std::string filename =
                 DataDir.value() + "/fileClonesModifications.csv";
@@ -394,7 +392,7 @@ namespace dejavu {
         }
         end = clock();
         std::cerr << " : " << (i / 1000) << "k" << std::endl;
-        std::cerr << "DONE SAVE ANALYSAUCE" << std::endl;
+        std::cerr << "DONE SAVE ANALYSAUCE IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
     }
     
 } // namespace dejavu
