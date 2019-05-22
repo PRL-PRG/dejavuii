@@ -287,7 +287,7 @@ namespace dejavu {
         unsigned n_clusters = 0;
         unsigned n_traversals = 0;
         for (FileCluster *cluster : clusters) {
-            ++n_traversals;
+            ++n_clusters;
             for (unsigned root_commit_id : cluster->commits) {
                 // Figure out which path to track.
                 std::unordered_set<unsigned> tracked_paths;
