@@ -317,10 +317,10 @@ namespace dejavu {
                                         continue;
                                     }
                                     if (changed_content_id == 0 /*deleted*/) {
-                                        //aggregation.stopTracking(project_id, changed_content_id);
-                                    } else {
-                                        results[cluster->content_id][root_commit_id][project_id][changed_path_id]++;
+                                        return false;
                                     }
+
+                                    results[cluster->content_id][root_commit_id][project_id][changed_path_id]++;
                                 }
                                 ++n_traversals;
                                 if (n_traversals % 1000 == 0) {
