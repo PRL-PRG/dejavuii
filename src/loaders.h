@@ -399,8 +399,8 @@ namespace dejavu {
      */
     class FolderClonesLoader : public BaseLoader {
     public:
-        // projectId, commitId, folder, cloneId
-        typedef std::function<void(unsigned, unsigned, std::string const &, unsigned)> RowHandler;
+        // projectId, commitId, folder, numFiles, cloneId
+        typedef std::function<void(unsigned, unsigned, std::string const &, unsigned, unsigned)> RowHandler;
 
         FolderClonesLoader(std::string const & filename, RowHandler f):
             f_(f) {
@@ -413,11 +413,12 @@ namespace dejavu {
         }
     protected:
         void row(std::vector<std::string> & row) override {
-            assert(row.size() == 4);
+            assert(row.size() == 5);
             unsigned projectId = std::stoul(row[0]);
             unsigned commitId = std::stoul(row[1]);
-            unsigned cloneId = std::stoul(row[3]);
-            f_(projectId, commitId, row[2], cloneId);
+            unsigned numFiles = std::stoul(row[3]);
+            unsigned cloneId = std::stoul(row[4]);
+            f_(projectId, commitId, row[2], numFiles, cloneId);
         }
 
     private:

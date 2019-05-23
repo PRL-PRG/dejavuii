@@ -16,6 +16,8 @@ namespace dejavu {
 
         class Analyzer;
         class Clone;
+        class Project;
+
 
         class Commit {
         public:
@@ -37,8 +39,8 @@ namespace dejavu {
             }
 
             Commit(unsigned id, uint64_t time):
-                id(0),
-                time(0),
+                id(id),
+                time(time),
                 numParents(0) {
             }
 
@@ -50,7 +52,115 @@ namespace dejavu {
             void addChange(unsigned pathId, unsigned contentsId) {
                 changes.insert(std::make_pair(pathId, contentsId));
             }
+
         };
+
+
+        class CloneOccurence {
+        public:
+            // the occurence specification
+            Project * project;
+            Commit * commit;
+            std::string path;
+            // the clone id
+            Clone * clone;
+            /** number of cloned files
+             */
+            size_t paths;
+            /** Number of changes observed to the files belonging to the cloned folder.
+             */
+            size_t changes;
+            /** Number of deletions to the files belonging to the cloned folder. 
+             */
+            size_t deletions;
+            /** Number of merges - i.e. we have commits merge and a file is merged, which does not come from same sources (same clone occureences), the file is deleted from both (or one if the other file is not registered with a clone) and the merge count is increased.
+             */
+            size_t merges;
+            /** The paths that have been changed (i.e. num of unique paths changed).
+             */
+            std::unordered_set<unsigned> changedPaths;
+
+            std::unordered_set<unsigned> deletedPaths;
+
+            CloneOccurence(Project * p, Commit * c, std::string const & path, Clone * clone):
+                project(p),
+                commit(c),
+                // make sure there is always trailing / so that we do not match subexpressions but only whole dirs
+                path(path + "/"),
+                clone(clone),
+                paths(0),
+                changes(0),
+                deletions(0),
+                merges(0) {
+            }
+
+            bool contains(std::string const & path) {
+                return path.find(this->path) == 0; 
+            }
+
+        };
+
+        class TrackedClonesMap {
+        public:
+            TrackedClonesMap() {
+
+            }
+
+            TrackedClonesMap(TrackedClonesMap const & from) {
+                for (auto i : from.trackedPaths_)
+                    trackedPaths_[i.first] = i.second;
+            }
+
+            /** Merging gets all paths from the other map and for each path does the following:
+
+                - if the path is not found, it is copied
+                - if the path is found and points to the same co, nothing is done
+                - if the poth is found and points to different co, it is reported as merge
+             */
+            void mergeWith(TrackedClonesMap const & other) {
+                for (auto i : other.trackedPaths_) {
+                    auto j = trackedPaths_.find(i.first);
+                    if (j == trackedPaths_.end()) {
+                        trackedPaths_[i.first] = i.second;
+                    } else if (i.second != j->second) {
+                        ++j->second->merges;
+                        j->second->changedPaths.insert(j->first);
+                        trackedPaths_.erase(j);
+                    }
+                }
+            }
+
+            void addPath(unsigned path, CloneOccurence * co) {
+                auto i = trackedPaths_.find(path);
+                if (i != trackedPaths_.end())
+                    deletePath(path);
+                trackedPaths_[path] = co;
+            }
+
+            void deletePath(unsigned path) {
+                trackedPaths_[path]->deletedPaths.insert(path);
+                ++trackedPaths_[path]->deletions;
+                trackedPaths_.erase(path);
+            }
+
+            void trackChange(unsigned pathId, unsigned contentsId) {
+                auto i = trackedPaths_.find(pathId);
+                if (i == trackedPaths_.end())
+                    return;
+                CloneOccurence * co = i->second;
+                if (contentsId == FILE_DELETED) {
+                    deletePath(pathId);
+                } else {
+                    ++co->changes;
+                    co->changedPaths.insert(pathId);
+                }
+            }
+
+        private:
+            std::unordered_map<unsigned, CloneOccurence *> trackedPaths_;
+
+
+        }; // TrackedClonesMap
 
         class Project {
         public:
@@ -67,6 +177,9 @@ namespace dejavu {
             void addCommit(Commit * c) {
                 commits.insert(c);
             }
+
+        private:
+
         };
 
         /** Information about a clone.
@@ -134,7 +247,7 @@ namespace dejavu {
                 PathToIdLoader{[this](unsigned id, std::string const & path){
                         if (paths_.size() <= id)
                             paths_.resize(id + 1);
-                        paths_[id] = path;
+                        paths_[id] = std::string("/") + path;
                     }};
                 std::cerr << "    " << paths_.size() << " paths loaded" << std::endl;
                 std::cerr << "Loading file changes ... " << std::endl;
@@ -159,7 +272,7 @@ namespace dejavu {
                 std::cerr << "    " << clones_.size() << " unique clones loaded" << std::endl;
                 std::cerr << "Loading clones..." << std::endl;
                 size_t missingClones = 0;
-                FolderClonesLoader{[this, &missingClones](unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned cloneId){
+                FolderClonesLoader{[this, &missingClones](unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles, unsigned cloneId){
                         Commit * commit = commits_[commitId];
                         Clone * clone = clones_[cloneId];
                         if (clone == nullptr) {
@@ -253,7 +366,94 @@ namespace dejavu {
                 }
             }
 
-            
+            /** Goes for each project and analyzes its structure looking for changes into clones found therein. 
+             
+                For each clone occurence, identified by project, commit, path and clone id, we calculate the following:
+
+                - number of changes to the files belonging to the clone, 
+                - number of files affected by the changes 
+                - number of deletions belonging to the clone
+                
+             */
+            void cloneHistories() {
+                std::cerr << "Analyzing project clone histories..." << std::endl;
+                std::ofstream f(DataDir.value() + "/folderClonesHistorySummary.csv");
+                f << "#projectId,commitId,path,cloneId,files,changedFiles,changes,deletedFiles,deletions,merges" << std::endl;
+                size_t i =0;
+                for (Project * p : projects_) {
+                    if (p == nullptr)
+                        continue;
+                    std::cerr << (i++) << "    \r";
+                    std::vector<CloneOccurence*> clones;
+                    CommitForwardIterator<Commit, TrackedClonesMap> ci([&, this](Commit * c, TrackedClonesMap & tc ) {
+                        // first track all deletions
+                        for (auto i : c->changes)
+                            if (i.second == FILE_DELETED)
+                                tc.trackChange(i.first, i.second);
+                        /* For each clone introduced by the commit, the clone occurence is added to the project map, and its files are marked as tracked.
+                         */
+                        std::vector<CloneOccurence*> cos;
+                        for (auto i : c->introducedClones) {
+                            CloneOccurence * co = new CloneOccurence(p, c, i.first, i.second);
+                            clones.push_back(co);
+                            cos.push_back(co);
+                            // now for all changes, see if they belong to the clone and if so, add them to the tracked map
+                            for (auto i : c->changes) {
+                                if (i.second == FILE_DELETED)
+                                    continue;
+                                if (co->contains(paths_[i.first])) {
+                                    tc.addPath(i.first, co);
+                                    ++co->paths;
+                                }
+                            }
+                        }
+                        /* Now for each change in the commit, if the change goes to a tracked file, update the clone occurence statistics.
+                         */
+                        for (auto i : c->changes)
+                            if (i.second != FILE_DELETED) {
+                                tc.trackChange(i.first, i.second);
+                            }
+                        for (auto i : cos) {
+                            if (i->changes != i->paths) {
+                                std::cout << i->changes << " -- " << i->paths << std::endl;
+                                std::cout << i->path << std::endl;
+                                std::cout << i->clone->id << std::endl;
+                                std::cout << i->project->id << std::endl;
+                            }
+                            assert(i->changes == i->paths);
+                            i->changedPaths.clear();
+                            i->changes = 0;
+                        }
+                        // always continue
+                        return true;
+                    });
+                    for (Commit * c : p->commits)
+                        if (c->numParents == 0)
+                            ci.addInitialCommit(c);
+                    ci.process();
+                    /* And output the clone occurence information:
+                     */
+                    for (auto i : clones) {
+                        //std::cout << i->clone->id << "," << i->paths << "," << i->clone->numFiles << std::endl;
+                        assert(i->paths <= i->clone->numFiles);
+                        assert(i->changedPaths.size() <= i->paths);
+                        assert(i->deletedPaths.size() <= i->paths);
+                        assert(i->changedPaths.size() <= i->changes + i->merges);
+                        assert(i->deletedPaths.size() <= i->deletions);
+                        f << i->project->id << "," <<
+                            i->commit->id << "," <<
+                            helpers::escapeQuotes(i->path) << "," <<
+                            i->clone->id << "," <<
+                            i->paths << "," <<
+                            i->changedPaths.size() << "," <<
+                            i->changes << "," <<
+                            i->deletedPaths.size() << "," << 
+                            i->deletions << "," <<
+                            i->merges << std::endl;
+                        delete i;
+                    }
+                }
+            }
 
             /* All projects. */
             std::vector<Project*> projects_;
@@ -261,6 +461,7 @@ namespace dejavu {
             std::vector<std::string> paths_;
             std::vector<Clone*> clones_;
         };
+
 
         
 
@@ -284,6 +485,7 @@ namespace dejavu {
         a.initialize();
         a.originalsWeight();
         a.projectsSummary();
+        a.cloneHistories();
         
     }
 

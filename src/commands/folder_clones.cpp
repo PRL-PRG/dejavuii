@@ -687,6 +687,7 @@ namespace dejavu {
             Project * project;
             Commit * commit;
             std::string path;
+            size_t originalSize;
             
             /** The clone candidate project subtree. 
              */
@@ -703,6 +704,7 @@ namespace dejavu {
                 path(path),
                 clone(clone) {
                 clone->getFileIndices(files);
+                originalSize = clone->numFiles();
             }
             
             typedef std::set<Project *, Project::AgeComparator> ProjectCandidates;
@@ -712,7 +714,7 @@ namespace dejavu {
             ProjectCandidates getProjectCandidates();
                 
             friend std::ostream & operator << (std::ostream & s, CloneOriginal const & co) {
-                s << co.id << "," << co.files.size() << "," << co.project->id << "," << co.commit->id << "," << helpers::escapeQuotes(co.path) << std::endl;
+                s << co.id << "," << co.originalSize << "," << co.project->id << "," << co.commit->id << "," << helpers::escapeQuotes(co.path) << std::endl;
                 return s;
             }
         };
@@ -772,7 +774,7 @@ namespace dejavu {
                 CloneList_.open(DataDir.value() + "/folderClones.csv");
                 CloneIds_ << "#id,str" << std::endl;
                 OriginalDetails_ << "#id,numFiles,projectId,commitId,rootDir" << std::endl;
-                CloneList_ << "#projectId,commitId,folder,cloneId" << std::endl;
+                CloneList_ << "#projectId,commitId,folder,numFiles,cloneId" << std::endl;
             }
 
             /** Detects folder clones and their originals for all projects loaded.
@@ -847,7 +849,7 @@ namespace dejavu {
                     auto ci = CloneOriginals_.find(hash);
 
                     originalId = (ci != CloneOriginals_.end()) ? ci->second : CloneOriginals_.size() + 1;
-                    CloneList_ << p->id << "," << c->id << "," << helpers::escapeQuotes(path) << "," << originalId << std::endl;    
+                    CloneList_ << p->id << "," << c->id << "," << helpers::escapeQuotes(path) << "," << clone->numFiles() << "," << originalId << std::endl;    
 
                     if (ci != CloneOriginals_.end()) 
                         return originalId;
@@ -1057,6 +1059,8 @@ namespace dejavu {
                             original.project = this;
                             original.commit = c;
                             original.path = od->path();
+                            original.originalSize = od->numFiles();
+                            assert(original.originalSize >= original.files.size());
                             return false;
                         }
                     }
