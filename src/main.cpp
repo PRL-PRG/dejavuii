@@ -36,6 +36,7 @@ void InitializeCommands() {
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes.");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
+    new helpers::Command("filter-folder-clones", FolderClonesFilter, "Filters folder clones so that different subsets of same original use same clone id");
     new helpers::Command("folder-clones-history", FolderCloneHistoryAnalysis, "Detects folder clones across all projects and find their originals");
     new helpers::Command("detect-file-clones", DetectFileClones, "Detects file clones across all projects and find their originals");
     new helpers::Command("extract-js-projects", ExtractJSProjects, "Extracts JS projects from a GHTorrent projects.csv file which are not deleted and splits them into forked and non-forked.");
