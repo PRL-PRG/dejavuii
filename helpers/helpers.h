@@ -3,6 +3,7 @@
 #include <ctime>
 #include <cassert>
 #include <functional>
+#include <iostream>
 
 #include <sys/stat.h>
 #include <dirent.h>
@@ -144,6 +145,36 @@ namespace helpers {
         strptime(s.c_str(), format.c_str(), &time);
         return std::mktime(&time);
     }
-    
+
+    inline void StartTask(const std::string &task, clock_t &timer) {
+        std::cerr << "started " << task << std::endl;
+    }
+
+    inline void FinishTask(const std::string task, clock_t &timer) {
+        clock_t end = clock();
+        std::cerr << "finished " << task
+                  << " in " << (double(end - timer) / CLOCKS_PER_SEC) << "s"
+                  << std::endl;
+    }
+
+    inline void StartCounting(unsigned &counter) {
+        counter = 0;
+    }
+
+    inline void Count(unsigned &counter) {
+        ++counter;
+        if (counter % 1000 == 0) {
+            std::cerr << " : " << (counter / 1000) << "k\r" << std::flush;
+        }
+    }
+
+    inline void FinishCounting(unsigned &counter) {
+        std::cerr << "iterated over " << counter << " items" << std::endl;
+    }
+
+    inline void FinishCounting(unsigned &counter, std::string items_name) {
+        std::cerr << "iterated over " << counter << " " << items_name
+                  << std::endl;
+    }
     
 } // namespace helpers

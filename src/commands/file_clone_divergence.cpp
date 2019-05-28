@@ -171,48 +171,18 @@ namespace dejavu {
 //        };
     };
 
-    inline void StartTask(const std::string &task, clock_t &timer) {
-        std::cerr << "started " << task << std::endl;
-    }
-
-    inline void FinishTask(const std::string task, clock_t &timer) {
-        clock_t end = clock();
-        std::cerr << "finished " << task
-                  << " in " << (double(end - timer) / CLOCKS_PER_SEC) << "s"
-                  << std::endl;
-    }
-
-    inline void StartCounting(unsigned &counter) {
-        counter = 0;
-    }
-
-    inline void Count(unsigned &counter) {
-        ++counter;
-        if (counter % 1000 == 0) {
-            std::cerr << " : " << (counter / 1000) << "k\r" << std::flush;
-        }
-    }
-
-    inline void FinishCounting(unsigned &counter) {
-        std::cerr << "iterated over " << counter << " items" << std::endl;
-    }
-
-    inline void FinishCounting(unsigned &counter, std::string items_name) {
-        std::cerr << "iterated over " << counter << " " << items_name
-                  << std::endl;
-    }
 
     void LoadCommitParents(std::unordered_map<unsigned, std::unordered_set<unsigned>> &parents) {
         clock_t timer;
         std::string task = "loading commit parents";
-        StartTask(task, timer);
+        helpers::StartTask(task, timer);
 
         CommitParentsLoader{[&](unsigned id, unsigned parent_id) {
             assert(parents[id].find(parent_id) == parents[id].end());
             parents[id].insert(parent_id);
         }};
 
-        FinishTask(task, timer);
+        helpers::FinishTask(task, timer);
     }
 
     void LoadCommitChanges(std::unordered_map<unsigned, std::unordered_set<unsigned>> &project_commits,
@@ -220,7 +190,7 @@ namespace dejavu {
                            std::unordered_map<unsigned, std::unordered_map<unsigned, unsigned>> &commit_changes) {
         clock_t timer;
         std::string task = "loading commit changes";
-        StartTask(task, timer);
+        helpers::StartTask(task, timer);
 
         FileChangeLoader{[&](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) {
 
@@ -232,13 +202,13 @@ namespace dejavu {
             commit_changes[commit_id][path_id] = contents_id;
         }};
 
-        FinishTask(task, timer);
+        helpers::FinishTask(task, timer);
     }
 
     void LoadFileCloneClusters(std::vector<FileCluster *> &clusters) {
         clock_t timer;
         std::string task = "loading file clone clusters";
-        StartTask(task, timer);
+        helpers::StartTask(task, timer);
 
         FileClusterLoader([&clusters](unsigned content_id,
                                       unsigned cluster_size,
@@ -250,7 +220,7 @@ namespace dejavu {
                                                commits));
         });
 
-        FinishTask(task, timer);
+        helpers::FinishTask(task, timer);
     }
 
     void ExtractProjectsContainingClones(std::vector<FileCluster *> const &clusters,
@@ -258,25 +228,25 @@ namespace dejavu {
                                          std::unordered_set<unsigned> &projects_containing_clones) {
         clock_t timer;
         std::string task = "extracting projects containing clones";
-        StartTask(task, timer);
+        helpers::StartTask(task, timer);
 
         unsigned cluster_counter;
-        StartCounting(cluster_counter);
+        helpers::StartCounting(cluster_counter);
 
         for (FileCluster *cluster : clusters) {
             for (unsigned commit_id : cluster->commits)
                 for (unsigned project_id : commit_projects.at(commit_id)) {
                     projects_containing_clones.insert(project_id);
                 }
-            Count(cluster_counter);
+            helpers::Count(cluster_counter);
         }
 
-        FinishCounting(cluster_counter, "clusters");
+        helpers::FinishCounting(cluster_counter, "clusters");
 
         std::cerr << "found " << projects_containing_clones.size()
                   << " interesting projects";
 
-        FinishTask(task, timer);
+        helpers::FinishTask(task, timer);
     }
 
     void PruneCommitTreesToProjects(std::unordered_map<unsigned, std::unordered_set<unsigned>> const &commit_parents,
@@ -287,10 +257,10 @@ namespace dejavu {
 
         clock_t timer;
         std::string task = "pruning commit trees to projects";
-        StartTask(task, timer);
+        helpers::StartTask(task, timer);
 
         unsigned counter;
-        StartCounting(counter);
+        helpers::StartCounting(counter);
 
         for (unsigned project_id : projects_containing_clones) {
             std::unordered_set<unsigned> const &this_project_commits = project_commits.at(project_id);
@@ -317,11 +287,11 @@ namespace dejavu {
                 }
             }
 
-            Count(counter);
+            helpers::Count(counter);
         }
 
-        FinishCounting(counter, "projects");
-        FinishTask(task, timer);
+        helpers::FinishCounting(counter, "projects");
+        helpers::FinishTask(task, timer);
     }
 
     void AnalyzeCloneModifications(std::vector<FileCluster *> const &clusters,
@@ -334,7 +304,7 @@ namespace dejavu {
 
         clock_t timer;
         std::string task = "analyzing clone modifications (traversing project commit graphs for each clone) and writing to " + filename;
-        StartTask(task, timer);
+        helpers::StartTask(task, timer);
 
         std::ofstream s(filename);
 
@@ -423,7 +393,7 @@ namespace dejavu {
 
         s.close();
 
-        FinishTask(task, timer);
+        helpers::FinishTask(task, timer);
     }
 
     void WriteOutModifications(std::unordered_map<unsigned, std::unordered_map<unsigned, std::unordered_map<unsigned, std::unordered_map<unsigned, unsigned>>>> const &modifications) {
@@ -431,10 +401,10 @@ namespace dejavu {
 
         clock_t timer;
         std::string task = "writing out number clone modifications to " + filename;
-        StartTask(task, timer);
+        helpers::StartTask(task, timer);
 
         unsigned counter;
-        StartCounting(counter);
+        helpers::StartCounting(counter);
 
         std::ofstream s(filename);
 
@@ -465,7 +435,7 @@ namespace dejavu {
                           << modifications << std::endl;
 
                         // Count processed lines
-                        Count(counter);
+                        helpers::Count(counter);
                     }
                 }
             }
@@ -473,8 +443,8 @@ namespace dejavu {
 
         s.close();
 
-        FinishCounting(counter, "clone modifications");
-        FinishTask(task, timer);
+        helpers::FinishCounting(counter, "clone modifications");
+        helpers::FinishTask(task, timer);
     }
 
     void InspectFileClones(int argc, char * argv[]) {
