@@ -131,7 +131,7 @@ namespace dejavu {
                                   << std::flush;
                     }
                 }
-                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                std::cerr << counter << " items examined" << std::endl;
                 std::cerr << "DER " << pluralities << " (PLURAL) CKONTENT CKLUSTERZ" << std::endl;
 
                 std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
@@ -176,7 +176,7 @@ namespace dejavu {
                         }
                     }
                 }
-                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                std::cerr << counter << " modifications written" << std::endl;
                 s.close();
                 std::cerr << "DONE SAVING MODIFIKATION LIST TO FILE" << std::endl;
 
@@ -199,7 +199,7 @@ namespace dejavu {
                         std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
                     }
                 }
-                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                std::cerr << counter << " clusters marked" << std::endl;
                 std::cerr << "DONE MARKING MODIFIKATIONZ IN KLUSTERZ DAT ARE OLDEST IN OLDEST PROJECTZ " << std::endl;
 
                 filename = DataDir.value() + "/fileCloneOriginals.csv";
@@ -223,7 +223,7 @@ namespace dejavu {
                         std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
                     }
                 }
-                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                std::cerr << counter << " clone originals written" << std::endl;
                 so.close();
                 std::cerr << "DONE SAVING CLONE ORIGINAL LIST TO FILE" << std::endl;
             }
@@ -253,7 +253,7 @@ namespace dejavu {
                         std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
                     }
                 }
-                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                std::cerr << counter << " lines written" << std::endl;
                 std::cerr << "DONE WRITINK OUT KLUSTER INFORMESHON" << std::endl;
             }
 
@@ -293,7 +293,7 @@ namespace dejavu {
                     }
                 }
                 s.close();
-                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                std::cerr << counter << " lines written" << std::endl;
                 std::cerr << "DONE WRITINK OUT KLUSTER COMMIT INFORMESHON" << std::endl;
             }
 

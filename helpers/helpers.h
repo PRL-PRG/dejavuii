@@ -144,7 +144,6 @@ namespace helpers {
         strptime(s.c_str(), format.c_str(), &time);
         return std::mktime(&time);
     }
-
     
     
 } // namespace helpers
