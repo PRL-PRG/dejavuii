@@ -24,6 +24,13 @@ namespace dejavu {
             handler_(h) {
         }
 
+        ~CommitForwardIterator() {
+            for (auto i : q_)
+                delete i;
+            for (auto i : pending_)
+                delete i.second;
+        }
+
         void addInitialCommit(COMMIT * c) {
             QueueItem * qi = new QueueItem(c);
             assert(qi->merges == 0);

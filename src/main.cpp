@@ -18,9 +18,9 @@ namespace dejavu {
     //helpers::Option<std::string> DataDir("data", "/home/peta/ghgrabber_join", {"-d"}, false);
     //helpers::Option<std::string> DownloaderDir("downloader", "/home/peta/xxxxxx", false);
     helpers::Option<std::string> TempDir("tmp", "/tmp", false);
-    helpers::Option<unsigned> NumThreads("numThreads", 32, {"-n"}, false);
+    helpers::Option<unsigned> NumThreads("numThreads", 8, {"-n"}, false);
     helpers::Option<unsigned> Seed("seed", 0, false);
-    helpers::Option<unsigned> Threshold("threshold", 2, false);
+    helpers::Option<unsigned> Threshold("threshold", 2, {"-t"}, false);
     
 } // namespace dejavu
 
@@ -32,8 +32,11 @@ using namespace dejavu;
 void InitializeCommands() {
     new helpers::Command("help", helpers::Command::PrintHelp, "Displays help information");
     // TODO add command to run the downloader Konrad has implemented as a shell script
+    new helpers::Command("verify", Verify, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes.");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
+    new helpers::Command("folder-clones-history", FolderCloneHistoryAnalysis, "Detects folder clones across all projects and find their originals");
     new helpers::Command("detect-file-clones", DetectFileClones, "Detects file clones across all projects and find their originals");
     new helpers::Command("inspect-file-clones", InspectFileClones, "Analyzes file clones across all projects for divergence. Must run detect-file-clones first.");
     new helpers::Command("extract-js-projects", ExtractJSProjects, "Extracts JS projects from a GHTorrent projects.csv file which are not deleted and splits them into forked and non-forked.");

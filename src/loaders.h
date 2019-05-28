@@ -25,7 +25,7 @@ namespace dejavu {
         /** Called when the requested file has been all read.
          */
         virtual void onDone(size_t n) {
-            std::cerr << n << " records loaded" << std::endl;
+            //std::cerr << n << " records loaded" << std::endl;
         }
         
     }; // dejavuii::BaseLoader
@@ -400,8 +400,66 @@ namespace dejavu {
     };
     
 
-    
+    /** Loads the folder clone originals information.
+     */
+    class FolderCloneOriginalsLoader : public BaseLoader {
+    public:
+        // id, numFiles, project id, commit id, rootDir
+        typedef std::function<void(unsigned, unsigned, unsigned, unsigned, std::string const &)> RowHandler;
 
+        FolderCloneOriginalsLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        FolderCloneOriginalsLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/folderCloneOriginals.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 5);
+            unsigned id = std::stoul(row[0]);
+            unsigned numFiles = std::stoul(row[1]);
+            unsigned projectId = std::stoul(row[2]);
+            unsigned commitId = std::stoul(row[3]);
+            f_(id, numFiles, projectId, commitId, row[4]);
+        }
+
+    private:
+        RowHandler f_;
+        
+    }; 
+    /** Loads the folder clone originals information.
+     */
+    class FolderClonesLoader : public BaseLoader {
+    public:
+        // projectId, commitId, folder, numFiles, cloneId
+        typedef std::function<void(unsigned, unsigned, std::string const &, unsigned, unsigned)> RowHandler;
+
+        FolderClonesLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        FolderClonesLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/folderClones.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 5);
+            unsigned projectId = std::stoul(row[0]);
+            unsigned commitId = std::stoul(row[1]);
+            unsigned numFiles = std::stoul(row[3]);
+            unsigned cloneId = std::stoul(row[4]);
+            f_(projectId, commitId, row[2], numFiles, cloneId);
+        }
+
+    private:
+        RowHandler f_;
+        
+    }; 
 
 
        
