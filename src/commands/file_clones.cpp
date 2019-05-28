@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
+#include <ctime>
 
 #include "../loaders.h"
 #include "../commands.h"
@@ -112,14 +113,20 @@ namespace dejavu {
             }
 
             static void LoadClusters() {
+                clock_t begin;
+                clock_t end;
+
                 std::cerr << "COWTING REPEATZ OF CONE TENTS" << std::endl;
+                begin = clock();
                 std::unordered_map<unsigned, unsigned> counters;
                 FileChangeLoader([&counters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
                     counters[contents_id]++;
                 });
-                std::cerr << "DONE COWTING REPEATZ OF CONE TENTS" << std::endl;
+                end = clock();
+                std::cerr << "DONE COWTING REPEATZ OF CONE TENTS IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
                 std::cerr << "CONTING (PLURAL) CONTENT KLUSTERS" << std::endl;
+                begin = clock();
                 int counter = 0, pluralities = 0;
                 for (auto it : counters) {
                     if (it.second > 1) {
@@ -132,9 +139,11 @@ namespace dejavu {
                     }
                 }
                 std::cerr << counter << " items examined" << std::endl;
-                std::cerr << "DER " << pluralities << " (PLURAL) CKONTENT CKLUSTERZ" << std::endl;
+                end = clock();
+                std::cerr << "DER " << pluralities << " (PLURAL) CKONTENT CKLUSTERZ IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
                 std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
+                begin = clock();
                 std::unordered_map<unsigned, std::vector<Modification*>> clusters;
                 int skipped=0;
                 pluralities=0;
@@ -152,10 +161,12 @@ namespace dejavu {
                                                                      contents_id));
                     pluralities++;
                 });
-                std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ (skipped=" << skipped << "clusters=" << pluralities << ")" << std::endl;
+                end = clock();
+                std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ (skipped=" << skipped << "clusters=" << pluralities << ") IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
                 std::string filename = DataDir.value() + "/fileClones.csv";
                 std::cerr << "SAVING MODIFIKATION LIST TO FILE AT " << filename << std::endl;
+                begin = clock();
                 std::ofstream s(filename);
                 if (! s.good()) {
                     ERROR("Unable to open file " << filename << " for writing");
@@ -178,15 +189,19 @@ namespace dejavu {
                 }
                 std::cerr << counter << " modifications written" << std::endl;
                 s.close();
-                std::cerr << "DONE SAVING MODIFIKATION LIST TO FILE" << std::endl;
+                end = clock();
+                std::cerr << "DONE SAVING MODIFIKATION LIST TO FILE IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
                 std::cerr << "LOADING PROJEKT CREATION DATEZ " << std::endl;
+                begin = clock();
                 ProjectLoader{[](unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt){
                     Project::Create(id, createdAt);
                 }};
-                std::cerr << "DONE LOADING PROJEKT CREATION DATEZ " << std::endl;
+                end = clock();
+                std::cerr << "DONE LOADING PROJEKT CREATION DATEZ IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
                 std::cerr << "MARKING MODIFIKATIONZ IN KLUSTERZ DAT ARE OLDEST IN OLDEST PROJECTZ (" << clusters.size() << ")" << std::endl;
+                begin = clock();
                 /*int*/ counter = 0;
                 for (auto & it : clusters) {
                     // Mark oldest modification in cluster;
@@ -200,10 +215,12 @@ namespace dejavu {
                     }
                 }
                 std::cerr << counter << " clusters marked" << std::endl;
-                std::cerr << "DONE MARKING MODIFIKATIONZ IN KLUSTERZ DAT ARE OLDEST IN OLDEST PROJECTZ " << std::endl;
+                end = clock();
+                std::cerr << "DONE MARKING MODIFIKATIONZ IN KLUSTERZ DAT ARE OLDEST IN OLDEST PROJECTZ IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
 
                 filename = DataDir.value() + "/fileCloneOriginals.csv";
                 std::cerr << "SAVING CLONE ORIGINAL LIST TO FILE AT " << filename << std::endl;
+                begin = clock();
                 std::ofstream so(filename);
                 if (! so.good()) {
                     ERROR("Unable to open file " << filename << " for writing");
@@ -225,11 +242,13 @@ namespace dejavu {
                 }
                 std::cerr << counter << " clone originals written" << std::endl;
                 so.close();
-                std::cerr << "DONE SAVING CLONE ORIGINAL LIST TO FILE" << std::endl;
+                end = clock();
+                std::cerr << "DONE SAVING CLONE ORIGINAL LIST TO FILE IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
             }
 
             static void SaveClusters() {
                 std::cerr << "WRITINK OUT KLUSTER INFORMESHON" << std::endl;
+                clock_t begin = clock();
                 const std::string filename = DataDir.value() + "/fileClusters.csv";
                 std::ofstream s(filename);
                 if (! s.good()) {
@@ -254,11 +273,13 @@ namespace dejavu {
                     }
                 }
                 std::cerr << counter << " lines written" << std::endl;
-                std::cerr << "DONE WRITINK OUT KLUSTER INFORMESHON" << std::endl;
+                clock_t end = clock();
+                std::cerr << "DONE WRITINK OUT KLUSTER INFORMESHON IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
             }
 
             static void SaveClusterCommits() {
                 std::cerr << "WRITINK OUT KLUSTER COMMIT INFORMESHON" << std::endl;
+                clock_t begin = clock();
                 const std::string filename = DataDir.value() + "/fileClustersWithCommits.csv";
                 std::ofstream s(filename);
                 if (! s.good()) {
@@ -294,7 +315,8 @@ namespace dejavu {
                 }
                 s.close();
                 std::cerr << counter << " lines written" << std::endl;
-                std::cerr << "DONE WRITINK OUT KLUSTER COMMIT INFORMESHON" << std::endl;
+                clock_t end = clock();
+                std::cerr << "DONE WRITINK OUT KLUSTER COMMIT INFORMESHON IN " << (double(end - begin) / CLOCKS_PER_SEC) << "s" << std::endl;
             }
 
         protected:
