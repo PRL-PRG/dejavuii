@@ -330,9 +330,23 @@ namespace dejavu {
                                    std::unordered_map<unsigned, std::unordered_map<unsigned, Commit *>> const &project_commit_trees,
                                    std::unordered_map<unsigned, std::unordered_map<unsigned, std::unordered_map<unsigned, std::unordered_map<unsigned, unsigned>>>> modifications) {
 
+        const std::string filename = DataDir.value() + "/fileClonesModificationInstances.csv";
+
         clock_t timer;
-        std::string task = "analyzing clone modifications (traversing project commit graphs for each clone)";
+        std::string task = "analyzing clone modifications (traversing project commit graphs for each clone) and writing to " + filename;
         StartTask(task, timer);
+
+        std::ofstream s(filename);
+
+        if (!s.good()) {
+            ERROR("Unable to open file " << filename << " for writing");
+        }
+
+        s << "contentId" << ","
+          << "rootCommitId" << ","
+          << "projectId" << ","
+          << "pathId" << ","
+          << "modificationType" << std::endl;
 
         unsigned n_clusters = 0;
         unsigned n_traversals = 0;
@@ -364,12 +378,25 @@ namespace dejavu {
                                 for (auto const & change : commit_changes.at(root_commit_id)) {
                                     unsigned changed_path_id = change.first;
                                     unsigned changed_content_id = change.second;
+
                                     if (tracked_paths.find(changed_path_id) == tracked_paths.end()) {
                                         continue;
                                     }
+
                                     if (changed_content_id == 0 /*deleted*/) {
+
+                                        s << cluster->content_id << ","
+                                          << root_commit_id << ","
+                                          << project_id << ","
+                                          << changed_path_id << "," << "D" << std::endl;
+
                                         return false;
                                     }
+
+                                    s << cluster->content_id << ","
+                                      << root_commit_id << ","
+                                      << project_id << ","
+                                      << changed_path_id << "," << "E" << std::endl;
 
                                     modifications[cluster->content_id][root_commit_id][project_id][changed_path_id]++;
                                 }
@@ -394,6 +421,8 @@ namespace dejavu {
                   << n_traversals << "traversals"
                   << std::endl;
 
+        s.close();
+
         FinishTask(task, timer);
     }
 
@@ -413,10 +442,10 @@ namespace dejavu {
             ERROR("Unable to open file " << filename << " for writing");
         }
 
-        s << "content_id" << ","
-          << "root_commit_id" << ","
-          << "project_id" << ","
-          << "path_id" << ","
+        s << "contentId" << ","
+          << "rootCommitId" << ","
+          << "projectId" << ","
+          << "pathId" << ","
           << "modifications" << std::endl;
 
         for (auto &content : modifications) {
@@ -441,6 +470,8 @@ namespace dejavu {
                 }
             }
         }
+
+        s.close();
 
         FinishCounting(counter, "clone modifications");
         FinishTask(task, timer);

@@ -82,20 +82,27 @@ namespace dejavu {
                 // Elect first modification as provisionally oldest.
                 Modification *oldest = modifications[0];
                 oldest->timestamp = Commit::GetTimestamp(oldest->commit_id);
-                Project* oldest_project = Project::Get(modifications[0]->project_id);
-                assert(oldest_project->createdAt != 0);
 
-                // Select oldest modification (oldest modification from the oldest project).
+                // Select oldest modification (from oldest project in case of a tie).
                 for (int i = 1, size = modifications.size(); i < size; i++) {
-                    Project* project = Project::Get(modifications[i]->project_id);
-                    assert(project->createdAt != 0);
-                    if (oldest_project->createdAt > project->createdAt) {
-                        oldest_project = project;
+                    modifications[i]->timestamp = Commit::GetTimestamp(modifications[i]->commit_id);
+
+                    if (modifications[i]->timestamp < oldest->timestamp) {
                         oldest = modifications[i];
-                    } else if (oldest_project->createdAt == project->createdAt && modifications[i]->timestamp < oldest->timestamp) {
-                        modifications[i]->timestamp = Commit::GetTimestamp(modifications[i]->commit_id);
-                        oldest = modifications[i];
-                        oldest_project = project;
+                        continue;
+                    }
+
+                    if (modifications[i]->timestamp == oldest->timestamp) {
+                        Project *current_project = Project::Get(modifications[i]->project_id);
+                        Project *oldest_project = Project::Get(oldest->project_id);
+
+                        assert(current_project->createdAt != 0);
+                        assert(oldest_project->createdAt != 0);
+
+                        if (current_project->createdAt < oldest_project->createdAt) {
+                            oldest = modifications[i];
+                        }
+                        continue;
                     }
                 }
 
