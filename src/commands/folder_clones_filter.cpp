@@ -36,7 +36,7 @@ namespace dejavu {
                 // now thge basic data has been loaded, load the clone originals
                 std::cerr << "Loading clone originals..." << std::endl;
                 FolderCloneOriginalsLoader{[this](unsigned id, unsigned numFiles, unsigned projectId, unsigned commitId, std::string const & rootDir) {
-                        std::string cid = STR(projectId << "," << commitId << "," << rootDir);
+                        std::string cid = STR(projectId << "," /*<< commitId << "," */ << rootDir);
                         auto i = uniqueOriginals_.find(cid);
                         if (i != uniqueOriginals_.end()) {
                             translation_[id] = i->second;
