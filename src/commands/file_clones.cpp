@@ -43,22 +43,62 @@ namespace dejavu {
             friend class ModificationCluster;
         };
 
+        class Project {
+        public:
+            unsigned id;
+            uint64_t createdAt;
+
+            static Project * Create(unsigned id, uint64_t createdAt) {
+                Project * result = new Project(id, createdAt);
+                if (id >= Project::Projects_.size())
+                    Project::Projects_.resize(id + 1);
+                Project::Projects_[id] = result;
+                return result;
+            }
+
+            static Project * Get(unsigned id) {
+                assert(id < Project::Projects_.size());
+                return Project::Projects_[id];
+            }
+
+            static std::vector<Project *> const & GetAll() {
+                return Project::Projects_;
+            }
+
+        private:
+            Project(unsigned id, uint64_t createdAt):
+                    id(id),
+                    createdAt(id) {
+            }
+            static std::vector<Project *> Projects_;
+        };
+
+        std::vector<Project *> Project::Projects_;
+
         class ModificationCluster {
         public:
             ModificationCluster(std::vector<Modification *> modifications) : modifications(modifications) {
                 // Elect first modification as provisionally oldest.
                 Modification *oldest = modifications[0];
                 oldest->timestamp = Commit::GetTimestamp(oldest->commit_id);
+                Project* oldest_project = Project::Get(modifications[0]->project_id);
+                assert(oldest_project->createdAt != 0);
 
-                // Select oldest modification.
+                // Select oldest modification (oldest modification from the oldest project).
                 for (int i = 1, size = modifications.size(); i < size; i++) {
-                    if (modifications[i]->timestamp < oldest->timestamp) {
+                    Project* project = Project::Get(modifications[i]->project_id);
+                    assert(project->createdAt != 0);
+                    if (oldest_project->createdAt > project->createdAt) {
+                        oldest_project = project;
+                        oldest = modifications[i];
+                    } else if (oldest_project->createdAt == project->createdAt && modifications[i]->timestamp < oldest->timestamp) {
                         modifications[i]->timestamp = Commit::GetTimestamp(modifications[i]->commit_id);
                         oldest = modifications[i];
+                        oldest_project = project;
                     }
                 }
 
-                // Mark oldest modification.
+                // Mark oldest modification (oldest modification from the oldest project).
                 oldest->original = true;
                 original = oldest;
             }
@@ -72,13 +112,6 @@ namespace dejavu {
             }
 
             static void LoadClusters() {
-//                std::cerr << "LOAD HASHES" << std::endl;
-//                std::unordered_map<unsigned, std::string> hashes;
-//                HashToIdLoader([](unsigned id, std::string hash) {
-//                    hashes[id] = hash;
-//                });
-//                std::cerr << "DONE LOAD HASHES" << std::endl;
-
                 std::cerr << "COWTING REPEATZ OF CONE TENTS" << std::endl;
                 std::unordered_map<unsigned, unsigned> counters;
                 FileChangeLoader([&counters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
@@ -121,7 +154,39 @@ namespace dejavu {
                 });
                 std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ (skipped=" << skipped << "clusters=" << pluralities << ")" << std::endl;
 
-                std::cerr << "MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ (" << clusters.size() << ")" << std::endl;
+                std::string filename = DataDir.value() + "/fileClones.csv";
+                std::cerr << "SAVING MODIFIKATION LIST TO FILE AT " << filename << std::endl;
+                std::ofstream s(filename);
+                if (! s.good()) {
+                    ERROR("Unable to open file " << filename << " for writing");
+                }
+                counter = 0;
+                s << "projectId,commitId,pathId,numFiles,contentId/cloneId" << std::endl;
+                for (auto & it : clusters) {
+                    std::vector<Modification*>& modifications = it.second;
+                    for (Modification* modification : modifications) {
+                        s << modification->project_id << ","
+                          << modification->commit_id << ","
+                          << modification->path_id << ","
+                          << 1 << ","
+                          << modification->contents_id << std::endl;
+                        counter++;
+                        if (counter % 1000 == 0) {
+                            std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
+                        }
+                    }
+                }
+                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                s.close();
+                std::cerr << "DONE SAVING MODIFIKATION LIST TO FILE" << std::endl;
+
+                std::cerr << "LOADING PROJEKT CREATION DATEZ " << std::endl;
+                ProjectLoader{[](unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt){
+                    Project::Create(id, createdAt);
+                }};
+                std::cerr << "DONE LOADING PROJEKT CREATION DATEZ " << std::endl;
+
+                std::cerr << "MARKING MODIFIKATIONZ IN KLUSTERZ DAT ARE OLDEST IN OLDEST PROJECTZ (" << clusters.size() << ")" << std::endl;
                 /*int*/ counter = 0;
                 for (auto & it : clusters) {
                     // Mark oldest modification in cluster;
@@ -135,7 +200,32 @@ namespace dejavu {
                     }
                 }
                 std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
-                std::cerr << "DONE MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
+                std::cerr << "DONE MARKING MODIFIKATIONZ IN KLUSTERZ DAT ARE OLDEST IN OLDEST PROJECTZ " << std::endl;
+
+                filename = DataDir.value() + "/fileCloneOriginals.csv";
+                std::cerr << "SAVING CLONE ORIGINAL LIST TO FILE AT " << filename << std::endl;
+                std::ofstream so(filename);
+                if (! so.good()) {
+                    ERROR("Unable to open file " << filename << " for writing");
+                }
+                counter = 0;
+                so << "contentId/cloneId,numFiles,projectId,commitId,pathId" << std::endl;
+                for (auto & it : ModificationCluster::clusters) {
+                    ModificationCluster *cluster = it.second;
+                    Modification *original = cluster->original;
+                    so << original->contents_id << ","
+                      << 1 << ","
+                      << original->project_id << ","
+                      << original->commit_id << ","
+                      << original->path_id << ",";
+                    counter++;
+                    if (counter % 1000 == 0) {
+                        std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
+                    }
+                }
+                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
+                so.close();
+                std::cerr << "DONE SAVING CLONE ORIGINAL LIST TO FILE" << std::endl;
             }
 
             static void SaveClusters() {
@@ -202,6 +292,7 @@ namespace dejavu {
                         std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
                     }
                 }
+                s.close();
                 std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
                 std::cerr << "DONE WRITINK OUT KLUSTER COMMIT INFORMESHON" << std::endl;
             }
