@@ -1,0 +1,84 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+d = read.csv("/data/dejavuii/full/projectFolderCloneSummary.csv")
+p = read.csv("/data/dejavuii/full/projects.csv")
+p$url = paste0("http://github.com/", p$user, "/", p$repo)
+npm = read.csv("/data/dejavuii/full/npmModulesCounts.csv")
+data = merge(d, p, by.x = "X.projectId", by.y = "X.id")
+data = merge(data, npm, by.x = "X.projectId", by.y = "X.projectId")
+```
+
+```{r}
+# This is how many folder clones actually originate in the given project
+summary(data$numOriginals)
+# this is how many clones originating in different projects the project has - not necessarily unique ones
+summary(data$numClones)
+# this is how many clones a project has that originate from the same project - again not necessary unique
+summary(data$numOwnClones)
+```
+
+The clone numbers are quite big (the few of them). Let's see how is the situation with unique clones:
+
+```{r}
+summary(data$numUniqueClones)
+summary(data$numUniqueOwnClones)
+```
+
+Let's look at the ones having most clones: 
+
+
+```{r}
+head(data[order(data$numClones, decreasing = T),], 10)
+```
+
+Ideally, we'd like to know about NPM files and also about the significance of the originals (i.e. for each original know how many clones of that one actually exist). 
+
+> Peta goes to implement this... (time spent) 
+
+Yeah, they all have NPM paths in them, so that's not a big deal. Let's create another dataset w/o NPM storing projects and see how that goes. 
+
+```{r}
+data2 = data[data$npmPaths == 0,]
+nrow(data2)
+```
+
+Sanity check: we have dropped only a few projects. Ok
+
+```{r}
+# This is how many folder clones actually originate in the given project
+summary(data2$numOriginals)
+# this is how many clones originating in different projects the project has - not necessarily unique ones
+summary(data2$numClones)
+# this is how many clones a project has that originate from the same project - again not necessary unique
+summary(data2$numOwnClones)
+summary(data2$numUniqueClones)
+summary(data2$numUniqueOwnClones)
+
+```
+
+Some drop, but not that much. 
+
+Let's see the top offenders:
+
+```{r}
+head(data2[order(data2$numClones, decreasing = T),], 10)
+```
+
+```{r}
+plot(data$npmChanges, data$numClones, log="xy")
+plot(data$changes, data$numClones, log="xy")
+```
+
+
+
+
+
+

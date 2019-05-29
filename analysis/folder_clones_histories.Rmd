@@ -1,0 +1,60 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Define some helper functions and data root directory. 
+
+> These should be refactored to a special file when I have time.
+
+```{r}
+DROOT = "/data/dejavuii/full"
+dFilePath <- function(x) {
+    paste0(DROOT,"/",x)
+}
+dRead <- function (x) {
+    read.csv(dFilePath(x))
+}
+```
+
+## Data Import
+
+First load the projects info so that we can reference them easily. One large table is created which contains clone summaries for all projects.
+
+```{r}
+d = dRead("projectFolderCloneSummary.csv")
+p = dRead("projects.csv")
+p$url = paste0("http://github.com/", p$user, "/", p$repo)
+npm = dRead("npmModulesCounts.csv")
+projects = merge(d, p, by.x = "X.projectId", by.y = "X.id")
+projects = merge(projects, npm, by.x = "X.projectId", by.y = "X.projectId")
+# clean the data we don't need
+remove(d)
+remove(p)
+remove(npm)
+```
+
+Then load the clone originals information:
+
+```{r}
+co = dRead("folderCloneOriginals.csv")
+cw = dRead("folderClonesWeights.csv")
+cOriginals = merge(co, cw, by.x = "X.id", by.y="X.cloneId")
+remove(co)
+remove(cw)
+```
+
+> `co` and `cw` have different sizes - INVESTIGATE !!!!
+
+And load the clone occurences and their history information:
+
+```{r}
+clones = read.csv("/data/dejavuii/joined/folderClonesHistorySummary.csv")
+```
+
+
+# Some analysis
+
+```{r}
+x = clones$changes + clones$deletions + clones$merges
+```
