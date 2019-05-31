@@ -450,7 +450,7 @@ namespace dejavu {
 
             ProjectTree(ProjectTree const & from):
                 root_(nullptr) {
-                mergeWith(from);
+                mergeWith(from, nullptr);
                 if (from.root_ != nullptr)
                     assert(root_ != nullptr);
                 assert(dirs_.size() == from.dirs_.size());
@@ -470,7 +470,7 @@ namespace dejavu {
 
             /** Merges two states (i.e. branches) together. The merge retains all valid files from either of the branches.
              */
-            void mergeWith(ProjectTree const & from) {
+            void mergeWith(ProjectTree const & from, Commit *) {
                 for (auto i : from.files_) {
                     if (files_.find(i.first) != files_.end())
                         continue;

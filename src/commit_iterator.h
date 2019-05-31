@@ -1,4 +1,6 @@
 #pragma once
+#include <type_traits>
+
 
 namespace dejavu {
 
@@ -14,7 +16,7 @@ namespace dejavu {
             - mergeWiTH(const &) method
      */
 
-    template<typename COMMIT, typename STATE>
+    template<typename COMMIT, typename STATE, bool MERGE_WITH_COMMIT = false>
     class CommitForwardIterator {
     public:
         
@@ -35,6 +37,10 @@ namespace dejavu {
             QueueItem * qi = new QueueItem(c, STATE());
             assert(qi->merges == 0);
             q_.push_back(qi);
+        }
+
+        void setLastCommitHandler(Handler h) {
+            lastCommitHandler_ = h;
         }
 
         void process() {
@@ -73,10 +79,12 @@ namespace dejavu {
                 merges = c->numParentCommits() - 1;
             }
 
-            void mergeState(STATE const & incomming) {
-                s.mergeWith(incomming);
+            void  mergeState(STATE const & incomming) {
+                s.mergeWith(incomming, c);
                 --merges;
             }
+
+            
 
         };
 
@@ -109,6 +117,9 @@ namespace dejavu {
                         }
                     }
                 }
+            } else {
+                if (lastCommitHandler_)
+                    lastCommitHandler_(i->c, i->s);
             }
             if (shouldDelete)
                 delete i;
@@ -123,11 +134,13 @@ namespace dejavu {
 
 
         Handler handler_;
+        Handler lastCommitHandler_;
         
         std::vector<QueueItem *> q_;
 
         std::unordered_map<COMMIT *, QueueItem *> pending_;
         
     };
+
     
 } // namespace dejavu

@@ -117,7 +117,7 @@ namespace dejavu {
                 - if the path is found and points to the same co, nothing is done
                 - if the poth is found and points to different co, it is reported as merge
              */
-            void mergeWith(TrackedClonesMap const & other) {
+            void mergeWith(TrackedClonesMap const & other, Commit *) {
                 for (auto i : other.trackedPaths_) {
                     auto j = trackedPaths_.find(i.first);
                     if (j == trackedPaths_.end()) {

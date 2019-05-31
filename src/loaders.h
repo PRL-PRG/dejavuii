@@ -12,6 +12,12 @@ namespace dejavu {
     constexpr unsigned UNKNOWN_HASH = -1;
     constexpr unsigned FILE_DELETED = 0;
 
+    /** Determines if the given path is under 'node_modules' directory.
+     */
+    inline bool IsNPMPath(std::string const & p) {
+        return (p.find("node_modules/") == 0) || (p.find("/node_modules/") != std::string::npos); 
+    }
+
     class BaseLoader : public helpers::CSVReader {
     public:
         void readFile(std::string const & filename) {

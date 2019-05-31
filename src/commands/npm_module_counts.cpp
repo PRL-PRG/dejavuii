@@ -47,7 +47,7 @@ namespace dejavu {
             void loadValidPaths() {
                 std::cerr << "Loading paths ... " << std::endl;
                 PathToIdLoader{[this](unsigned id, std::string const & path){
-                        if (path.find("node_modules/") == 0 || path.find("/node_modules/") != std::string::npos) 
+                        if (IsNPMPath(path))
                             paths_.insert(id);
                     }};
                 std::cerr << "    " << paths_.size() << " paths loaded" << std::endl;

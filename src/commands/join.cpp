@@ -152,7 +152,7 @@ namespace dejavu {
                 submodules(other.submodules) {
             }
 
-            void mergeWith(SubmoduleInfo const & other) {
+            void mergeWith(SubmoduleInfo const & other, Commit *) {
                 for (auto s : other.submodules) {
                     submodules.insert(s);
                     if (submodulesPendingDelete.find(s) != submodulesPendingDelete.end())

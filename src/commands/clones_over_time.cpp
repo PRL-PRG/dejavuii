@@ -13,14 +13,15 @@ namespace dejavu {
 
         class Clone;
         class Project;
+        class TimeAggregator;
 
         class Commit {
         public:
             size_t id;
             uint64_t time;
-            unsigned numParents;
             std::unordered_map<unsigned, unsigned> changes;
             std::vector<Commit *> children;
+            std::vector<Commit *> parents;
 
             // implementation for the commit iterator
             std::vector<Commit *> const & childrenCommits() const {
@@ -30,18 +31,17 @@ namespace dejavu {
             std::unordered_map<std::string, Clone*> introducedClones;
 
             unsigned numParentCommits() const {
-                return numParents;
+                return parents.size();
             }
 
             Commit(unsigned id, uint64_t time):
                 id(id),
-                time(time),
-                numParents(0) {
+                time(time) {
             }
 
             void addParent(Commit * p) {
-                ++numParents;
                 p->children.push_back(this);
+                parents.push_back(p);
             }
 
             void addChange(unsigned pathId, unsigned contentsId) {
@@ -88,6 +88,8 @@ namespace dejavu {
             void addCommit(Commit * c) {
                 commits.insert(c);
             }
+
+            void summarizeClones(TimeAggregator * ta);
 
         private:
 
@@ -200,6 +202,21 @@ namespace dejavu {
                 npmChangedFolderClones += other.npmChangedFolderClones;
                 return *this;
             }
+
+            friend std::ostream & operator << (std::ostream & s, TimeInfo const & ti) {
+                s << ti.time << ","
+                  << ti.projects << ","
+                  << ti.contributingCommits << ","
+                  << ti.files << ","
+                  << ti.npmFiles << ","
+                  << ti.clones << ","
+                  << ti.npmClones << ","
+                  << ti.folderClones << ","
+                  << ti.npmFolderClones << ","
+                  << ti.changedFolderClones << ","
+                  << ti.npmChangedFolderClones;
+                return s;
+            }
         };
         
 
@@ -270,7 +287,7 @@ namespace dejavu {
                             clones_.resize(id + 1);
                         Project * project = projects_[projectId];
                         Commit * commit = commits_[commitId];
-                        clones_[id] = new Clone(id, numFiles, project, commit, rootDir);
+                        clones_[id] = new Clone(id, numFiles, project, commit, rootDir + "/");
                     }};
                 std::cerr << "    " << clones_.size() << " unique clones loaded" << std::endl;
                 std::cerr << "Loading clones..." << std::endl;
@@ -293,12 +310,49 @@ namespace dejavu {
             }
 
 
+            /** Calculates the time summaries of clones.
+             */
             void calculateTimes() {
-                
+                // first initialize TimeInfos for all commit times
+                std::cerr << "Creating timeinfos..." << std::endl;
+                for (Commit * c : commits_) {
+                    if (c == nullptr)
+                        continue;
+                    timeInfo_[c->time].projects = 0; // anhything that forces the creation will do
+                }
+                std::cerr << "    " << timeInfo_.size() << " created" << std::endl;
+                // now, add partial results from each project to the summary
+                std::cerr << "Summarizing projects..." << std::endl;
+                size_t i = 0;
+                for (Project * p : projects_) {
+                    p->summarizeClones(this);
+                    std::cerr << (i++) << "\r";
+                }
+                std::cerr << "    " << projects_.size() << " projects analyzed..." << std::endl;
+                // finally create live project counts
+                std::cerr << "Calculating live projects..." << std::endl;
+                // TODO
+
+                // and output the information
+                std::cerr << "Writing..." << std::endl;
+                std::ofstream f(DataDir.value() + "/clones_over_time.csv");
+                f << "#time,projects,commits,files,npmFIles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
+                for (auto i : timeInfo_)
+                    f << i.second << std::endl;
             }
 
         private:
 
+            friend class Project;
+            friend class ProjectState;
+
+            bool isFirstOccurence(unsigned contents) {
+                auto i = contents_.find(contents);
+                if (i != contents_.end())
+                    return false;
+                contents_.insert(contents);
+                return true;
+            }
 
             /** Adds the given TimeInfo partial results to all times from the ti's time to the specified time (both times exclusive).
              */
@@ -336,13 +390,163 @@ namespace dejavu {
              */
             std::map<size_t, TimeInfo> timeInfo_;
             
-        }; // Analyzer
+        }; // TimeAggregator
+
+
+
+
+
+        class ProjectState {
+        public:
+            class PathStats {
+            public:
+                bool npm;
+                bool clone;
+                bool folderClone;
+                bool changedFolderClone;
+                size_t contents;
+            }; // ProjectState::PathStats
+
+            
+            std::unordered_map<unsigned, PathStats> paths;
+
+            ProjectState() {
+                
+            }
+
+            ProjectState(ProjectState const & other) {
+                for (auto i : other.paths)
+                    paths[i.first] = i.second;
+            }
+
+            /** Merges with previous commit state.
+
+                Due to the fact that a merge commit is required to change any of files not being identical in all of its parents, the merge is only concerned with files where the merge preserves values of oen of the parent commits since this "change" is only virtual and should only copy the state from the partricular parent. 
+
+             */
+            void mergeWith(ProjectState const & state, Commit * c) {
+                for (auto i : state.paths) {
+                    auto j = c->changes.find(i.first);
+                    if (j == c->changes.end()) {
+                        // make sure the contents are the same
+                        assert(i.second.contents == paths[i.first].contents);
+                        // and do nothing
+                        continue;
+                    }
+                    if (i.second.contents == j->second)
+                        paths[i.first] = i.second;
+                }
+            }
+
+            void change(unsigned path, unsigned contents, TimeAggregator * ta) {
+                PathStats & s = paths[path];
+                // it's not a change (was already dealt with in the merge phase)
+                if (s.contents == contents)
+                    return;
+                if (contents == FILE_DELETED) {
+                    paths.erase(path);
+                    return;
+                }
+                // if this is the first time we see the path, determine whether it is NPM or not
+                if (s.contents == 0)
+                    s.npm = IsNPMPath(ta->paths_[path]);
+                // fill in the details
+                s.contents = contents;
+                if (!ta->isFirstOccurence(contents)) 
+                    s.clone = true;
+                if (s.folderClone)
+                    s.changedFolderClone = true;
+            }
+
+            void setAsFolderClone(unsigned path) {
+                auto i = paths.find(path);
+                assert(i != paths.end());
+                i->second.folderClone = true;
+                i->second.changedFolderClone = false;
+            }
+
+            TimeInfo createTimeInfo() {
+                TimeInfo ti;
+                ti.contributingCommits = 1;
+                for (auto i : paths) {
+                    ++ti.files;
+                    if (i.second.clone)
+                        ++ti.clones;
+                    if (i.second.folderClone)
+                        ++ti.folderClones;
+                    if (i.second.changedFolderClone)
+                        ++ti.changedFolderClones;
+                    if (i.second.npm) {
+                        ++ti.npmFiles;
+                        if (i.second.clone)
+                            ++ti.npmClones;
+                        if (i.second.folderClone)
+                            ++ti.npmFolderClones;
+                        if (i.second.changedFolderClone)
+                            ++ti.npmChangedFolderClones;
+                    }
+                }
+                return ti;
+            }
+        };
+
+
+
+        /** Summarizes clones information for given project.
+         */
+        void Project:: summarizeClones(TimeAggregator * ta) {
+            
+            std::unordered_map<Commit *, TimeInfo> pastTIs;
+
+            CommitForwardIterator<Commit, ProjectState, true> ci([&,this](Commit * c, ProjectState & state) {
+                    // first extend any parent commits' information up to current time
+                    for (auto i : c->parents) 
+                        ta->addUntil(c->time, pastTIs[i]);
+                    // update the state according to changes in given commit
+                    for (auto i : c->changes) 
+                        state.change(i.first, i.second, ta);
+                    // if the commit introduces any folder clones, update the state accordingly
+                    for (auto i : c->introducedClones) {
+                        Clone * o = i.second;
+                        // if the clone candidate is the original itself, then ignore it
+                        if (o->originalProject == this && o->originalCommit == c && o->originalRoot == i.first)
+                            continue;
+                        for (auto ii : c->changes) {
+                            if (ii.second != FILE_DELETED)
+                                if (ta->paths_[ii.first].find(i.first) == 0)
+                                    state.setAsFolderClone(ii.first);
+                        }
+                    }
+                    // create partial TimeInfo from the state, update the global state and register the time info with the commits
+                    TimeInfo ti = state.createTimeInfo();
+                    ti.time = c->time;
+                    ta->add(c->time, ti);
+                    pastTIs[c] = ti;
+                    return true;
+                });
+            // add last commit handler, which extends the last commit's results to all times afterwards
+            ci.setLastCommitHandler([&,this](Commit * c, ProjectState & state) {
+                    ta->addUntil(SIZE_MAX, pastTIs[c]);
+                    return true;
+                });
+            // add initial commits
+            for (Commit * c : commits)
+                if (c->numParentCommits() == 0)
+                    ci.addInitialCommit(c);
+            // process the project
+            ci.process();
+        }
+
+
         
     } // anonymous namespace
 
 
-    /**
+    /** TODO:
 
+        - create the tinfos
+        - make commit iterator have an extra event when commit has no children
+        - be sure to detect if a clone candidate is not the clone original, in which case we don't count it
 
      */
     void ClonesOverTime(int argc, char * argv[]) {
