@@ -13,6 +13,12 @@ namespace dejavu {
      */
     void Join(int argc, char * argv[]);
 
+    /** Creates subset of the dataset based on the time of events.
+
+        This subset is faster to work on, while preserving as much of the properties of the original dataset. An alternative would be to create a subset in terms of say projects, but that would mean that we would ignore the idea that we see all originals.
+     */
+    void TimeSubset(int argc, char * argv[]);
+
     /** Reads the input data and determines all folder clone candidates and finds their originals.
 
         This command is intended to run in a batch mode and as such does not provide for incremental analysis, or for caching the results. Each run will start fresh since the scenario is that when new projects are added to the corpus, they can be the new originals of any possible folder clones. 

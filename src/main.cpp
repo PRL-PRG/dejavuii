@@ -14,6 +14,7 @@ namespace dejavu {
 
     helpers::Settings Settings;
     helpers::Option<std::string> DataDir("data", "/data/dejavuii/joined", {"-d"}, false);
+    helpers::Option<std::string> OutputDir("outputDir", "", {"-o"}, true);
     helpers::Option<std::string> DownloaderDir("downloader", "/array/dejavu/ghgrabber_distributed_take_4", false);
     //helpers::Option<std::string> DataDir("data", "/home/peta/ghgrabber_join", {"-d"}, false);
     //helpers::Option<std::string> DownloaderDir("downloader", "/home/peta/xxxxxx", false);
@@ -21,6 +22,7 @@ namespace dejavu {
     helpers::Option<unsigned> NumThreads("numThreads", 8, {"-n"}, false);
     helpers::Option<unsigned> Seed("seed", 0, false);
     helpers::Option<unsigned> Threshold("threshold", 2, {"-t"}, false);
+    helpers::Option<unsigned> Pct("pct", 5, {"-pct"}, false);
     
 } // namespace dejavu
 
@@ -34,6 +36,7 @@ void InitializeCommands() {
     // TODO add command to run the downloader Konrad has implemented as a shell script
     new helpers::Command("verify", Verify, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes.");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
     new helpers::Command("filter-folder-clones", FolderClonesFilter, "Filters folder clones so that different subsets of same original use same clone id");

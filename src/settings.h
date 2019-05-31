@@ -16,6 +16,10 @@ namespace dejavu {
      */
     extern helpers::Option<std::string> DataDir;
 
+    /** Generic directory for outputs.
+     */
+    extern helpers::Option<std::string> OutputDir;
+
     /** Directory where the downloader script dumped its results.
      */
     extern helpers::Option<std::string> DownloaderDir;
@@ -35,5 +39,9 @@ namespace dejavu {
     /** threshold for various things. See the commands which use it for more details. 
      */
     extern helpers::Option<unsigned> Threshold;
+
+    /** Generic percentage value.
+     */
+    extern helpers::Option<unsigned> Pct;
     
 } // dejavu
