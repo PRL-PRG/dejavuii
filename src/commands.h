@@ -31,6 +31,10 @@ namespace dejavu {
      */
     void FolderCloneHistoryAnalysis(int argc, char * argv[]);
 
+    /** Aggregates the number of total and cloned live files per time.
+     */
+    void ClonesOverTime(int argc, char * argv[]);
+
     /** Reads the input data and determines all file clone candidates and finds their originals.
 
         This command is intended to run in a batch mode and as such does not provide for incremental analysis, or for caching the results. Each run will start fresh since the scenario is that when new projects are added to the corpus, they can be the new originals of any possible clone cluster.
