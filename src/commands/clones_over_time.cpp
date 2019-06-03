@@ -15,6 +15,58 @@ namespace dejavu {
         class Project;
         class TimeAggregator;
 
+
+
+        /** Information about aggregated numbers of different files at a time.
+
+            The times for which TimeInfo is provided are discrete and reflect the situation *after* all commits happening at the particular time. 
+         */
+        class Stats {
+        public:
+            
+            /** Total number of files at the given time.
+             */
+            size_t files;
+
+            /** Number of files that are in the node_modules folder.
+             */
+            size_t npmFiles;
+
+            /** Number of files that are clones, i.e. files whose contents we have already seen elsewhere.
+             */
+            size_t clones;
+
+            /** Number of files that we have seen elsewhere that reside in node_modules folder.
+             */
+            size_t npmClones;
+
+            /** Number of files which belong to a folder clone and have not been changed.
+             */
+            size_t folderClones;
+
+            /** Number of unchanged files in node_modules directories belonging to a folder clone.
+             */
+            size_t npmFolderClones;
+
+            /** Number of files belonging to a folder clone that have been changed since cloned.
+             */
+            size_t changedFolderClones;
+
+            /** Number of files belonging to a node_modules folder which are part of a folder clone, but have been changed since they were cloned.
+             */
+            size_t npmChangedFolderClones;
+
+            Stats():
+                files(0), npmFiles(0), clones(0), npmClones(0), folderClones(0), npmFolderClones(), changedFolderClones(0), npmChangedFolderClones(0) {
+            }
+        }; // Stats
+
+        class StatsDiff {
+        public:
+            Stats additions;
+            Stats deletions;
+        };
+
         class Commit {
         public:
             size_t id;
@@ -47,7 +99,6 @@ namespace dejavu {
             void addChange(unsigned pathId, unsigned contentsId) {
                 changes.insert(std::make_pair(pathId, contentsId));
             }
-
         };
 
         class CloneOccurence {
@@ -91,7 +142,11 @@ namespace dejavu {
 
             void summarizeClones(TimeAggregator * ta);
 
+
+            std::unordered_map<Commit*, StatsDiff> stats;
+            
         private:
+            
 
         };
 
@@ -126,116 +181,9 @@ namespace dejavu {
             }
         }; // Clone
 
-
-
-        /** Information about aggregated numbers of different files at a time.
-
-            The times for which TimeInfo is provided are discrete and reflect the situation *after* all commits happening at the particular time. 
-         */
-        class TimeInfo {
-        public:
-            
-            /** Time for which the time info is valid.
-             */
-            size_t time;
-            
-            /** Number of projects captured at the given time.
-
-                NOTE: This is not *live* projects, since we do not track project deletions, this just means the number of projects created before or at the date of the timeinfo. 
-             */
-            size_t projects;
-
-            /** How many commits contributed to the stats.
-
-                This should be identical to # of projects if there are no branches in the commits, but if a project has two active commits at the time (presumably these will be merged some time later, or can belong to different branches if this is supported), this will be reflected in this number:
-             */
-            size_t contributingCommits;
-
-            /** Total number of files at the given time.
-             */
-            size_t files;
-
-            /** Number of files that are in the node_modules folder.
-             */
-            size_t npmFiles;
-
-            /** Number of files that are clones, i.e. files whose contents we have already seen elsewhere.
-             */
-            size_t clones;
-
-            /** Number of files that we have seen elsewhere that reside in node_modules folder.
-             */
-            size_t npmClones;
-
-            /** Number of files which belong to a folder clone and have not been changed.
-             */
-            size_t folderClones;
-
-            /** Number of unchanged files in node_modules directories belonging to a folder clone.
-             */
-            size_t npmFolderClones;
-
-            /** Number of files belonging to a folder clone that have been changed since cloned.
-             */
-            size_t changedFolderClones;
-
-            /** Number of files belonging to a node_modules folder which are part of a folder clone, but have been changed since they were cloned.
-             */
-            size_t npmChangedFolderClones;
-
-            TimeInfo():
-                projects(0), contributingCommits(0), files(0), npmFiles(0), clones(0), npmClones(0), folderClones(0), npmFolderClones(), changedFolderClones(0), npmChangedFolderClones(0) {
-            }
-
-            /** Adds the other timeinfo stats to itself, increasing the contributing commits by 1.
-             */
-            TimeInfo & operator += (TimeInfo const & other) {
-                assert(other.contributingCommits == 1);
-                ++contributingCommits;
-                files += other.files;
-                npmFiles += other.npmFiles;
-                clones += other.clones;
-                npmClones += other.npmClones;
-                folderClones += other.folderClones;
-                npmFolderClones += other.npmFolderClones;
-                changedFolderClones += other.changedFolderClones;
-                npmChangedFolderClones += other.npmChangedFolderClones;
-                return *this;
-            }
-
-            friend std::ostream & operator << (std::ostream & s, TimeInfo const & ti) {
-                s << ti.time << ","
-                  << ti.projects << ","
-                  << ti.contributingCommits << ","
-                  << ti.files << ","
-                  << ti.npmFiles << ","
-                  << ti.clones << ","
-                  << ti.npmClones << ","
-                  << ti.folderClones << ","
-                  << ti.npmFolderClones << ","
-                  << ti.changedFolderClones << ","
-                  << ti.npmChangedFolderClones;
-                return s;
-            }
-        };
-        
-
         /** Aggregates the number of clones over time.
 
-            For each valid time (i.e. a time of a commit) calculates the information about the number of projects, commits, files, npm_files, cloned files and files in cloned folder.
-
-            While this is easy on a per project basis, the aggregation requires a bit of thought about how to deal with commit times that are skipped - i.e. assume two projects A and B with commits at the following times:
-
-            A:   C1   C2                         C3      C4     C5
-            B:   C6          C7    C8            C9
-
-            ---> time
-
-            t(C1,C6) is simple because at this particular time, we can just snapshot the C1 and C6 state and we have the correct information. but for instance the t(C2) can't just be obtained by snapshoting C2, because the files from C6 are still alive.
-
-            The algorithm solves this by each commit looking at its predecessor(s) and copying them to all times up to its own time, i.e. in the case above when we get to process C7, we copy the results of C6 also to time t(C2).
-
-            Similarly, we must make sure that any last commit to a project will be copied to all subsequent times, so results of C9 will be copied to t(C4) and t(C5). 
+            How to aggreegate over the projects w/o the need to go through all commit times? 
          */
         class TimeAggregator {
         public:
@@ -314,13 +262,6 @@ namespace dejavu {
              */
             void calculateTimes() {
                 // first initialize TimeInfos for all commit times
-                std::cerr << "Creating timeinfos..." << std::endl;
-                for (Commit * c : commits_) {
-                    if (c == nullptr)
-                        continue;
-                    timeInfo_[c->time].projects = 0; // anhything that forces the creation will do
-                }
-                std::cerr << "    " << timeInfo_.size() << " created" << std::endl;
                 // now, add partial results from each project to the summary
                 std::cerr << "Summarizing projects..." << std::endl;
                 size_t i = 0;
@@ -337,8 +278,6 @@ namespace dejavu {
                 std::cerr << "Writing..." << std::endl;
                 std::ofstream f(DataDir.value() + "/clones_over_time.csv");
                 f << "#time,projects,commits,files,npmFIles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
-                for (auto i : timeInfo_)
-                    f << i.second << std::endl;
             }
 
         private:
@@ -354,29 +293,6 @@ namespace dejavu {
                 return true;
             }
 
-            /** Adds the given TimeInfo partial results to all times from the ti's time to the specified time (both times exclusive).
-             */
-            void addUntil(size_t time, TimeInfo const & ti) {
-                return;
-                auto e = timeInfo_.end();
-                auto i = timeInfo_.find(ti.time);
-                assert(i != e);
-                ++i;
-                while (i != e && i->second.time < time) {
-                    i->second += ti;
-                    ++i;
-                }
-            }
-
-            /** Adds the given time info to the specified time.
-             */
-            void add(size_t time, TimeInfo const & ti) {
-                auto i = timeInfo_.find(ti.time);
-                assert(i != timeInfo_.end());
-                i->second += ti;
-            }
-            
-
             /* All projects. */
             std::vector<Project*> projects_;
             std::vector<Commit*> commits_;
@@ -385,17 +301,7 @@ namespace dejavu {
             /** Already seen file contents so that we can determine whether a change makes file a clone or not.
              */
             std::unordered_set<unsigned> contents_;
-
-
-            /** Ordered map of times and their summaries.
-             */
-            std::map<size_t, TimeInfo> timeInfo_;
-            
         }; // TimeAggregator
-
-
-
-
 
         class ProjectState {
         public:
@@ -466,9 +372,8 @@ namespace dejavu {
                 i->second.changedFolderClone = false;
             }
 
-            TimeInfo createTimeInfo() {
-                TimeInfo ti;
-                ti.contributingCommits = 1;
+            Stats createStats() {
+                Stats ti;
                 for (auto i : paths) {
                     ++ti.files;
                     if (i.second.clone)
@@ -497,12 +402,9 @@ namespace dejavu {
          */
         void Project:: summarizeClones(TimeAggregator * ta) {
             
-            std::unordered_map<Commit *, TimeInfo> pastTIs;
-
             CommitForwardIterator<Commit, ProjectState, true> ci([&,this](Commit * c, ProjectState & state) {
-                    // first extend any parent commits' information up to current time
-                    for (auto i : c->parents) 
-                        ta->addUntil(c->time, pastTIs[i]);
+                    Stats deletions;
+                    
                     // update the state according to changes in given commit
                     for (auto i : c->changes) 
                         state.change(i.first, i.second, ta);
@@ -517,17 +419,9 @@ namespace dejavu {
                                 if (ta->paths_[ii.first].find(i.first) == 0)
                                     state.setAsFolderClone(ii.first);
                         }
+                        state.createStats();
                     }
                     // create partial TimeInfo from the state, update the global state and register the time info with the commits
-                    TimeInfo ti = state.createTimeInfo();
-                    ti.time = c->time;
-                    ta->add(c->time, ti);
-                    pastTIs[c] = ti;
-                    return true;
-                });
-            // add last commit handler, which extends the last commit's results to all times afterwards
-            ci.setLastCommitHandler([&,this](Commit * c, ProjectState & state) {
-                    ta->addUntil(SIZE_MAX, pastTIs[c]);
                     return true;
                 });
             // add initial commits
