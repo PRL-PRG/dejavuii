@@ -357,6 +357,7 @@ namespace dejavu {
             /** Adds the given TimeInfo partial results to all times from the ti's time to the specified time (both times exclusive).
              */
             void addUntil(size_t time, TimeInfo const & ti) {
+                return;
                 auto e = timeInfo_.end();
                 auto i = timeInfo_.find(ti.time);
                 assert(i != e);
