@@ -266,8 +266,10 @@ namespace dejavu {
                 std::cerr << "Summarizing projects..." << std::endl;
                 size_t i = 0;
                 for (Project * p : projects_) {
+                    if (p == nullptr)
+                        continue;
                     p->summarizeClones(this);
-                    std::cerr << (i++) << "\r";
+                    std::cerr << (i++) << "\n";
                 }
                 std::cerr << "    " << projects_.size() << " projects analyzed..." << std::endl;
                 // finally create live project counts
@@ -332,6 +334,7 @@ namespace dejavu {
 
              */
             void mergeWith(ProjectState const & state, Commit * c) {
+                assert(c != nullptr);
                 for (auto i : state.paths) {
                     auto j = c->changes.find(i.first);
                     if (j == c->changes.end()) {
@@ -396,21 +399,19 @@ namespace dejavu {
             }
         };
 
-
-
         /** Summarizes clones information for given project.
          */
         void Project:: summarizeClones(TimeAggregator * ta) {
             
             CommitForwardIterator<Commit, ProjectState, true> ci([&,this](Commit * c, ProjectState & state) {
-                    Stats deletions;
-                    
+                    assert(c != nullptr);
                     // update the state according to changes in given commit
                     for (auto i : c->changes) 
                         state.change(i.first, i.second, ta);
                     // if the commit introduces any folder clones, update the state accordingly
                     for (auto i : c->introducedClones) {
                         Clone * o = i.second;
+                        assert(o != nullptr);
                         // if the clone candidate is the original itself, then ignore it
                         if (o->originalProject == this && o->originalCommit == c && o->originalRoot == i.first)
                             continue;
