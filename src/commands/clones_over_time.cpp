@@ -179,6 +179,14 @@ namespace dejavu {
 
             void summarizeClones(TimeAggregator * ta);
 
+            bool shouldIgnore() {
+                for (auto c : commits)
+                    for (auto p : c->parents)
+                        if (p->time > c->time)
+                            return true;
+                return false;
+            }
+
         };
 
         /** Information about a clone.
@@ -290,13 +298,19 @@ namespace dejavu {
                 // now, add partial results from each project to the summary
                 std::cerr << "Summarizing projects..." << std::endl;
                 size_t i = 0;
+                size_t ignored = 0;
                 for (Project * p : projects_) {
                     if (p == nullptr)
                         continue;
+                    if (p->shouldIgnore()) {
+                        ++ignored;
+                        continue;
+                    }
                     p->summarizeClones(this);
-                    std::cerr << (i++) << "\n";
+                    std::cerr << (i++) << "\r";
                 }
                 std::cerr << "    " << projects_.size() << " projects analyzed..." << std::endl;
+                std::cerr << "    " << ignored << " projects ignored..." << std::endl;
                 // finally create live project counts
                 std::cerr << "Calculating live projects..." << std::endl;
                 // TODO
