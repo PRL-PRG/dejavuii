@@ -26,46 +26,81 @@ namespace dejavu {
             
             /** Total number of files at the given time.
              */
-            size_t files;
+            long files;
 
             /** Number of files that are in the node_modules folder.
              */
-            size_t npmFiles;
+            long npmFiles;
 
             /** Number of files that are clones, i.e. files whose contents we have already seen elsewhere.
              */
-            size_t clones;
+            long clones;
 
             /** Number of files that we have seen elsewhere that reside in node_modules folder.
              */
-            size_t npmClones;
+            long npmClones;
 
             /** Number of files which belong to a folder clone and have not been changed.
              */
-            size_t folderClones;
+            long folderClones;
 
             /** Number of unchanged files in node_modules directories belonging to a folder clone.
              */
-            size_t npmFolderClones;
+            long npmFolderClones;
 
             /** Number of files belonging to a folder clone that have been changed since cloned.
              */
-            size_t changedFolderClones;
+            long changedFolderClones;
 
             /** Number of files belonging to a node_modules folder which are part of a folder clone, but have been changed since they were cloned.
              */
-            size_t npmChangedFolderClones;
+            long npmChangedFolderClones;
 
             Stats():
                 files(0), npmFiles(0), clones(0), npmClones(0), folderClones(0), npmFolderClones(), changedFolderClones(0), npmChangedFolderClones(0) {
             }
-        }; // Stats
 
-        class StatsDiff {
-        public:
-            Stats additions;
-            Stats deletions;
-        };
+            Stats operator + (Stats const & other) const {
+                Stats result;
+                result.files = files + other.files;
+                result.npmFiles = npmFiles + other.npmFiles;
+                result.clones = clones + other.clones;
+                result.npmClones = npmClones + other.npmFiles;
+                result.folderClones = folderClones + other.folderClones;
+                result.npmFolderClones = npmFolderClones + other.npmFolderClones;
+                result.changedFolderClones = changedFolderClones + other.changedFolderClones;
+                result.npmChangedFolderClones = npmChangedFolderClones + other.npmChangedFolderClones;
+                return result;
+            }
+
+            Stats operator - (Stats const & other) const {
+                Stats result;
+                result.files = files - other.files;
+                result.npmFiles = npmFiles - other.npmFiles;
+                result.clones = clones - other.clones;
+                result.npmClones = npmClones - other.npmFiles;
+                result.folderClones = folderClones - other.folderClones;
+                result.npmFolderClones = npmFolderClones - other.npmFolderClones;
+                result.changedFolderClones = changedFolderClones - other.changedFolderClones;
+                result.npmChangedFolderClones = npmChangedFolderClones - other.npmChangedFolderClones;
+                return result;
+            }
+
+            Stats & operator += (Stats const & other) {
+                files += other.files;
+                npmFiles += other.npmFiles;
+                clones += other.clones;
+                npmClones += other.npmFiles;
+                folderClones += other.folderClones;
+                npmFolderClones += other.npmFolderClones;
+                changedFolderClones += other.changedFolderClones;
+                npmChangedFolderClones += other.npmChangedFolderClones;
+                return *this;
+            }
+
+            
+            
+        }; // Stats
 
         class Commit {
         public:
@@ -99,6 +134,8 @@ namespace dejavu {
             void addChange(unsigned pathId, unsigned contentsId) {
                 changes.insert(std::make_pair(pathId, contentsId));
             }
+
+            Stats diff;
         };
 
         class CloneOccurence {
@@ -142,12 +179,6 @@ namespace dejavu {
 
             void summarizeClones(TimeAggregator * ta);
 
-
-            std::unordered_map<Commit*, StatsDiff> stats;
-            
-        private:
-            
-
         };
 
         /** Information about a clone.
@@ -155,29 +186,22 @@ namespace dejavu {
         class Clone {
         public:
             size_t id;
-            size_t numFiles;
             Project * originalProject;
             Commit * originalCommit;
             std::string originalRoot;
 
-            /** Number of projects the clone has appeared. 
-             */
-            size_t weightProjects;
 
-            /** Number of total occurences of the clone. 
-             */
-            size_t weight;
-
-            /** Number of different roots the original is cloned to. 
-             */
-            size_t weightRoots;
-
-            Clone(unsigned id, unsigned numFiles, Project * project, Commit * commit, std::string const & rootDir):
+            Clone(unsigned id, Project * project, Commit * commit, std::string const & rootDir):
                 id(id),
-                numFiles(numFiles),
                 originalProject(project),
                 originalCommit(commit),
                 originalRoot(rootDir) {
+            }
+
+            /** Returns true if the original of the clone is the provided project, clone and root dir combination, false otherwise.
+             */
+            bool isOriginal(Project * p, Commit * c, std::string const & rootDir) {
+                return originalCommit == c && originalProject == p && originalRoot == rootDir;
             }
         }; // Clone
 
@@ -215,7 +239,8 @@ namespace dejavu {
                 PathToIdLoader{[this](unsigned id, std::string const & path){
                         if (paths_.size() <= id)
                             paths_.resize(id + 1);
-                        paths_[id] = std::string("/") + path;
+                        std::string p = std::string("/" + path);
+                        paths_[id] = std::make_pair(p, IsNPMPath(p));
                     }};
                 std::cerr << "    " << paths_.size() << " paths loaded" << std::endl;
                 std::cerr << "Loading file changes ... " << std::endl;
@@ -235,7 +260,7 @@ namespace dejavu {
                             clones_.resize(id + 1);
                         Project * project = projects_[projectId];
                         Commit * commit = commits_[commitId];
-                        clones_[id] = new Clone(id, numFiles, project, commit, rootDir + "/");
+                        clones_[id] = new Clone(id, project, commit, rootDir + "/");
                     }};
                 std::cerr << "    " << clones_.size() << " unique clones loaded" << std::endl;
                 std::cerr << "Loading clones..." << std::endl;
@@ -276,10 +301,34 @@ namespace dejavu {
                 std::cerr << "Calculating live projects..." << std::endl;
                 // TODO
 
+
+
+
+                std::cerr << "ordering the commits by time" << std::endl;
+                std::map<unsigned, std::vector<Commit *>> commits;
+                for (auto i : commits_)
+                    if (i != nullptr)
+                        commits[i->time].push_back(i);
+                std::cerr << "    " << commits.size() << " distinct times" << std::endl;
+
                 // and output the information
                 std::cerr << "Writing..." << std::endl;
                 std::ofstream f(DataDir.value() + "/clones_over_time.csv");
-                f << "#time,projects,commits,files,npmFIles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
+                f << "#time,projects, files,npmFiles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
+                Stats x;
+                for (auto i : commits) {
+                    for (Commit * c : i.second)
+                        x += c->diff;
+                    f << i.first << ",0," <<
+                        x.files << "," <<
+                        x.npmFiles << "," <<
+                        x.clones << "," <<
+                        x.npmClones << "," <<
+                        x.folderClones << "," <<
+                        x.npmFolderClones << "," <<
+                        x.changedFolderClones << "," <<
+                        x.npmChangedFolderClones << std::endl;
+                }
             }
 
         private:
@@ -298,25 +347,47 @@ namespace dejavu {
             /* All projects. */
             std::vector<Project*> projects_;
             std::vector<Commit*> commits_;
-            std::vector<std::string> paths_;
+            
+            /** If true then given path is NPM path.
+             */
+            std::vector<std::pair<std::string, bool>> paths_;
             std::vector<Clone*> clones_;
+            
             /** Already seen file contents so that we can determine whether a change makes file a clone or not.
+
+                We don't really care about who is the original in the summaries, so first occurence is fine. 
              */
             std::unordered_set<unsigned> contents_;
         }; // TimeAggregator
 
+
+        /** Contains information about active project files.
+         */
         class ProjectState {
         public:
+
+            /** Information about a single path.
+
+                Determines whether the given file is a clone, folder clone, or changed folder clone. Also keeps the contents of the file so that we can determine which (if any) record from parent commit should be preserved in merge commits. 
+             */
             class PathStats {
             public:
-                bool npm;
                 bool clone;
                 bool folderClone;
                 bool changedFolderClone;
                 size_t contents;
+
+                PathStats():
+                    clone(false),
+                    folderClone(false),
+                    changedFolderClone(false),
+                    contents(0) {
+                }
             }; // ProjectState::PathStats
 
-            
+
+            /** A map from path ids to path stats for all active files.
+             */
             std::unordered_map<unsigned, PathStats> paths;
 
             ProjectState() {
@@ -330,52 +401,65 @@ namespace dejavu {
 
             /** Merges with previous commit state.
 
-                Due to the fact that a merge commit is required to change any of files not being identical in all of its parents, the merge is only concerned with files where the merge preserves values of oen of the parent commits since this "change" is only virtual and should only copy the state from the partricular parent. 
-
+                Due to the fact that a merge commit is required to change any of files not being identical in all of its parents, the merge is only concerned with files where the merge preserves values of one of the parent commits since this "change" is only virtual and should only copy the state from the partricular parent.
              */
             void mergeWith(ProjectState const & state, Commit * c) {
                 assert(c != nullptr);
+                // get all paths in the parent commit
                 for (auto i : state.paths) {
-                    auto j = c->changes.find(i.first);
-                    if (j == c->changes.end()) {
-                        // make sure the contents are the same
-                        assert(i.second.contents == paths[i.first].contents);
-                        // and do nothing
-                        continue;
-                    }
-                    if (i.second.contents == j->second)
+                    // find if the path is a change in current commit
+                    auto own = c->changes.find(i.first);
+                    // if there is a change to the file, check if the change is to same contents and if so just copy the original state to the current state, otherwise does nothing 
+                    if (own != c->changes.end()) {
+                        if (own->second == i.second.contents)
+                            paths[i.first] = i.second;
+                    // otherwise we have a file in parent which is not changed in current commit, so just copy the parent file as well
+                    } else {
                         paths[i.first] = i.second;
+                    }
                 }
             }
 
+            /** Records given change to the file stats.
+             */
             void change(unsigned path, unsigned contents, TimeAggregator * ta) {
-                PathStats & s = paths[path];
-                // it's not a change (was already dealt with in the merge phase)
-                if (s.contents == contents)
-                    return;
+                // if the file is to be deleted, just delete the file from the paths and exit
                 if (contents == FILE_DELETED) {
                     paths.erase(path);
                     return;
                 }
-                // if this is the first time we see the path, determine whether it is NPM or not
-                if (s.contents == 0)
-                    s.npm = IsNPMPath(ta->paths_[path]);
-                // fill in the details
+                // otherwise obtain the stats
+                PathStats & s = paths[path];
+                // if the contents won't be changed, then the files was altready dealth with in the merge function so we just return
+                if (s.contents == contents)
+                    return;
+                // otherwise it is regular change, update the contents and fill in the clone details
                 s.contents = contents;
+                // update the file clone info, i.e. have we seen the file before?
                 if (!ta->isFirstOccurence(contents)) 
                     s.clone = true;
+                // if the file is marked as folder clone, mark it as changed folder clone
                 if (s.folderClone)
                     s.changedFolderClone = true;
+                // note that folder clones are dealt with later in markAsFolderClone function
             }
 
-            void setAsFolderClone(unsigned path) {
-                auto i = paths.find(path);
-                assert(i != paths.end());
-                i->second.folderClone = true;
-                i->second.changedFolderClone = false;
+
+            void markAsFolderClone(Commit * c, std::string const & rootDir, TimeAggregator * ta) {
+                for (auto i : c->changes) {
+                    if (i.second == FILE_DELETED)
+                        continue;
+                    unsigned path = i.first;
+                    if (ta->paths_[path].first.find(rootDir) == 0) {
+                        PathStats & ps = paths[path];
+                        assert(ps.contents != 0);
+                        ps.folderClone = true;
+                        ps.changedFolderClone = false;
+                    }
+                }
             }
 
-            Stats createStats() {
+            Stats createStats(TimeAggregator * ta) {
                 Stats ti;
                 for (auto i : paths) {
                     ++ti.files;
@@ -385,7 +469,7 @@ namespace dejavu {
                         ++ti.folderClones;
                     if (i.second.changedFolderClone)
                         ++ti.changedFolderClones;
-                    if (i.second.npm) {
+                    if (ta->paths_[i.first].second) {
                         ++ti.npmFiles;
                         if (i.second.clone)
                             ++ti.npmClones;
@@ -393,7 +477,7 @@ namespace dejavu {
                             ++ti.npmFolderClones;
                         if (i.second.changedFolderClone)
                             ++ti.npmChangedFolderClones;
-                    }
+                    } 
                 }
                 return ti;
             }
@@ -402,27 +486,40 @@ namespace dejavu {
         /** Summarizes clones information for given project.
          */
         void Project:: summarizeClones(TimeAggregator * ta) {
+
+            std::unordered_map<Commit *, Stats> commitStats;
             
             CommitForwardIterator<Commit, ProjectState, true> ci([&,this](Commit * c, ProjectState & state) {
                     assert(c != nullptr);
-                    // update the state according to changes in given commit
-                    for (auto i : c->changes) 
+                    // update the state according to changes in the given commit
+                    for (auto i : c->changes) {
                         state.change(i.first, i.second, ta);
-                    // if the commit introduces any folder clones, update the state accordingly
-                    for (auto i : c->introducedClones) {
-                        Clone * o = i.second;
-                        assert(o != nullptr);
-                        // if the clone candidate is the original itself, then ignore it
-                        if (o->originalProject == this && o->originalCommit == c && o->originalRoot == i.first)
-                            continue;
-                        for (auto ii : c->changes) {
-                            if (ii.second != FILE_DELETED)
-                                if (ta->paths_[ii.first].find(i.first) == 0)
-                                    state.setAsFolderClone(ii.first);
-                        }
-                        state.createStats();
                     }
-                    // create partial TimeInfo from the state, update the global state and register the time info with the commits
+                    // look at any folder clones introduced by the commit and mark the files as folder clones if they are not the original
+                    for (auto i : c->introducedClones) {
+                        Clone * co = i.second;
+                        // if the clone is its own original, skip it
+                        if (co->isOriginal(this, c, i.first))
+                            continue;
+                        // otherwise get all files that belong to the clone and mark them as folder clones
+                        state.markAsFolderClone(c, i.first, ta);
+                        
+                    }
+                    // create stats for the commit and store them in the stats map for the project
+                    Stats cs = state.createStats(ta);
+                    assert(cs.files == state.paths.size());
+                    commitStats[c] = cs;
+                    // calculate the diff and update the commit diff accordingly
+                    if (c->parents.empty()) {
+                        c->diff += cs;
+                    } else {
+                        Stats pStats;
+                        for (auto p : c->parents) {
+                            //assert(p->time <= c->time);
+                            pStats += commitStats[p];
+                        }
+                        c->diff += (cs - pStats);
+                    }
                     return true;
                 });
             // add initial commits
