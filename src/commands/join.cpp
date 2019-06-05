@@ -193,6 +193,11 @@ namespace dejavu {
 
             std::unordered_map<std::string, Commit *> commits;
 
+
+            bool hasCommit(Commit * c) const {
+                return commits.find(c->hash) != commits.end();
+            }
+            
             Project(unsigned id, std::string const & user, std::string const & repo):
                 id(id),
                 user(user),
@@ -573,7 +578,7 @@ namespace dejavu {
             if (! containsSubmodules_)
                 return;
             std::cerr << "Removing submodule changes..." << std::flush;
-            CommitForwardIterator<Commit,SubmoduleInfo> it([this, spath](Commit * c, SubmoduleInfo & submodules) {
+            CommitForwardIterator<Project,Commit,SubmoduleInfo> it(this, [this, spath](Commit * c, SubmoduleInfo & submodules) {
                     submodules.updateWith(c, spath);
                     return true;
                 });

@@ -169,6 +169,10 @@ namespace dejavu {
 
             std::unordered_set<Commit *> commits;
 
+            bool hasCommit(Commit * c) const {
+                return commits.find(c) != commits.end();
+            }
+
             Project(unsigned id, uint64_t createdAt):
                 id(id),
                 createdAt(createdAt) {
@@ -385,7 +389,7 @@ namespace dejavu {
                         continue;
                     std::cerr << (i++) << "    \r";
                     std::vector<CloneOccurence*> clones;
-                    CommitForwardIterator<Commit, TrackedClonesMap> ci([&, this](Commit * c, TrackedClonesMap & tc ) {
+                    CommitForwardIterator<Project, Commit, TrackedClonesMap> ci(p, [&, this](Commit * c, TrackedClonesMap & tc ) {
                         // first track all deletions
                         for (auto i : c->changes)
                             if (i.second == FILE_DELETED)

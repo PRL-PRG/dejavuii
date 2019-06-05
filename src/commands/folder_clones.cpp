@@ -613,6 +613,10 @@ namespace dejavu {
 
             std::unordered_set<Commit *> commits;
 
+            bool hasCommit(Commit * c) const {
+                return commits.find(c) != commits.end();
+            }
+
             static Project * Create(unsigned id, uint64_t createdAt) {
                 Project * result = new Project(id, createdAt);
                 if (id >= Projects_.size())
@@ -1015,7 +1019,8 @@ namespace dejavu {
          */
         void Project::detectFolderClones() {
             //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
-            CommitForwardIterator<Commit,ProjectTree> it([this](Commit * c, ProjectTree & tree) {
+            CommitForwardIterator<Project,Commit,ProjectTree> it(this, [this](Commit * c, ProjectTree & tree) {
+                assert(commits.find(c) != commits.end());
                 try {
                     std::vector<ProjectTree::Dir *> candidates;
                     tree.updateBy(c, candidates);
@@ -1045,7 +1050,7 @@ namespace dejavu {
 
         void Project::findOriginal(CloneOriginal & original) {
             //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
-            CommitForwardIterator<Commit,ProjectTree> it([this, & original](Commit * c, ProjectTree & tree) {
+            CommitForwardIterator<Project,Commit,ProjectTree> it(this,[this, & original](Commit * c, ProjectTree & tree) {
                 try { 
                     if (c->time >= original.commit->time)
                         return false;

@@ -10,19 +10,23 @@ namespace dejavu {
             - numParentCommits function
             - childrenCommits() function returning container of the commits children
 
+        Project
+           - hasCommit()
+
         State :
             - default constructor
             - deep copy constructor
             - mergeWiTH(const &) method
      */
 
-    template<typename COMMIT, typename STATE, bool MERGE_WITH_COMMIT = false>
+    template<typename PROJECT, typename COMMIT, typename STATE, bool MERGE_WITH_COMMIT = false>
     class CommitForwardIterator {
     public:
         
         typedef std::function<bool(COMMIT * c, STATE & s)> Handler;
 
-        CommitForwardIterator(Handler h):
+        CommitForwardIterator(PROJECT * p, Handler h):
+            p_(p),
             handler_(h) {
         }
 
@@ -96,6 +100,8 @@ namespace dejavu {
                 //otherwise for each child
                 bool canReuse = true;
                 for (COMMIT * child : i->c->childrenCommits()) {
+                    if (!p_->hasCommit(child))
+                        continue;
                     // first see if the child is staged in pending
                     auto j = pending_.find(child);
                     if (j != pending_.end()) {
@@ -133,6 +139,7 @@ namespace dejavu {
         }
 
 
+        PROJECT * p_;
         Handler handler_;
         Handler lastCommitHandler_;
         
