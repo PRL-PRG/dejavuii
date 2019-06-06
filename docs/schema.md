@@ -1,35 +1,36 @@
-# Schema Documentation
+# Basic Schema of the files
 
-This file lists schema documentation for various input and output data used in the project. When you create new data, please update this file as well.
+All information is stored in csv files. Files are required to have headers. New files can be added, but format of existing files should not be changed.
 
-## Input Data
 
-The input data consists of `files.csv` file which contains for each file observed the following information:
 
-    project id, path id, file hash id, commit id
+## Folder Clone Information
 
-All ids are unsigned integers. More information for projects, paths commits and file hashes can be found in separate files:
+`folderClones.csv`
 
-### `commits.csv`
+For each folder clone (i.e. project, commit and root folder (whose subtree was added by the commit) contains the clone id.
 
-1. id
-2. sha of the commit
-3. time of the commit
+- `project id`
+- `commit id`
+- `root path`
+- `clone id`
 
-### `fileHashes.csv`
+`folderCloneOriginals.csv`
 
-1. id
-2. hash of the contents
+For each clone id, contains the information about the clone and its original, namely:
 
-### `paths.csv`
+- `clone id`
+- `number of files in the clone`
+- `original project id`
+- `original commit id`
+- `original root path`
 
-1. id
-2. path 
+`folderCloneIds.csv`
 
-### `projects.csv`
+For each clone id contains the hash of its contents (files & their contents hashes in particular order).
 
-1. id
-2. username
-3. repo name
+- `clone id`
+- `contents hash` (SHA-1))
+
 
 

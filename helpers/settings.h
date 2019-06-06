@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -70,6 +71,11 @@ namespace helpers {
         void print(std::ostream & s) override {
             BaseOption::print(s);
             s << value_;
+        }
+
+        void updateDefaultValue(T const & defaultValue) {
+            assert(! isSpecified() && "Default value cannot be changed after the option was specified by the user");
+            value_ = defaultValue;
         }
 
     protected:

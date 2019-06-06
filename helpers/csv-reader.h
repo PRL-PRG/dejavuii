@@ -31,7 +31,7 @@ namespace helpers {
         virtual void row(std::vector<std::string> & row)  = 0;
 
         virtual void error(std::ios_base::failure const & e) {
-            std::cout << "line " << lineNum_  << ": " << e.what() << std::endl;
+            std::cerr << "line " << lineNum_  << ": " << e.what() << std::endl;
         }
 
 
@@ -56,7 +56,7 @@ namespace helpers {
                             row(row_);
                             ++numRows_;
                             if (lineNum_ % 1000 == 0) {
-                                std::cout << " : " << (lineNum_/1000) << "k\r" << std::flush;
+                                std::cerr << " : " << (lineNum_/1000) << "k\r" << std::flush;
                             } 
                         }
                         row_.clear();
@@ -92,16 +92,26 @@ namespace helpers {
                     size_t quoteStart = lineNum_;
                     ++i;
                     while (line[i] != quote_) {
-                        if (eof())
+                        if (i == line.size() - 1 && eof())
                             throw std::ios_base::failure(STR("Unterminated quote, starting at line " + quoteStart));
+                        // check for escaped characters
                         if (line[i] == '\\') {
                             ++i;
-                            while (i == line.size() && ! eof()) {
-                                line = readLine();
-                                i = 0;
+                            // if the new line is escaped, we already have the escaped character
+                            if (i == line.size()) {
+                                while (i == line.size() && ! eof()) {
+                                    col += '\n';
+                                    line = readLine();
+                                    i = 0;
+                                }
+                                // otherwise just add the escaped character
+                            } else {
+                                col += line[i++];
                             }
+                        // normal character, just append
+                        } else {
+                            col += line[i++];
                         }
-                        col += line[i++];
                         while (i == line.size() && ! eof()) {
                             line = readLine();
                             i = 0;
@@ -111,11 +121,11 @@ namespace helpers {
                     ++i; // past the ending quote
                     // if immediately followed by non-whitespace and not separator, add this to the column as well
                     // FIXME We need this because shabbir's downloader did not output CSVs nicely, but this is not part of CSV standard
-                    if (line[i] != ' ' && line[i] != '\t' && line[i] != separator_ && line[i] != 0) {
-                        col = quote_ + col + quote_;
-                        while (i < line.size() && line[i] != separator_)
-                            col = col + line[i++];
-                    }
+                    // if (line[i] != ' ' && line[i] != '\t' && line[i] != separator_ && line[i] != 0) {
+                    //    col = quote_ + col + quote_;
+                    //    while (i < line.size() && line[i] != separator_)
+                    //        col = col + line[i++];
+                    // }
                     if (line[i] == separator_)
                         ++i;
                 } else {
@@ -155,6 +165,8 @@ namespace helpers {
                 addColumn(col, isFirst);
                 isFirst = false;
             }
+            if (line[line.size() - 1] == separator_)
+                addColumn("", false);
         }
 
         /** Returns the number of rows properly read.
