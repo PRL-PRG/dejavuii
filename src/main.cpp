@@ -22,7 +22,8 @@
 #include "clones/clones.h"
 #include "clones/clones2.h"
 #include "selective-commit-network/selective-commit-network.h"
-#include "npm-using/npm-using.h"
+#include "npm/npm-using.h"
+#include "npm/npm-packages.h"
 
 
 
@@ -76,6 +77,7 @@ void InitializeCommands() {
     AddCommand("filter-verify", FilterVerifier, "Creates the data to be analyzed from previously executed steps.");
     AddCommand("folder-clones", FolderClones, "Actual folder clone detection algorithm which uses proper commit graphs");
     AddCommand("npm-using", NPMUsing, "Generate list of node projects (it is implied that they are using NPM).");
+    AddCommand("npm-packages", NPMPackages, "Generate list of GH repos that are also NPM packages.");
 }
 
 

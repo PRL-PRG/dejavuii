@@ -1,10 +1,16 @@
 #pragma once
 
+#ifndef __HELPERS
+#define __HELPERS
+
 #include <ctime>
 
 #include <memory>
 #include <cstdlib>
 #include <sstream>
+#include <vector>
+#include <dirent.h>
+#include <string>
 
 #define STR(WHAT) static_cast<std::stringstream &&>(std::stringstream() << WHAT).str()
 
@@ -79,6 +85,61 @@ namespace helpers {
         return std::mktime(&time);
     }
 
-    
+    inline std::vector<std::string> read_directory_recursive(std::string root, bool include_directories=false) {
+        std::vector<std::string> paths;
+        std::vector<std::string> result;
+        paths.push_back(root);
+
+        while (!paths.empty()) {
+            std::string path = paths.back();
+            paths.pop_back();
+
+            DIR *dir = opendir(path.c_str());
+            if (dir != NULL) {
+                struct dirent *dp;
+                while ((dp = readdir(dir)) != NULL) {
+                    std::string const file = dp->d_name;
+
+                    if (dp->d_type == DT_DIR) {
+                        if ("." == file || ".." == file) {
+                            continue;
+                        }
+                        paths.push_back(path + "/" + file);
+                        if (include_directories) {
+                            result.push_back(path + "/" + file);
+                        }
+                    } else {
+                        result.push_back(path + "/" + file);
+                    }
+                }
+                closedir(dir);
+            } else {
+                //std::cerr << std::endl << "    I IGNOREZ " << path << std::endl;
+            }
+        }
+
+        return result;
+    }
+
+    inline std::vector<std::string> read_directory(std::string path, bool prefix) {
+        DIR* dir = opendir(path.c_str());
+        std::vector<std::string> result;
+        if (dir != NULL) {
+            struct dirent *dp;
+            while ((dp = readdir(dir)) != NULL) {
+                std::string const file = dp->d_name;
+                if ("." == file || ".." == file) {
+                    continue;
+                }
+                result.push_back(prefix ? path + "/" + file : file);
+            }
+            closedir(dir);
+        } else {
+            //std::cerr << std::endl << "    I IGNOREZ " << path << std::endl;
+        }
+        return result;
+    }
     
 } // namespace helpers
+
+#endif //__HELPERS

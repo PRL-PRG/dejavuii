@@ -3,8 +3,9 @@
   <component name="CMakeWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
   <component name="CidrRootsConfiguration">
     <sourceRoots>
+      <file path="$PROJECT_DIR$/json" />
+      <file path="$PROJECT_DIR$/src/npm" />
       <file path="$PROJECT_DIR$/src/npm-packages" />
-      <file path="$PROJECT_DIR$/src/npm-using" />
     </sourceRoots>
   </component>
 </project>
