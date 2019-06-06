@@ -169,5 +169,11 @@ x = cOriginals %>% filter(weight > 1)
 
 
 
+```{r}
+overtime = dRead("../test/clones_over_time.csv")
+```
 
+```{r}
+plot(overtime$projects)
+``
 

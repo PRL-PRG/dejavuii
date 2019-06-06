@@ -218,6 +218,8 @@ namespace dejavu {
             /** Returns true if the original of the clone is the provided project, clone and root dir combination, false otherwise.
              */
             bool isOriginal(Project * p, Commit * c, std::string const & rootDir) {
+                //                std::cerr << "\"" << rootDir << "\"" << rootDir.size() <<  std::endl;
+                //std::cerr << originalRoot << std::endl;
                 return originalCommit == c && originalProject == p && originalRoot == rootDir;
             }
         }; // Clone
@@ -257,7 +259,7 @@ namespace dejavu {
                         if (paths_.size() <= id)
                             paths_.resize(id + 1);
                         std::string p = std::string("/" + path);
-                        paths_[id] = std::make_pair(p, IsNPMPath(p));
+                        paths_[id] = std::make_pair(p, IsNPMPath(path));
                     }};
                 std::cerr << "    " << paths_.size() << " paths loaded" << std::endl;
                 std::cerr << "Loading file changes ... " << std::endl;
@@ -269,15 +271,7 @@ namespace dejavu {
                         // add the commit to the project
                         p->addCommit(c);
                         c->addChange(pathId, contentsId);
-                        auto i = originals_.find(contentsId);
-                        if (i == originals_.end()) {
-                            originals_.insert(std::make_pair(contentsId, std::make_pair(p, c)));
-                        } else {
-                            if (c->time < i->second.second->time) {
-                                i->second = std::make_pair(p, c);
-                            }
-                        }
-                            
+                        updateFileOriginal(p, c, contentsId);
                     }};
                 std::cerr << "    " << originals_.size() << " unique contents" << std::endl;
                 // now thge basic data has been loaded, load the clone originals
@@ -300,11 +294,16 @@ namespace dejavu {
                             return;
                         }
                         assert(clone != nullptr);
-                        auto i = commit->introducedClones.find(rootDir);
+                        std::string rd = rootDir;
+                        if (rd.empty())
+                            rd = "/";
+                        else
+                            rd = rd + "/";
+                        auto i = commit->introducedClones.find(rd);
                         if (i != commit->introducedClones.end()) 
                             assert(i->second == clone && "Same commit must have same clones in same directory");
                         else
-                            commit->introducedClones[rootDir] = clone;
+                            commit->introducedClones[rd] = clone;
                     }};
                 std::cerr << "    " << missingClones << " missing clones" << std::endl;
             }
@@ -336,7 +335,7 @@ namespace dejavu {
                 // and output the information
                 std::cerr << "Writing..." << std::endl;
                 std::ofstream f(DataDir.value() + "/clones_over_time.csv");
-                f << "#time,projects, files,npmFiles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
+                f << "#time,projects,files,npmFiles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
                 Stats x;
                 for (auto i : stats_) {
                     x += i.second;
@@ -388,6 +387,19 @@ namespace dejavu {
              */
             std::unordered_set<unsigned> visited_;
             std::unordered_map<unsigned, std::pair<Project *, Commit *>> originals_;
+
+            void updateFileOriginal(Project * p, Commit * c, unsigned contents) {
+                auto i = originals_.find(contents);
+                if (i == originals_.end()) {
+                    originals_.insert(std::make_pair(contents, std::make_pair(p, c)));
+                } else {
+                    if ((c->time < i->second.second->time) ||
+                        (c->time == i->second.second->time && p->createdAt < i->second.first->createdAt)) {
+                        i->second.first = p;
+                        i->second.second = c;
+                    }
+                }
+            }
 
             std::map<unsigned, Stats> stats_;
         }; // TimeAggregator
@@ -465,7 +477,7 @@ namespace dejavu {
                         if (j.first == i.second)
                             continue;
                         j.first = i.second;
-                        j.second.clone = ta->isFirstFileOccurence(p, c, i.second);
+                        j.second.clone = ! ta->isFirstFileOccurence(p, c, i.second);
                         if (j.second.folderClone)
                             j.second.changedFolderClone = true;
                     }
@@ -482,6 +494,29 @@ namespace dejavu {
                             continue;
                         if (ta->paths_[j.first].first.find(i.first) == 0) {
                             auto & s = paths[j.first];
+                            // if the file is to be folder clone, then the following must be true
+                            // either the file is a clone
+                            // or the same file contents is being added multiple times and all but one of the paths is clone
+                            if (! s.second.clone) {
+                                unsigned count = 0;
+                                unsigned clones = 0;
+                                for (auto x : c->changes)
+                                    if (x.second == j.second) {
+                                        ++count;
+                                        if (paths[x.first].second.clone == true)
+                                            ++clones;
+                                    }
+                                if (clones + 1 != count) {
+                                    std::cerr << "Count: " << count << std::endl;
+                                    std::cerr << "Project: " << p->id << std::endl;
+                                    std::cerr << "Commit: " << c->id << std::endl;
+                                    std::cerr << "File path: " << j.first << " -- " << ta->paths_[j.first].first << std::endl;
+                                    auto o =  ta->originals_[j.second];
+                                    std::cerr << "Original: " << o.first->id << ", " << o.second->id << std::endl;
+                                }
+                                assert(clones + 1 == count);
+                            }
+                            //                            assert(s.second.clone); // if it is folder clone, it *has* to be file clone as well
                             s.second.folderClone = true;
                             s.second.changedFolderClone = false;
                         }
@@ -529,6 +564,7 @@ namespace dejavu {
                         if (ps.changedFolderClone)
                             ++result.changedFolderClones;
                         if (npm) {
+                            ++result.npmFiles;
                             if (ps.clone) 
                                 ++result.npmClones;
                             if (ps.folderClone)
@@ -536,6 +572,8 @@ namespace dejavu {
                             if (ps.changedFolderClone)
                                 ++result.npmChangedFolderClones;
                         }
+                        if (ps.changedFolderClone)
+                            assert(ps.folderClone);
                     }
                 }
                 return result;
