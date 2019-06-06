@@ -13,6 +13,7 @@ Define some helper functions and data root directory.
 # better CSV reader
 library(readr)
 library(dplyr)
+library(ggplot2)
 
 DROOT = "/data/dejavuii/full"
 dFilePath <- function(x) {
@@ -171,9 +172,27 @@ x = cOriginals %>% filter(weight > 1)
 
 ```{r}
 overtime = dRead("../test/clones_over_time.csv")
+colnames(overtime)[[1]] = "time"
+pd = overtime %>% filter(time > 1199145600)
+
 ```
 
 ```{r}
-plot(overtime$projects)
-``
+#x = overtime %>% select(-c("#time"))
+# plot
+ggplot(data = pd, aes(x=time)) +
+  geom_line(aes(y = files, colour = "files")) + 
+  geom_line(aes(y = npmFiles, colour = "npm files")) +
+  geom_line(aes(y = clones, colour = "clones")) + 
+  geom_line(aes(y = npmClones, colour = "npm clones")) +
+  geom_line(aes(y = folderClones, colour = "folder clones")) + 
+  geom_line(aes(y = npmFolderClones, colour = "npm folder clones")) + 
+  geom_line(aes(y = folderClones, colour = "changed folder clones")) + 
+  geom_line(aes(y = npmFolderClones, colour = "npm changed folder clones"))    
+ 
+```
+
+
+
+
 

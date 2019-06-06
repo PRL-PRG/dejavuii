@@ -69,7 +69,7 @@ namespace dejavu {
                 result.files = files + other.files;
                 result.npmFiles = npmFiles + other.npmFiles;
                 result.clones = clones + other.clones;
-                result.npmClones = npmClones + other.npmFiles;
+                result.npmClones = npmClones + other.npmClones;
                 result.folderClones = folderClones + other.folderClones;
                 result.npmFolderClones = npmFolderClones + other.npmFolderClones;
                 result.changedFolderClones = changedFolderClones + other.changedFolderClones;
@@ -83,7 +83,7 @@ namespace dejavu {
                 result.files = files - other.files;
                 result.npmFiles = npmFiles - other.npmFiles;
                 result.clones = clones - other.clones;
-                result.npmClones = npmClones - other.npmFiles;
+                result.npmClones = npmClones - other.npmClones;
                 result.folderClones = folderClones - other.folderClones;
                 result.npmFolderClones = npmFolderClones - other.npmFolderClones;
                 result.changedFolderClones = changedFolderClones - other.changedFolderClones;
@@ -96,7 +96,7 @@ namespace dejavu {
                 files += other.files;
                 npmFiles += other.npmFiles;
                 clones += other.clones;
-                npmClones += other.npmFiles;
+                npmClones += other.npmClones;
                 folderClones += other.folderClones;
                 npmFolderClones += other.npmFolderClones;
                 changedFolderClones += other.changedFolderClones;
