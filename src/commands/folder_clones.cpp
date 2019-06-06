@@ -326,7 +326,8 @@ namespace dejavu {
                 }
 
                 void untaint() {
-                    assert(taint == true);
+                    // no longer valid in cases of recursive folder clones
+                    //assert(taint == true);
                     taint = false;
                     for (auto i : dirs)
                         i.second->untaint();
@@ -556,7 +557,7 @@ namespace dejavu {
                     d->files[pathId] = hash;
                     return d;
                 }
-                // otherwise add the file and create any directories required for it, first of these will be a clone candidate
+                // otherwise add the file and create any directories required for it, these directories become clone candidates 
                 File * f = File::Get(pathId);
                 assert(f != nullptr);
                 Dir * d = getOrCreateDir(f->parent, cloneCandidates);
@@ -585,7 +586,8 @@ namespace dejavu {
                 dirs_.insert(std::make_pair(d, result));
                 if (cloneCandidates == nullptr)
                     result->taint = false;
-                else if (!parent->taint)
+                // *all* newly created directories are clone candidates and originals for all of them will be searched
+                else // if (!parent->taint)
                     cloneCandidates->push_back(result);
                 parent->dirs.insert(std::make_pair(d, result));
                 return result;
@@ -829,7 +831,7 @@ namespace dejavu {
 
                 while (Running_ > 0) {
                     sleep(1);
-                    std::cerr << (analyzed * 100 / projects.size()) << " - clones: " << NumClones_ << std::flush << ", tested projects: " << TestedProjects_ << ", tested commits: " << TestedCommits_ << ", dirs alive: " << ProjectTree::Dir::Instances(0) << ", trees alive: " << ProjectTree::Instances(0) << "      \r";
+                    std::cerr << (analyzed * 100 / projects.size()) << " - projects: " << analyzed << ", clones: " << NumClones_ << std::flush << ", tested projects: " << TestedProjects_ << ", tested commits: " << TestedCommits_ << ", dirs alive: " << ProjectTree::Dir::Instances(0) << ", trees alive: " << ProjectTree::Instances(0) << "      \r";
                     // display stats
                     // sleep
                 }
@@ -1016,6 +1018,8 @@ namespace dejavu {
 
 
         /** First, we find the clone candidates.
+
+            Clone candidate is a folder that has in total at least threshold (2 by default) files that has been added by a single commit (i.e. the folder did not exist before the commit).
          */
         void Project::detectFolderClones() {
             //std::cout << "Project " << id << ", num commits: " << commits.size() << std::endl;
