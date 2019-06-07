@@ -5,12 +5,11 @@
 #include "helpers/csv-reader.h"
 #include "helpers/hash.h"
 
+#include "objects.h"
 #include "settings.h"
 
 namespace dejavu {
 
-    constexpr unsigned UNKNOWN_HASH = -1;
-    constexpr unsigned FILE_DELETED = 0;
 
     /** Determines if the given path is under 'node_modules' directory.
      */

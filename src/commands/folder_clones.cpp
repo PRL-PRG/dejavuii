@@ -1,3 +1,4 @@
+#ifdef HAHA
 #include <iostream>
 #include <vector>
 #include <unordered_map>
@@ -1108,3 +1109,5 @@ namespace dejavu {
     }
     
 } // namespace dejavu
+
+#endif

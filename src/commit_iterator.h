@@ -12,6 +12,7 @@ namespace dejavu {
 
         Project
            - hasCommit()
+           - commitsBegin(), commitsEnd()
 
         State :
             - default constructor
@@ -19,7 +20,7 @@ namespace dejavu {
             - mergeWiTH(const &) method
      */
 
-    template<typename PROJECT, typename COMMIT, typename STATE, bool MERGE_WITH_COMMIT = false>
+    template<typename PROJECT, typename COMMIT, typename STATE>
     class CommitForwardIterator {
     public:
         
@@ -28,6 +29,12 @@ namespace dejavu {
         CommitForwardIterator(PROJECT * p, Handler h):
             p_(p),
             handler_(h) {
+            for (auto i = p->commitsBegin(), e = p->commitsEnd(); i != e; ++i) {
+                if ((*i)->numParentCommits() == 0) {
+                    QueueItem * qi = new QueueItem(*i, STATE());
+                    q_.push_back(qi);
+                }
+            }
         }
 
         ~CommitForwardIterator() {
@@ -37,11 +44,12 @@ namespace dejavu {
                 delete i.second;
         }
 
+        /*
         void addInitialCommit(COMMIT * c) {
             QueueItem * qi = new QueueItem(c, STATE());
             assert(qi->merges == 0);
             q_.push_back(qi);
-        }
+            } */
 
         void setLastCommitHandler(Handler h) {
             lastCommitHandler_ = h;

@@ -173,6 +173,18 @@ namespace dejavu {
 
             std::unordered_set<Commit *> commits;
 
+            // TODO should use objects
+            
+            typedef std::unordered_set<Commit*> COMMIT_SET;
+            
+            COMMIT_SET::iterator commitsBegin() {
+                return commits.begin();
+            }
+
+            COMMIT_SET::iterator commitsEnd() {
+                return commits.end();
+            }
+            
             bool hasCommit(Commit * c) const {
                 return commits.find(c) != commits.end();
             }
@@ -595,7 +607,7 @@ namespace dejavu {
             //            std::cerr << timeSnapshots.size() << " -- " << commits.size() <<  std::endl;
 
             
-            CommitForwardIterator<Project, Commit, CommitSnapshot, true> ci(this, [&,this](Commit * c, CommitSnapshot & state) {
+            CommitForwardIterator<Project, Commit, CommitSnapshot> ci(this, [&,this](Commit * c, CommitSnapshot & state) {
                     assert(c != nullptr);
                     assert(commits.find(c) != commits.end());
                     // create the state
@@ -626,9 +638,9 @@ namespace dejavu {
                     return true;
                 });
             // add initial commits
-            for (Commit * c : commits)
+            /*            for (Commit * c : commits)
                 if (c->numParentCommits() == 0)
-                    ci.addInitialCommit(c);
+                ci.addInitialCommit(c); */
             // process the project
             ci.process();
 

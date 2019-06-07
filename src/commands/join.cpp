@@ -193,6 +193,18 @@ namespace dejavu {
 
             std::unordered_map<std::string, Commit *> commits;
 
+            // TODO this should be converted to project objects
+            
+            typedef std::unordered_set<Commit*> COMMIT_SET;
+            COMMIT_SET commits_;
+            
+            COMMIT_SET::iterator commitsBegin() {
+                return commits_.begin();
+            }
+
+            COMMIT_SET::iterator commitsEnd() {
+                return commits_.end();
+            }
 
             bool hasCommit(Commit * c) const {
                 return commits.find(c->hash) != commits.end();
@@ -510,6 +522,7 @@ namespace dejavu {
             DownloaderCommitMetadataLoader{filename, [this](std::string const & hash, std::string const & authorEmail, uint64_t authorTime, std::string const & committerEmail, uint64_t committerTime, std::string const & tag) {
                     Commit * c = new Commit(hash, authorEmail, authorTime, committerEmail, committerTime, tag);
                     commits.insert(std::make_pair(hash, c));
+                    commits_.insert(c);
                     if (c->authorTime < this->createdAt)
                         this->createdAt = c->authorTime;
                 }};
@@ -583,9 +596,11 @@ namespace dejavu {
                     return true;
                 });
             std::cerr << "Total commits: " << commits.size() << std::endl;
+            /*
             for (auto i : commits)
                 if (i.second->numParentCommits() == 0)
                     it.addInitialCommit(i.second);
+            */
             it.process();
         }
         
