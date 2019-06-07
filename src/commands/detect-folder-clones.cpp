@@ -357,6 +357,13 @@ namespace dejavu {
                         paths_[id] = globalRoot_->addPath(id, path, this);
                     }};
                 std::cerr << "    " << pathSegments_.size() << " unique path segments" << std::endl;
+                std::cerr << "Storing path segments ..." << std::endl;
+                {
+                    std::ofstream psegs(DataDir.value() + "/path_segments.csv");
+                    psegs << "#segmentId,str" << std::endl;
+                    for (size_t i = 0, e = pathSegments_.size(); i < e; ++i)
+                        psegs << i << "," << helpers::escapeQuotes(pathSegments_[i]) << std::endl;
+                }
                 pathSegmentsHelper_.clear();
                 std::cerr << "Loading file changes ... " << std::endl;
                 FileChangeLoader{[this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
@@ -403,6 +410,8 @@ namespace dejavu {
                     i.join();
                 std::cerr << "Clone candidates: " << clones_.size() << std::endl;
 
+                std::cerr << "Writing results..." << std::endl;
+
                 std::ofstream clones(DataDir.value() + "/clone_originals_candidates.csv");
                 clones << "#cloneId,count,hash,projectId,commitId,path" << std::endl;
                 for (auto i : clones_)
@@ -413,8 +422,6 @@ namespace dejavu {
             friend class Project;
             friend class Dir;
             friend class ProjectState;
-
-
 
             unsigned getPathSegmentIndex(std::string name) {
                 auto i = pathSegmentsHelper_.find(name);
@@ -491,7 +498,7 @@ namespace dejavu {
                     std::lock_guard<std::mutex> g(mClonesOut_);
                     clonesOut_ << x;
                 }
-                return cloneString;
+                return STR("#" << cloneId);
             }
 
             std::string calculateCloneStringFragment(Dir * d, ProjectState & state) {
