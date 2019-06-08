@@ -60,3 +60,39 @@ Uses the output dir to create new version of projects, commits and file changes 
 Detects folder clones in the dataset. 
 
 ### Reporting
+
+
+
+## CSV Files
+
+CSV files are used almost exclusively for data storage between different steps. This section lists the generated files in alphabetical order and describes their schema and purpose. Each file starts with a header line with names of the columns. Most often these are self explanatory and are therefore discussed here only when needed.
+
+`commits.csv`
+
+For each commit (identified by an id, which can be translated to SHA1 hash using `hashes.csv`) contains its author and committer times. 
+
+`commitParents.csv`
+
+Contains pairs of commity id, parent commit id for all commit - parent pairs. Note that single commit can have multiple parents, if it is a merge commit. 
+
+`fileChanges.csv`
+
+Global table of chabnges in all projects. Contains tuples of project id, commit id, path id and contents id with the meaining: in project A, there is commit B which changes path C to state D. If the contents id is `0`, then the file is not changed, but deleted.
+
+> TODO The project id is pretty much useless, we only use it to determine that a commit belongs to a project. Perhaps we should split this info. 
+
+`hashes.csv`
+
+Mapping from ids to SHA1 hashes used by github to identify both commits *and* file contents.
+
+`paths.csv`
+
+Mapping from ids to paths (strings relative to project roots). Ids are used elsewhere to save space. 
+
+`projects.csv`
+
+Lists the projects available, indexed by `id`. For each project, we remember the user and repository where it was created and time at which the project was created.
+
+> FIXME I believe we are now storing not date the project was created, but date of its oldest commit, which is useless (forks will have the same createdAt value).
+
+
