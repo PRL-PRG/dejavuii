@@ -249,6 +249,7 @@ namespace dejavu {
              */
             void deleteFile(unsigned pathId) {
                 File * f = files_[pathId].file;
+                
                 assert(f != nullptr);
                 files_.erase(pathId);
                 Dir * d = f->parent;

@@ -274,7 +274,7 @@ namespace dejavu {
 
 
     
-    void Verify(int argc, char * argv[]) {
+    void VerifyGhGrabber(int argc, char * argv[]) {
         Settings.addOption(DownloaderDir);
         Settings.addOption(TempDir);
         Settings.parse(argc, argv);

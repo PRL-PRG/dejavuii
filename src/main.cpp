@@ -34,8 +34,9 @@ using namespace dejavu;
 void InitializeCommands() {
     new helpers::Command("help", helpers::Command::PrintHelp, "Displays help information");
     // TODO add command to run the downloader Konrad has implemented as a shell script
-    new helpers::Command("verify", Verify, "Verifies the integrity of the data obtained by the ghgrabber");
+    new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes.");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");

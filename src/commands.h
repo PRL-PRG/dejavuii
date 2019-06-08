@@ -7,11 +7,17 @@ namespace dejavu {
 
     /** Verifies the data obtained from the ghgrabber that commit numbers match each other.
      */
-    void Verify(int argc, char * argv[]);
+    void VerifyGhGrabber(int argc, char * argv[]);
 
     /** Takes the data from the downloader, which includes non-js files and per-project redundancy uncompacted hashes being produced by the downloader and conpacts the hashes and cherrypicks the information we need removing the redundancies.
      */
     void Join(int argc, char * argv[]);
+
+    /** Verifies that the information in the dataset makes sense and creates a valid subset. Namely checks that the data in commit changes is coherent (i.e. no deletions of previously unknown files) and discrads projects for which it is not true that for each commit its parents are older.
+        
+        TODO does not deal with information we are not using for now (such as commit authors, etc.).
+     */
+    void Verify(int argc, char * argv[]);
 
     /** Creates subset of the dataset based on the time of events.
 
