@@ -31,6 +31,10 @@ namespace dejavu {
      */
     void DetectFolderClones(int argc, char * argv[]);
 
+    /** Finds originals for previously detected folder clone candidates.
+     */
+    void FindFolderOriginals(int argc, char * argv[]);
+
     /** Filters the folder clones so that clones of different subsets still use the same original.  
      */
     void FolderClonesFilter(int ragc, char * argv[]);

@@ -259,7 +259,7 @@ namespace dejavu {
                 std::cerr << "Writing commit timings errors..." << std::endl;
                 {
                     std::ofstream f(DataDir.value() + "/projects_timingsErrors.csv");
-                    f << "#projecdId" << std::endl;
+                http://147.32.232.58/wcd/print.xml                    f << "#projecdId" << std::endl;
                     for (Project * p : failedTimings_)
                         f << p->id << std::endl;
                 }
@@ -272,6 +272,15 @@ namespace dejavu {
                         f << c->id << std::endl;
                     }
                 }
+            }
+
+            /** Creates symlinks for non-filtered files from the original dataset to the verified one to save disk space.
+             */
+            void createSymlinks() {
+                std::cerr << "Creating symlinks..." << std::endl;
+                helpers::System(STR("ln -s " << DataDir.value() + "/paths.csv " << OutputDir.value() << "/paths.csv"));
+                helpers::System(STR("ln -s " << DataDir.value() + "/hashes.csv " << OutputDir.value() << "/hashes.csv"));
+                // TODO do we want more symlinks?
             }
 
         private:
@@ -325,6 +334,7 @@ namespace dejavu {
         v.verifyCommitTimings();
         v.outputResults();
         v.outputErrors();
+        v.createSymlinks();
     }
     
 } // namespace dejavu

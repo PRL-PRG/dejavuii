@@ -429,7 +429,35 @@ namespace dejavu {
     private:
         RowHandler f_;
         
-    }; 
+    };
+
+
+
+
+    class PathSegmentsLoader : public BaseLoader {
+    public:
+        // segmentId, str
+        typedef std::function<void(unsigned, std::string const &)> RowHandler;
+
+        PathSegmentsLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        PathSegmentsLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/path_segments.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 2);
+            unsigned segmentId = std::stoul(row[0]);
+            f_(segmentId, row[1]);
+        }
+
+    private:
+        RowHandler f_;
+    };
 
 
        

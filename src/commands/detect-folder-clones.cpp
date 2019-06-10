@@ -19,18 +19,6 @@
 
 /** Folder Clone Detection
 
-    This is the batch mode folder clone detector. It loads all projects, commits and paths and builds one very large project tree structure which is an unification of all paths ever seen in the corpus.
-
-    The folder detection algorithm itself then for each project (easy to parallelize) walks the commits in their topological order and for each commit reconstructs the actual project tree. If there is a folder found that contains at least given threshold of files which were all added by the commit analyzed, we call this folder to be a clone candidate.
-
-    For each candidate the set of its file indices (filename id excluding the path and the contents id of the file) is created and all projects are checked against it so that we end up with a much smaller list of projects that we know contained, over their lifetime the files in the clone candidate.
-
-    For each such project we then reconstruct its project tree commit by commit in topological order and whenever a file is added whose indice (filename id + contents id) exists in the clone candidate is added by commit, we check whether the project contains the clone candidate as its subset subtree. If it is we have found the possible original.
-
-    Of course, only the oldest original candidate is the original so whenever the search for original goes to commit younger than current original, or an older original is found, search in current project terminates and another project from the original candidates will be tried. 
-
-    
-
 
  */
 
@@ -40,102 +28,6 @@ namespace dejavu {
 
         class Detector;
 
-        class Commit : public BaseCommit<Commit> {
-        public:
-            Commit(unsigned id, uint64_t time):
-                BaseCommit<Commit>(id, time) {
-            }
-        };
-
-        class Project : public BaseProject<Project, Commit> {
-        public:
-            Project(unsigned id, uint64_t createdAt):
-                BaseProject<Project, Commit>(id, createdAt) {
-            }
-
-        };
-
-
-        class Dir;
-        
-        class File {
-        public:
-            unsigned pathId;
-            unsigned name;
-            Dir * parent;
-            
-            File(unsigned pathId, unsigned name, Dir * parent);
-
-            ~File();
-        };
-
-        
-        class Dir {
-        public:
-            unsigned name;
-            Dir * parent;
-            std::unordered_map<unsigned, Dir *> dirs;
-            std::unordered_map<unsigned, File *> files;
-
-
-            size_t numFiles() const {
-                size_t result = files.size();
-                for (auto i : dirs) 
-                    result += i.second->numFiles();
-                return result;
-            }
-
-            std::string path(std::vector<std::string> const & idsToNames) const {
-                if (parent == nullptr)
-                    return "";
-                std::string ppath = parent->path(idsToNames);
-                if (ppath.empty())
-                    return idsToNames[name];
-                else
-                    return ppath + "/" + idsToNames[name];
-            }
-
-            bool empty() const {
-                return dirs.empty() && files.empty();
-            }
-
-
-            File * addPath(unsigned id, std::string const & path, Detector * detector);
-
-            Dir(unsigned name, Dir * parent):
-                name(name),
-                parent(parent) {
-                if (parent != nullptr) {
-                    assert(parent->dirs.find(name) == parent->dirs.end());
-                    parent->dirs.insert(std::make_pair(name, this));
-                }
-            }
-            
-            ~Dir() {
-                if (parent != nullptr)
-                    parent->dirs.erase(name);
-                while (!dirs.empty())
-                    delete dirs.begin()->second;
-                while (!files.empty())
-                    delete files.begin()->second;
-            }
-
-        private:
-
-            File * createFile(unsigned pathId, unsigned name) {
-                assert(files.find(name) == files.end());
-                File * f = new File(pathId, name, this);
-                files.insert(std::make_pair(name, f));
-                return f;
-            }
-            
-            Dir * getOrCreateDirectory(unsigned name) {
-                auto i = dirs.find(name);
-                if (i != dirs.end())
-                    return i->second;
-                return new Dir(name, this);
-            }
-        };
 
 
 
@@ -322,8 +214,6 @@ namespace dejavu {
         public:
 
             Detector() {
-                pathSegments_.push_back("");
-                pathSegmentsHelper_.insert(std::make_pair("",EMPTY_PATH));
             }
                 
 
@@ -355,17 +245,12 @@ namespace dejavu {
                 PathToIdLoader{[&,this](unsigned id, std::string const & path){
                         if (id >= paths_.size())
                             paths_.resize(id + 1);
-                        paths_[id] = globalRoot_->addPath(id, path, this);
+                        paths_[id] = globalRoot_->addPath(id, path, pathSegments_);
                     }};
                 std::cerr << "    " << pathSegments_.size() << " unique path segments" << std::endl;
                 std::cerr << "Storing path segments ..." << std::endl;
-                {
-                    std::ofstream psegs(DataDir.value() + "/path_segments.csv");
-                    psegs << "#segmentId,str" << std::endl;
-                    for (size_t i = 0, e = pathSegments_.size(); i < e; ++i)
-                        psegs << i << "," << helpers::escapeQuotes(pathSegments_[i]) << std::endl;
-                }
-                pathSegmentsHelper_.clear();
+                pathSegments_.save(DataDir.value() + "/path_segments.csv");
+                pathSegments_.clearHelpers();
                 std::cerr << "Loading file changes ... " << std::endl;
                 FileChangeLoader{[this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
                         Project * p = projects_[projectId];
@@ -424,15 +309,6 @@ namespace dejavu {
             friend class Dir;
             friend class ProjectState;
 
-            unsigned getPathSegmentIndex(std::string name) {
-                auto i = pathSegmentsHelper_.find(name);
-                if (i == pathSegmentsHelper_.end()) {
-                    unsigned id = pathSegments_.size();
-                    pathSegments_.push_back(name);
-                    i = pathSegmentsHelper_.insert(std::make_pair(name, id)).first;
-                }
-                return i->second;
-            }
             
 
             /** Looks for all clone candidates in the given project.
@@ -527,8 +403,7 @@ namespace dejavu {
             std::vector<Project*> projects_;
             std::vector<Commit*> commits_;
             std::vector<File*> paths_;
-            std::vector<std::string> pathSegments_;
-            std::unordered_map<std::string, unsigned> pathSegmentsHelper_;
+            PathSegments pathSegments_;
             
             Dir * globalRoot_;
 
@@ -547,31 +422,6 @@ namespace dejavu {
             std::mutex mCerr_;
             
         }; 
-
-        File::File(unsigned pathId, unsigned name, Dir * parent):
-            pathId(pathId),
-            name(name),
-            parent(parent) {
-            assert(parent != nullptr);
-            assert(parent->files.find(name) == parent->files.end());
-            parent->files.insert(std::make_pair(name, this));
-        }
-
-        
-        File::~File() {
-            if (parent != nullptr)
-                parent->files.erase(name);
-        }
-        
-        File * Dir::addPath(unsigned id, std::string const & path, Detector * detector) {
-            assert(parent == nullptr && "files can only be added to root dirs");
-            // split the path into the folders
-            std::vector<std::string> p = helpers::Split(path, '/');
-            Dir * d = this;
-            for (size_t i = 0; i + 1 < p.size(); ++i) // for all directories
-                d = d->getOrCreateDirectory(detector->getPathSegmentIndex(p[i]));
-            return new File(id, detector->getPathSegmentIndex(p.back()), d);
-        }
 
         void ProjectState::updateWith(Commit * c, Detector * d, std::unordered_set<Dir*> & cloneCandidates) {
             // first delete all files the commit deletes
