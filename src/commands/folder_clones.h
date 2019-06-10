@@ -41,6 +41,15 @@ namespace dejavu {
                 psegs << i << "," << helpers::escapeQuotes(pathSegments_[i]) << std::endl;
         }
 
+        void load() {
+            PathSegmentsLoader{[this](unsigned id, std::string const & str) {
+                    if (id >= pathSegments_.size())
+                        pathSegments_.resize(id + 1);
+                    pathSegments_[id] = str;
+                    helper_.insert(std::make_pair(str, id));
+                }};
+        }
+
         void clearHelpers() {
             helper_.clear();
         }
