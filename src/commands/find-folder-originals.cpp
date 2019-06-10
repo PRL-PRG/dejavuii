@@ -24,6 +24,41 @@ namespace dejavu {
 
         class LocationHint {
         public:
+
+            LocationHint() {
+                
+            }
+
+            LocationHint(LocationHint const & other):
+                hints_(other.hints_) {
+            }
+
+            void cull(uint64_t minTime) {
+                for (auto i = hints_.begin(), e = hints_.end(); i != e; ) {
+                    if (i->second > minTime)
+                        i = hints_.erase(i);
+                    else
+                        ++i;
+                }
+            }
+
+            void join(LocationHint const & other, uint64_t minTime) {
+                for (auto i = hints_.begin(), e = hints_.end(); i != e; ) {
+                    auto j = other.hints_.find(i->first);
+                    if (j == other.hints_.end()) {
+                        i = hints_.erase(i);
+                        continue;
+                    } else {
+                        if (j->second > minTime) {
+                            i = hints_.erase(i);
+                            continue;
+                        }
+                        if (j->second > i->second)
+                            i->second = j->second;
+                    }
+                    ++i;
+                }
+            }
             /** Adds given commit and project to the location hints.
 
                 If there is already a location hint for the given project, it is updated if the commit's time is older than the currently stored time.
@@ -35,6 +70,10 @@ namespace dejavu {
                  else 
                     if (i->second > c->time)
                         i->second = c->time;
+            }
+
+            size_t size() const {
+                return hints_.size();
             }
         private:
             std::unordered_map<Project *, uint64_t> hints_;
@@ -176,7 +215,36 @@ namespace dejavu {
                         assert(c != nullptr);
                         c->buildStructure(str, clones_);
                     }};
-                
+            }
+
+            void findOriginals() {
+                std::cerr << "Updating clone originals..." << std::endl;
+                totalCandidates = 0;
+
+
+                std::vector<std::thread> threads;
+                size_t completed = 0;
+                for (unsigned stride = 0; stride < NumThreads.value(); ++stride)
+                    threads.push_back(std::thread([stride, & completed, this]() {
+                        while (true) {
+                            Clone * c;
+                            {
+                                std::lock_guard<std::mutex> g(mCerr_);
+                                if (completed == clones_.size())
+                                    return;
+                                c = clones_[completed];
+                                ++completed;
+                                if (completed % 1000 == 0)
+                                    std::cerr << " : " << completed << "    \r" << std::flush;
+                            }
+                            if (c == nullptr)
+                                continue;
+                            updateOriginal(c);
+                        }
+                    }));
+                for (auto & i : threads)
+                    i.join();
+                std::cerr << "    " << totalCandidates << " total candidates" << std::endl;
             }
         private:
 
@@ -187,8 +255,44 @@ namespace dejavu {
                 uint64_t id = (static_cast<uint64_t>(filename) << (sizeof(unsigned) * 8)) + contents;
                 return locationHints_[id];
             }
-                
 
+            LocationHint const & getLocationHint(File * f) {
+                // NOTE that we repurpose f->pathId as contents id for the clone detector. 
+                uint64_t id = (static_cast<uint64_t>(f->name) << (sizeof(unsigned) * 8)) + f->pathId;
+                return locationHints_[id];
+            }
+
+            LocationHint getCloneLocationHints(Clone * c) {
+                LocationHint candidates;
+                bool join = false;
+                getLocationHints(c->root, candidates, join, c->commit->time);
+                assert(join == true);
+                assert(candidates.size() >= 1);
+                return candidates;
+            }
+
+            void getLocationHints(Dir * d, LocationHint & locations, bool & join, uint64_t minTime) {
+                for (auto i : d->files) {
+                    if (join) {
+                        locations.join(getLocationHint(i.second), minTime);
+                    } else {
+                        locations = getLocationHint(i.second);
+                        locations.cull(minTime);
+                        join = true;
+                    }
+                }
+                for (auto i : d->dirs)
+                    getLocationHints(i.second, locations, join, minTime);
+            }
+
+
+
+            void updateOriginal(Clone * c) {
+                LocationHint candidates = getCloneLocationHints(c);
+                totalCandidates += candidates.size();
+            }
+
+            std::atomic<unsigned long> totalCandidates;
                 
             std::vector<Project *> projects_;
             std::vector<Commit *> commits_;
@@ -197,6 +301,8 @@ namespace dejavu {
             Dir * globalRoot_;
             std::unordered_map<uint64_t, LocationHint> locationHints_;
             std::vector<Clone *> clones_;
+
+            std::mutex mCerr_;
             
 
             
@@ -214,6 +320,7 @@ namespace dejavu {
 
         OriginalFinder f;
         f.loadData();
+        f.findOriginals();
         
     }
     
