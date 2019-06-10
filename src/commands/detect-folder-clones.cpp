@@ -186,25 +186,28 @@ namespace dejavu {
             Commit * commit;
             std::string dir;
             
-            unsigned count;
+            unsigned occurences;
+            unsigned files;
 
-            Clone(unsigned id, Project * p, Commit * c, std::string const & d):
+            Clone(unsigned id, Project * p, Commit * c, std::string const & d, unsigned files):
                 id(id),
                 project(p),
                 commit(c),
                 dir(d),
-                count(1) {
+                occurences(1),
+                files(files) {
             }
 
-            void updateWithOccurence(Project * p, Commit * c, std::string const & d) {
+            void updateWithOccurence(Project * p, Commit * c, std::string const & d, unsigned files) {
                 // increase the count
-                ++count;
+                ++occurences;
                 // now determine if this occurence is older and therefore should replace the original
                 if ((c->time < commit->time) ||
                     (c->time == commit->time && p->createdAt < project->createdAt)) {
                     project = p;
                     commit = c;
                     dir = d;
+                    files = files;
                 }
             }
         };
@@ -267,7 +270,7 @@ namespace dejavu {
             void detectCloneCandidates() {
                 std::cerr << "Analyzing projects for clone candidates..." << std::endl;
                 clonesOut_ = std::ofstream(DataDir.value() + "/clone_candidates.csv");
-                clonesOut_ << "#projectId,commitId,cloneId,folder" << std::endl;
+                clonesOut_ << "#projectId,commitId,cloneId,folder,files" << std::endl;
 
                 cloneStrings_ = std::ofstream(DataDir.value() + "/clone_strings.csv");
                 cloneStrings_ << "#cloneId,string" << std::endl;
@@ -299,9 +302,9 @@ namespace dejavu {
                 std::cerr << "Writing results..." << std::endl;
 
                 std::ofstream clones(DataDir.value() + "/clone_originals_candidates.csv");
-                clones << "#cloneId,count,hash,projectId,commitId,path" << std::endl;
+                clones << "#cloneId,hash,occurences,files,projectId,commitId,path" << std::endl;
                 for (auto i : clones_)
-                    clones << i.second->id << "," << i.second->count << "," << i.first << "," << i.second->project->id << "," << i.second->commit->id << "," << helpers::escapeQuotes(i.second->dir) << std::endl;
+                    clones << i.second->id << "," << i.first << "," << i.second->occurences << "," << i.second->files << "," << i.second->project->id << "," << i.second->commit->id << "," << helpers::escapeQuotes(i.second->dir) << std::endl;
             }
 
         private:
@@ -335,8 +338,9 @@ namespace dejavu {
                     if (! x.empty())
                         subdirClones.insert(std::make_pair(i.first, std::move(x)));
                 }
-                // now determine if the dir itself is a clone candidate - this is true if at least one of its subdirs is a clone candidate, or if the number of files in it is greater or equal to the threshold
-                if (subdirClones.empty() && cloneRoot->files.size() < Threshold.value() && cloneRoot->numFiles() < Threshold.value())
+                unsigned numFiles = cloneRoot->numFiles();
+                // now determine if the dir itself is a clone candidate
+                if (numFiles < Threshold.value())
                     return "";
                 // if the directory is a viable clone, create its string
                 for (auto i : cloneRoot->files) 
@@ -356,21 +360,21 @@ namespace dejavu {
                     std::lock_guard<std::mutex> g(mClones_);
                     auto i = clones_.find(hash);
                     if (i == clones_.end()) {
-                        i = clones_.insert(std::make_pair(hash, new Clone(clones_.size(), p, c, path))).first;
+                        i = clones_.insert(std::make_pair(hash, new Clone(clones_.size(), p, c, path, numFiles))).first;
                         outputString = true;
                     } else {
-                        i->second->updateWithOccurence(p, c, path);
+                        i->second->updateWithOccurence(p, c, path, numFiles);
                     }
                     cloneId = i->second->id;
                 }
                 if (outputString) {
-                    std::string x = STR(cloneId << "," << cloneString << "\n");
+                    std::string x = STR(cloneId << ",\"" << cloneString << "\"\n");
                     {
                         std::lock_guard<std::mutex> g(mCloneStrings_);
                         cloneStrings_ << x;
                     }
                 }
-                std::string x = STR(cloneId << "," << p->id << "," << c->id << "," << helpers::escapeQuotes(path) << "\n");
+                std::string x = STR(cloneId << "," << p->id << "," << c->id << "," << helpers::escapeQuotes(path) << "," << numFiles << "\n");
                 {
                     std::lock_guard<std::mutex> g(mClonesOut_);
                     clonesOut_ << x;

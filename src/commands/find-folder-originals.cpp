@@ -39,7 +39,81 @@ namespace dejavu {
         private:
             std::unordered_map<Project *, uint64_t> hints_;
             
-        }; // FileLocationHint 
+        }; // FileLocationHint
+
+        /** Clone information.
+         */
+        class Clone {
+        public:
+            unsigned id;
+            SHA1Hash hash;
+            unsigned occurences;
+            unsigned files;
+            Project * project;
+            Commit * commit;
+            std::string path;
+
+            Dir * root;
+
+            Clone(unsigned id,  SHA1Hash const & hash,unsigned occurences, unsigned files, Project * project, Commit * commit, std::string const & path):
+                id(id),
+                hash(hash),
+                occurences(occurences),
+                files(files),
+                project(project),
+                commit(commit),
+                path(path),
+                root(nullptr) {
+            }
+
+            void buildStructure(std::string const & str, std::vector<Clone *> const & clones) {
+                root = new Dir(EMPTY_PATH, nullptr);
+                char const * x = str.c_str();
+                fillDir(root, x, clones);
+                assert(*x == 0);
+            }
+
+        private:
+
+            void pop(char const * & x, char what) {
+                assert(*x == what);
+                ++x;
+            }
+
+            unsigned getNumber(char const * & x) {
+                unsigned result = 0;
+                assert(*x >= '0' && *x <= '9');
+                do {
+                    result = result * 10 + (*x++ - '0');
+                } while (*x >= '0' && *x <='9');
+                return result;
+            }
+
+            void fillDir(Dir * d, char const * & x, std::vector<Clone *> const & clones) {
+                pop(x, '(');
+                while (true) {
+                    unsigned nameId = getNumber(x);
+                    pop(x, ':');
+                    if (*x == '(') {
+                        Dir * dd = new Dir(nameId, d);
+                        fillDir(dd, x, clones);
+                    } else if (*x == '#') {
+                        ++x;
+                        unsigned cloneId = getNumber(x);
+                        Dir * dd = new Dir(nameId, d);
+                        dd->fillFrom(clones[cloneId]->root);
+                    } else {
+                        unsigned contentsId = getNumber(x);
+                        new File(contentsId, nameId, d);
+                    }
+                    if (*x == ',')
+                        ++x;
+                    else break;
+                }
+                pop(x, ')');
+            }
+           
+        };
         
         class OriginalFinder {
         public:
@@ -86,7 +160,22 @@ namespace dejavu {
                     }};
                 std::cerr << "    " << locationHints_.size() << " location hints" << std::endl;
                 std::cerr << "    " << paths_.size() << " paths " << std::endl;
-                
+                std::cerr << "Loading clone candidates ..." << std::endl;
+                FolderCloneLoader{DataDir.value() + "/clone_originals_candidates.csv", [this](unsigned id, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path){
+                        if (id >= clones_.size())
+                            clones_.resize(id + 1);
+                        Project * p = projects_[projectId];
+                        Commit * c = commits_[commitId];
+                        assert(p != nullptr);
+                        assert(c != nullptr);
+                        clones_[id] = new Clone(id, hash, occurences, files, p, c, path);
+                    }};
+                std::cerr << "Loading clone structures ... " << std::endl;
+                FolderCloneStructureLoader{[this](unsigned id, std::string const & str) {
+                        Clone * c = clones_[id];
+                        assert(c != nullptr);
+                        c->buildStructure(str, clones_);
+                    }};
                 
             }
         private:
@@ -107,6 +196,7 @@ namespace dejavu {
             PathSegments pathSegments_;
             Dir * globalRoot_;
             std::unordered_map<uint64_t, LocationHint> locationHints_;
+            std::vector<Clone *> clones_;
             
 
             

@@ -72,6 +72,14 @@ namespace dejavu {
         std::unordered_map<std::string, unsigned> helper_;
     };
 
+    /** Describes a file in either the global tree, or project level tree.
+
+        Contains pathId of the path the file represents and its name.
+
+        Note that folder clone original finder repurposes the pathId as contents id.
+
+        TODO or not ??
+     */
     class File {
     public:
         unsigned pathId;
@@ -121,6 +129,18 @@ namespace dejavu {
             for (size_t i = 0; i + 1 < p.size(); ++i) // for all directories
                 d = d->getOrCreateDirectory(pathSegments.getIndex(p[i]));
             return new File(id, pathSegments.getIndex(p.back()), d);
+        }
+
+        void fillFrom(Dir * other) {
+            for (auto i : other->dirs) {
+                assert(i.first == i.second->name);
+                Dir * d = new Dir(i.first, this);
+                d->fillFrom(i.second);
+            }
+            for (auto i : other->files) {
+                assert(i.first == i.second->name);
+                new File(i.second->pathId, i.first, this);
+            }
         }
 
         Dir(unsigned name, Dir * parent):

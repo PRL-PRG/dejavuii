@@ -368,7 +368,110 @@ namespace dejavu {
 
         RowHandler f_;
     };
-    
+
+
+
+    class PathSegmentsLoader : public BaseLoader {
+    public:
+        // segmentId, str
+        typedef std::function<void(unsigned, std::string const &)> RowHandler;
+
+        PathSegmentsLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        PathSegmentsLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/path_segments.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 2);
+            unsigned segmentId = std::stoul(row[0]);
+            f_(segmentId, row[1]);
+        }
+
+    private:
+        RowHandler f_;
+    };
+
+
+    class FolderCloneLoader : public BaseLoader {
+    public:
+        // cloneId, hash, occurences, files, projectId, commitId, path
+        typedef std::function<void(unsigned, SHA1Hash const &, unsigned, unsigned, unsigned, unsigned, std::string const &)> RowHandler;
+
+        FolderCloneLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        FolderCloneLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/clone_originals.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 7);
+            unsigned id = std::stoul(row[0]);
+            SHA1Hash hash = SHA1Hash::FromHexString(row[1]);
+            unsigned occurences = std::stoul(row[2]);
+            unsigned files = std::stoul(row[3]);
+            unsigned projectId = std::stoul(row[4]);
+            unsigned cloneId = std::stoul(row[5]);
+            f_(id, hash, occurences, files, projectId, cloneId, row[6]);
+        }
+
+    private:
+        RowHandler f_;
+    };
+
+    class FolderCloneStructureLoader : public BaseLoader {
+    public:
+        // cloneId, str
+        typedef std::function<void(unsigned, std::string const &)> RowHandler;
+
+        FolderCloneStructureLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        FolderCloneStructureLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/clone_strings.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 2);
+            unsigned segmentId = std::stoul(row[0]);
+            f_(segmentId, row[1]);
+        }
+
+    private:
+        RowHandler f_;
+    };
+
+
+       
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
+    // DEPRECATED
 
     /** Loads the folder clone originals information.
      */
@@ -399,7 +502,9 @@ namespace dejavu {
     private:
         RowHandler f_;
         
-    }; 
+        }; 
+
+    // DEPRECATED
     /** Loads the folder clone originals information.
      */
     class FolderClonesLoader : public BaseLoader {
@@ -429,38 +534,9 @@ namespace dejavu {
     private:
         RowHandler f_;
         
-    };
+        }; 
 
 
-
-
-    class PathSegmentsLoader : public BaseLoader {
-    public:
-        // segmentId, str
-        typedef std::function<void(unsigned, std::string const &)> RowHandler;
-
-        PathSegmentsLoader(std::string const & filename, RowHandler f):
-            f_(f) {
-            readFile(filename);
-        }
-
-        PathSegmentsLoader(RowHandler f):
-            f_(f) {
-            readFile(DataDir.value() + "/path_segments.csv");
-        }
-    protected:
-        void row(std::vector<std::string> & row) override {
-            assert(row.size() == 2);
-            unsigned segmentId = std::stoul(row[0]);
-            f_(segmentId, row[1]);
-        }
-
-    private:
-        RowHandler f_;
-    };
-
-
-       
 
 
 

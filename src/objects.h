@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 #include <sstream>
 
 #include <unordered_set>
@@ -23,8 +25,11 @@ namespace dejavu {
         std::string toString() const {
             std::stringstream s;
             s << std::hex;
-            for (size_t i = 0; i < 20; ++i)
+            for (size_t i = 0; i < 20; ++i) {
+                if (hash[i] < 16)
+                    s << '0';
                 s << (unsigned) hash[i];
+            }
             return s.str();
         }
 
@@ -39,6 +44,24 @@ namespace dejavu {
             o << hash.toString();
             return o;
         }
+
+        static SHA1Hash FromHexString(std::string const & str) {
+            SHA1Hash result;
+            assert(str.size() == 40);
+            for (auto i = 0; i < 20; ++i) 
+                result.hash[i] = HexDigitToValue(str[i * 2]) * 16 + HexDigitToValue(str[i * 2 + 1]);
+            return result;
+        }
+    private:
+
+        static unsigned char HexDigitToValue(char what) {
+            if (what >= '0' && what <= '9')
+                return what - '0';
+            if (what >= 'a' && what <= 'f')
+                return what - 'a' + 10;
+            assert(false);
+        }
+
     };
     
     template<typename PROJECT,typename COMMIT, typename COMMIT_SET = std::unordered_set<COMMIT *>>
