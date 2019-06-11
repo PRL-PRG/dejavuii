@@ -179,40 +179,6 @@ namespace dejavu {
             std::unordered_map<unsigned, FileInfo> files_;
         };
 
-        class Clone {
-        public:
-            unsigned id;
-            Project * project;
-            Commit * commit;
-            std::string dir;
-            
-            unsigned occurences;
-            unsigned files;
-
-            Clone(unsigned id, Project * p, Commit * c, std::string const & d, unsigned files):
-                id(id),
-                project(p),
-                commit(c),
-                dir(d),
-                occurences(1),
-                files(files) {
-            }
-
-            void updateWithOccurence(Project * p, Commit * c, std::string const & d, unsigned files) {
-                // increase the count
-                ++occurences;
-                // now determine if this occurence is older and therefore should replace the original
-                if ((c->time < commit->time) ||
-                    (c->time == commit->time && p->createdAt < project->createdAt)) {
-                    project = p;
-                    commit = c;
-                    dir = d;
-                    files = files;
-                }
-            }
-        };
-
-
         class Detector {
         public:
 
@@ -304,7 +270,7 @@ namespace dejavu {
                 std::ofstream clones(DataDir.value() + "/clone_originals_candidates.csv");
                 clones << "#cloneId,hash,occurences,files,projectId,commitId,path" << std::endl;
                 for (auto i : clones_)
-                    clones << i.second->id << "," << i.first << "," << i.second->occurences << "," << i.second->files << "," << i.second->project->id << "," << i.second->commit->id << "," << helpers::escapeQuotes(i.second->dir) << std::endl;
+                    clones << *(i.second) << std::endl;
             }
 
         private:
@@ -360,7 +326,7 @@ namespace dejavu {
                     std::lock_guard<std::mutex> g(mClones_);
                     auto i = clones_.find(hash);
                     if (i == clones_.end()) {
-                        i = clones_.insert(std::make_pair(hash, new Clone(clones_.size(), p, c, path, numFiles))).first;
+                        i = clones_.insert(std::make_pair(hash, new Clone(clones_.size(), hash, p, c, path, numFiles))).first;
                         outputString = true;
                     } else {
                         i->second->updateWithOccurence(p, c, path, numFiles);

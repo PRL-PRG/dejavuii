@@ -75,95 +75,31 @@ namespace dejavu {
             size_t size() const {
                 return hints_.size();
             }
+
+            struct ByTime {
+                bool operator () (std::pair<Project *, uint64_t> const & first, std::pair<Project *, uint64_t> const & second) const {
+                    if (first.second < second.second)
+                        return true;
+                    if (first.second == second.second)
+                        return first.first->createdAt < second.first->createdAt;
+                    return false;
+                }
+            };
+
+            /** Returns the hints sorted by time (ascending).
+             */
+            std::set<std::pair<Project *, uint64_t>, ByTime> sort() {
+                std::set<std::pair<Project *, uint64_t>, ByTime> result;
+                for (auto i : hints_)
+                    result.insert(i);
+                return result;
+            }
+
         private:
             std::unordered_map<Project *, uint64_t> hints_;
             
         }; // FileLocationHint
 
-        /** Clone information.
-         */
-        class Clone {
-        public:
-            unsigned id;
-            SHA1Hash hash;
-            unsigned occurences;
-            unsigned files;
-            Project * project;
-            Commit * commit;
-            std::string path;
-            std::string str;
-
-            Dir * root;
-
-            Clone(unsigned id,  SHA1Hash const & hash,unsigned occurences, unsigned files, Project * project, Commit * commit, std::string const & path):
-                id(id),
-                hash(hash),
-                occurences(occurences),
-                files(files),
-                project(project),
-                commit(commit),
-                path(path),
-                root(nullptr) {
-            }
-
-            void buildStructure(std::vector<Clone *> const & clones) {
-                root = new Dir(EMPTY_PATH, nullptr);
-                char const * x = str.c_str();
-                fillDir(root, x, clones);
-                assert(*x == 0);
-            }
-
-            void clearStructure() {
-                delete root;
-                root = nullptr;
-            }
-
-            ~Clone() {
-                clearStructure();
-            }
-
-        private:
-
-            void pop(char const * & x, char what) {
-                assert(*x == what);
-                ++x;
-            }
-
-            unsigned getNumber(char const * & x) {
-                unsigned result = 0;
-                assert(*x >= '0' && *x <= '9');
-                do {
-                    result = result * 10 + (*x++ - '0');
-                } while (*x >= '0' && *x <='9');
-                return result;
-            }
-
-            void fillDir(Dir * d, char const * & x, std::vector<Clone *> const & clones) {
-                pop(x, '(');
-                while (true) {
-                    unsigned nameId = getNumber(x);
-                    pop(x, ':');
-                    if (*x == '(') {
-                        Dir * dd = new Dir(nameId, d);
-                        fillDir(dd, x, clones);
-                    } else if (*x == '#') {
-                        ++x;
-                        unsigned cloneId = getNumber(x);
-                        Dir * dd = new Dir(nameId, d);
-                        char const * xx = clones[cloneId]->str.c_str();
-                        fillDir(dd, xx, clones);
-                    } else {
-                        unsigned contentsId = getNumber(x);
-                        new File(contentsId, nameId, d);
-                    }
-                    if (*x == ',')
-                        ++x;
-                    else break;
-                }
-                pop(x, ')');
-            }
-           
-        };
         
         class OriginalFinder {
         public:
@@ -299,14 +235,34 @@ namespace dejavu {
 
 
             void updateOriginal(Clone * c) {
+                // build the clone dirs & files structure
                 c->buildStructure(clones_);
+                // get hints for projects which may contain the original
                 LocationHint candidates = getCloneLocationHints(c);
-                totalCandidates += candidates.size();
-
-
+                // sort the candidates by time
+                unsigned vp = 0;
+                unsigned vc = 0;
+                for (auto i : candidates.sort()) {
+                    // if the time at which the clone may appear in the project is younger than currently available clone, we can stop the search
+                    if (i.second > c->commit->time)
+                        break;
+                    ++vp;
+                    vc += checkForOriginalIn(i.first, c);
+                }
                 c->clearStructure();
+                {
+                    std::lock_guard<std::mutex> g(mData_);
+                    candidateProjects_ += candidates.size();
+                    visitedProjects_ += vp;
+                }
             }
 
+            
+            unsigned checkForOriginalIn(Project * p, Clone * c) {
+
+                return 0;    
+            }
+            
             std::atomic<unsigned long> totalCandidates;
                 
             std::vector<Project *> projects_;
@@ -318,6 +274,11 @@ namespace dejavu {
             std::vector<Clone *> clones_;
 
             std::mutex mCerr_;
+            std::mutex mData_;
+
+            size_t candidateProjects_;
+            size_t visitedProjects_;
+            size_t visitedCommits_;
             
 
             

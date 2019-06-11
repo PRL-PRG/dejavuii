@@ -181,6 +181,137 @@ namespace dejavu {
             parent->files.erase(name);
     }
 
+    /** Clone information.
+     */
+    class Clone {
+    public:
+        unsigned id;
+        SHA1Hash hash;
+        unsigned occurences;
+        unsigned files;
+        Project * project;
+        Commit * commit;
+        std::string path;
+        std::string str;
+
+        Dir * root;
+
+
+        /** Creates the clone as part of the clone finder with incomplete data.
+
+         */
+        Clone(unsigned id, SHA1Hash const & hash, Project * p, Commit * c, std::string const & d, unsigned files):
+            id(id),
+            hash(hash),
+            occurences(1),
+            files(files),
+            project(p),
+            commit(c),
+            path(d),
+            root(nullptr) {
+        }
+
+        
+        /** Creates the clone from previously stored data (i.e. in the originals finder).
+         */
+        Clone(unsigned id, SHA1Hash const & hash,unsigned occurences, unsigned files, Project * project, Commit * commit, std::string const & path):
+            id(id),
+            hash(hash),
+            occurences(occurences),
+            files(files),
+            project(project),
+            commit(commit),
+            path(path),
+            root(nullptr) {
+        }
+
+        /** Increases the number of clone occurences and updates the original info (the oldest clone occurence is consider an original at this stage).
+         */
+        void updateWithOccurence(Project * p, Commit * c, std::string const & d, unsigned files) {
+            // increase the count
+            ++occurences;
+            // now determine if this occurence is older and therefore should replace the original
+            if ((c->time < commit->time) ||
+                (c->time == commit->time && p->createdAt < project->createdAt)) {
+                project = p;
+                commit = c;
+                path = d;
+                files = files;
+            }
+        }
+        
+        /** Builds the directory structure of the clone.
+
+            Takes a vector of all clones as argument, since the clone may contain other clones recursively, which is where we get their contents from. 
+         */
+        void buildStructure(std::vector<Clone *> const & clones) {
+            root = new Dir(EMPTY_PATH, nullptr);
+            char const * x = str.c_str();
+            fillDir(root, x, clones);
+            assert(*x == 0);
+        }
+
+        void clearStructure() {
+            delete root;
+            root = nullptr;
+        }
+
+        ~Clone() {
+            clearStructure();
+        }
+
+    private:
+
+        friend std::ostream & operator <<(std::ostream & s, Clone const & c) {
+            s << c.id << "," << c.hash << "," << c.occurences << "," << c.files << "," << c.project->id << "," << c.commit->id << "," << helpers::escapeQuotes(c.path);
+            return s;
+        }
+
+        void pop(char const * & x, char what) {
+            assert(*x == what);
+            ++x;
+        }
+
+        unsigned getNumber(char const * & x) {
+            unsigned result = 0;
+            assert(*x >= '0' && *x <= '9');
+            do {
+                result = result * 10 + (*x++ - '0');
+            } while (*x >= '0' && *x <='9');
+            return result;
+        }
+
+        void fillDir(Dir * d, char const * & x, std::vector<Clone *> const & clones) {
+            pop(x, '(');
+            while (true) {
+                unsigned nameId = getNumber(x);
+                pop(x, ':');
+                if (*x == '(') {
+                    Dir * dd = new Dir(nameId, d);
+                    fillDir(dd, x, clones);
+                } else if (*x == '#') {
+                    ++x;
+                    unsigned cloneId = getNumber(x);
+                    Dir * dd = new Dir(nameId, d);
+                    char const * xx = clones[cloneId]->str.c_str();
+                    fillDir(dd, xx, clones);
+                } else {
+                    unsigned contentsId = getNumber(x);
+                    new File(contentsId, nameId, d);
+                }
+                if (*x == ',')
+                    ++x;
+                else break;
+            }
+            pop(x, ')');
+        }
+           
+    }; // Clone
+
+
+
+    
+
     
     
 }
