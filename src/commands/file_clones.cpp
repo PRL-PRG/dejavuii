@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
+#include <thread>
+#include <mutex>
+#include <src/commit_iterator.h>
 
 #include "../loaders.h"
 #include "../commands.h"
@@ -8,23 +11,102 @@
 namespace dejavu {
 
     namespace {
-        class Commit {
+        class Commit : public BaseCommit<Commit>{
         public:
-            static void LoadTimestamps() {
-                CommitLoader([](unsigned id, uint64_t author_time, uint64_t commit_time) {
-                    assert(timestamps.find(id) == timestamps.end());
-                    timestamps[id] = author_time;
+//            unsigned id;
+//
+//            /** Ids of the parent commits. */
+//            std::unordered_set<Commit *> parents;
+//            std::unordered_set<Commit *> children;
+//
+//            /** Changes made to files by the commit (pathId -> contentsId)
+//             */
+//            std::unordered_map<unsigned, unsigned> changes;
+//            std::unordered_set<unsigned> deletions;
+//
+//            uint64_t authorTime;
+//
+//            Commit(unsigned id,  uint64_t authorTime) : id(id), authorTime(authorTime);
+
+
+            Commit(unsigned int id, uint64_t time) : BaseCommit(id, time) {}
+
+//            // Commit iterator interface
+//            unsigned numParentCommits() const {
+//                return parents.size();
+//            }
+//
+//            std::unordered_set<Commit *> const & childrenCommits() const {
+//                return children;
+//            }
+
+//            /** Adds the specified change to the commit.
+//
+//                It may happen that a change to the path specified has already been recorded in the following cases:
+//
+//                - the first change is a delete, the current change is update. This can happen if a commit renames two files A -> B and C -> A. We might first see the delete of A and create of B an then delete of C and create of A
+//                - the first change is valid, the second change is delete (the reverse of the above - there is no order for changes in single commit)
+//                - multiple updates to the same file as long as all updates change the path to the same contents id (merge commits report diffs to all their parents)
+//             */
+//            void addChangeOrDeletion(unsigned pathId, unsigned contentsId) {
+//                if (contentsId == 0 /*deletion*/) {
+//                    deletions.insert(pathId);
+//                    return;
+//                }
+//
+//                auto i = changes.find(pathId);
+//                if (i == changes.end()) {
+//                    changes.insert(std::make_pair(pathId, contentsId));
+//                } else {
+//                    if (i->second == FILE_DELETED) {
+//                        i->second = contentsId;
+//                    } else {
+//                        if (contentsId != FILE_DELETED)
+//                            assert(contentsId == i->second);
+//                    }
+//                }
+//            }
+
+            static Commit *Get(unsigned id) {
+                assert(Commit::commits_.find(id) != commits_.end());
+                return Commit::commits_[id];
+            }
+
+            static void LoadCommits() {
+                new CommitLoader([&](unsigned commitId, uint64_t authorTime, uint64_t committerTime){
+                    assert(Commit::commits_.find(commitId) == commits_.end());
+
+                    Commit *commit = new Commit(commitId, authorTime);
+                    Commit::commits_[commitId] = commit;
+                });
+
+                new CommitParentsLoader([&](unsigned childId, unsigned parentId){
+                    assert(Commit::commits_.find(childId) != commits_.end());
+                    assert(Commit::commits_.find(parentId) != commits_.end());
+                    Commit *child = Commit::Get(childId);
+                    Commit *parent = Commit::Get(parentId);
+                    child->addParent(parent);
+                    //parent->addChild(child); already done in addParent
+                });
+
+                new FileChangeLoader([&](unsigned projectId, unsigned commitId,
+                                         unsigned pathId, unsigned contentsId){
+                    assert(Commit::commits_.find(commitId) != commits_.end());
+                    Commit *commit = Commit::Get(commitId);
+                    commit->addChange(pathId,contentsId);
                 });
             }
-            static uint64_t GetTimestamp(unsigned commit_id) {
-                assert(timestamps.find(commit_id) != timestamps.end());
-                return timestamps[commit_id];
-            }
+
         private:
-            static std::unordered_map<unsigned, uint64_t> timestamps;
+            static std::unordered_map<unsigned, Commit *> commits_;
         };
 
-        std::unordered_map<unsigned, uint64_t> Commit::timestamps;
+        class Project : public BaseProject<Project, Commit> {
+        public:
+            Project(unsigned id, uint64_t createdAt):
+                    BaseProject<Project, Commit>(id, createdAt) {
+            }
+        };
 
         class Modification {
         public:
@@ -47,12 +129,12 @@ namespace dejavu {
             ModificationCluster(std::vector<Modification *> modifications) : modifications(modifications) {
                 // Elect first modification as provisionally oldest.
                 Modification *oldest = modifications[0];
-                oldest->timestamp = Commit::GetTimestamp(oldest->commit_id);
+                oldest->timestamp = Commit::Get(oldest->commit_id)->time;
 
                 // Select oldest modification.
                 for (int i = 1, size = modifications.size(); i < size; i++) {
                     if (modifications[i]->timestamp < oldest->timestamp) {
-                        modifications[i]->timestamp = Commit::GetTimestamp(modifications[i]->commit_id);
+                        modifications[i]->timestamp = Commit::Get(modifications[i]->commit_id)->time;
                         oldest = modifications[i];
                     }
                 }
@@ -189,18 +271,18 @@ namespace dejavu {
         }
 
         ProjectState(ProjectState const & other) {
-            mergeWith(other);
+            mergeWith(other); // FIXME
         }
 
-        void mergeWith(ProjectState const & other, Commit * c) {
-            for (auto tf : other.trackedFiles) {
+        void mergeWith(ProjectState const & other, Commit *c) {
+            for (auto tf : other.trackedFiles_) {
                 auto & myTracked = trackedFiles_[tf.first];
-                if (tf.second.contents == c.changes[tf.first]) {
-                    myTracked.second.clusterInfos = tf.second.clusterInfos;
-                    myTracked.second.selected = true;
-                } else if (!myTracked.second.selected) {
+                if (tf.second.contents == c->changes[tf.first]) {
+                    myTracked.clusterInfos = tf.second.clusterInfos;
+                    myTracked.selected = true;
+                } else if (!myTracked.selected) {
                     for (auto ci : tf.second.clusterInfos)
-                        myTracked.second.clusterInfos.insert(ci); 
+                        myTracked.clusterInfos.insert(ci);
                 }
             }
         }
@@ -298,9 +380,9 @@ namespace dejavu {
         }
         
     private:
-        void detectChangesInProject(Project * p) {
+        void detectChangesInProject(Project *p) {
             std::vector<ClusterInfo *> clusterInfos;
-            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this](Commit * c, ProjectState & state) {
+            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this](Commit *c, ProjectState & state) {
                     state.recordCommit(c, contentsToBeTracked_, clusterInfos);
                 });
             // clusterInfos contain information about all clusters found in the project
@@ -337,9 +419,7 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
-        std::cerr << "LOAD TIMESTAMPZ" << std::endl;
-        Commit::LoadTimestamps();
-        std::cerr << "DONE LOAD TIMESTAMPZ" << std::endl;
+        Commit::LoadCommits();
         ModificationCluster::LoadClusters();
         ModificationCluster::SaveClusters();
     }
