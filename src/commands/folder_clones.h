@@ -131,18 +131,6 @@ namespace dejavu {
             return new File(id, pathSegments.getIndex(p.back()), d);
         }
 
-        void fillFrom(Dir * other) {
-            for (auto i : other->dirs) {
-                assert(i.first == i.second->name);
-                Dir * d = new Dir(i.first, this);
-                d->fillFrom(i.second);
-            }
-            for (auto i : other->files) {
-                assert(i.first == i.second->name);
-                new File(i.second->pathId, i.first, this);
-            }
-        }
-
         Dir(unsigned name, Dir * parent):
             name(name),
             parent(parent) {

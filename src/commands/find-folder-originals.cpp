@@ -91,6 +91,7 @@ namespace dejavu {
             Project * project;
             Commit * commit;
             std::string path;
+            std::string str;
 
             Dir * root;
 
@@ -105,11 +106,20 @@ namespace dejavu {
                 root(nullptr) {
             }
 
-            void buildStructure(std::string const & str, std::vector<Clone *> const & clones) {
+            void buildStructure(std::vector<Clone *> const & clones) {
                 root = new Dir(EMPTY_PATH, nullptr);
                 char const * x = str.c_str();
                 fillDir(root, x, clones);
                 assert(*x == 0);
+            }
+
+            void clearStructure() {
+                delete root;
+                root = nullptr;
+            }
+
+            ~Clone() {
+                clearStructure();
             }
 
         private:
@@ -140,7 +150,8 @@ namespace dejavu {
                         ++x;
                         unsigned cloneId = getNumber(x);
                         Dir * dd = new Dir(nameId, d);
-                        dd->fillFrom(clones[cloneId]->root);
+                        char const * xx = clones[cloneId]->str.c_str();
+                        fillDir(dd, xx, clones);
                     } else {
                         unsigned contentsId = getNumber(x);
                         new File(contentsId, nameId, d);
@@ -213,7 +224,7 @@ namespace dejavu {
                 FolderCloneStructureLoader{[this](unsigned id, std::string const & str) {
                         Clone * c = clones_[id];
                         assert(c != nullptr);
-                        c->buildStructure(str, clones_);
+                        c->str = str;
                     }};
             }
 
@@ -288,8 +299,12 @@ namespace dejavu {
 
 
             void updateOriginal(Clone * c) {
+                c->buildStructure(clones_);
                 LocationHint candidates = getCloneLocationHints(c);
                 totalCandidates += candidates.size();
+
+
+                c->clearStructure();
             }
 
             std::atomic<unsigned long> totalCandidates;
