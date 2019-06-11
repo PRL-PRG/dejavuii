@@ -159,10 +159,181 @@ namespace dejavu {
     } //anonymoose namespace
 
 
+    // FROM HERE
+
+    class ClusterInfo {
+    public:
+        unsigned notFromEmpty;
+        unsigned contentsId;
+        unsigned changes;
+        unsigned deletions;
+
+        ClusterInfo(bool notFromEmpty, unsigned contentsId):
+            notFromEmpty(notFromEmpty),
+            contentsId(contentsId),
+            changes(0),
+            deletions(0) {
+        }
+        
+        friend std::ostream & operator << (std::ostream & s, ClusterInfo const & ci) {
+            s << ci.contentsId << "," << ci.notFromEmpty << "," << ci.changes << "," << ci.deletions;
+            return s;
+        }
+    };
+
+
+    class ProjectState {
+    public:
+
+        ProjectState() {
+        }
+
+        ProjectState(ProjectState const & other) {
+            mergeWith(other);
+        }
+
+        void mergeWith(ProjectState const & other, Commit * c) {
+            for (auto tf : other.trackedFiles) {
+                auto & myTracked = trackedFiles_[tf.first];
+                if (tf.second.contents == c.changes[tf.first]) {
+                    myTracked.second.clusterInfos = tf.second.clusterInfos;
+                    myTracked.second.selected = true;
+                } else if (!myTracked.second.selected) {
+                    for (auto ci : tf.second.clusterInfos)
+                        myTracked.second.clusterInfos.insert(ci); 
+                }
+            }
+        }
+
+        void recordCommit(Commit * c, std::unordered_set<unsigned> const & contentsToBeTracked, std::vector<ClusterInfo *> & clusterInfos) {
+            // 
+            for (unsigned path : c->deletions) {
+                for (ClusterInfo * ci : trackedFiles_[path].clusterInfos)
+                    ++ci->deletions;
+                trackedFiles_.erase(path);
+            }
+            //
+            for (auto change : c->changes) {
+                auto i = trackedFiles_.find(change.first);
+                bool notFromEmpty = true;
+                if (i == trackedFiles_.end()) {
+                    notFromEmpty = false;
+                    i = trackedFiles_.insert(std::make_pair(change.first, FileInfo())).first;
+                }
+                FileInfo & fi = i->second;
+                fi.contents = change.second;
+                fi.selected = false;
+                if (fi.clusterInfos.empty()) {
+                    auto x = contentsToBeTracked.find(change.second);
+                    if (x != contentsToBeTracked.end()) {
+                        ClusterInfo * ci = new ClusterInfo(notFromEmpty, change.second);
+                        fi.clusterInfos.insert(ci);
+                        clusterInfos.push_back(ci);
+                    }
+                } else {
+                    for (auto ch : fi.clusterInfos)
+                        ++ch->changes;
+                }
+            }
+        }
+
+
+        struct FileInfo {
+            
+            unsigned contents;
+            bool selected;
+            std::unordered_set<ClusterInfo *> clusterInfos;
+
+            FileInfo():
+                contents(FILE_DELETED),
+                selected(false) {
+            }
+        };
+
+        std::unordered_map<unsigned, FileInfo> trackedFiles_;
+
+        
+    };
+
+    class ChangesDetector {
+    public:
+        void loadData() {
+            // load all projects
+
+            // load all commits
+
+            // load all changes, populate the commit changes and project commits
+
+            // load all clusters, keep their contents id
+
+            
+        }
+
+        void analyze() {
+            fOut_.open(DataDir.value() + "/fileCloneChanges.csv");
+            fOut_ << "#projectId,clusterId,notFromEmpty,changes,deletions" << std::endl;
+            
+            std::vector<std::thread> threads;
+            size_t completed = 0;
+            for (unsigned stride = 0; stride < NumThreads.value(); ++stride)
+                threads.push_back(std::thread([stride, & completed, this]() {
+                            while (true) {
+                                Project * p ;
+                                {
+                                    std::lock_guard<std::mutex> g(mCerr_);
+                                    if (completed == projects_.size())
+                                        return;
+                                    p = projects_[completed];
+                                    ++completed;
+                                    if (completed % 1000 == 0)
+                                        std::cerr << " : " << completed << "    \r" << std::flush;
+                                }
+                                if (p == nullptr)
+                                    continue;
+                                detectChangesInProject(p);
+                            }
+                        }));
+            for (auto & i : threads)
+                i.join();
+        }
+        
+    private:
+        void detectChangesInProject(Project * p) {
+            std::vector<ClusterInfo *> clusterInfos;
+            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this](Commit * c, ProjectState & state) {
+                    state.recordCommit(c, contentsToBeTracked_, clusterInfos);
+                });
+            // clusterInfos contain information about all clusters found in the project
+            {
+                std::lock_guard<std::mutex> g(mOut_);
+                for (ClusterInfo * ci : clusterInfos)
+                    fOut_ << p->id << "," << *ci << std::endl;
+            }
+            for (ClusterInfo * ci : clusterInfos)
+                delete ci;
+        }
+
+
+        std::vector<Project *> projects_;
+        std::vector<Commit *> commits_;
+        
+        std::unordered_set<unsigned> contentsToBeTracked_;
+
+
+        std::ofstream fOut_;
+        std::mutex mOut_;
+        std::mutex mCerr_;
+
+
+    };
+    
+
+    
+
 
     void DetectFileClones(int argc, char * argv[]) {
         Settings.addOption(DataDir);
-        //Settings.addOption(NumThreads);
+        Settings.addOption(NumThreads);
         Settings.parse(argc, argv);
         Settings.check();
 

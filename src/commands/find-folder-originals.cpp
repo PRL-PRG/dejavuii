@@ -100,7 +100,7 @@ namespace dejavu {
             
         }; // FileLocationHint
 
-        
+
         class OriginalFinder {
         public:
             void loadData() {

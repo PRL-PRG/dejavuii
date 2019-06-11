@@ -137,7 +137,9 @@ namespace dejavu {
     public:
         unsigned id;
         uint64_t time;
+        // pathId -> contentsId
         std::unordered_map<unsigned, unsigned> changes;
+        // pathId
         std::unordered_set<unsigned> deletions;
 
         std::vector<COMMIT *> children;
