@@ -412,6 +412,8 @@ namespace dejavu {
             /** Returns directory corresponding to the given path.
              */
             Dir * getDir(std::string const & path, PathSegments & segments) {
+                if (path.empty())
+                    return root_;
                 std::vector<std::string> psegs = helpers::Split(path, '/');
                 Dir * d = root_;
                 for (std::string const & name : psegs) {

@@ -139,7 +139,7 @@ namespace dejavu {
                             paths_.resize(id + 1);
                         paths_[id] = globalRoot_->addPath(id, path, pathSegments_);
                     }};
-                pathSegments_.clearHelpers();
+                //pathSegments_.clearHelpers();
                 std::cerr << "Loading changes ... " << std::endl;
                 FileChangeLoader{[this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
                         Project * p = projects_[projectId];
