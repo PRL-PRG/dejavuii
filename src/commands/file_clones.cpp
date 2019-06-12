@@ -207,11 +207,6 @@ namespace dejavu {
             deletions(0) {
         }
 
-        ClusterInfo(ClusterInfo const * other) : ClusterInfo(notFromEmpty, contentsId) {
-            changes = other->changes;
-            deletions = other->deletions;
-        }
-        
         friend std::ostream & operator << (std::ostream & s, ClusterInfo const & ci) {
             s << ci.contentsId << "," << ci.notFromEmpty << "," << ci.changes << "," << ci.deletions;
             return s;
@@ -225,16 +220,8 @@ namespace dejavu {
         ProjectState() {
         }
 
-        ProjectState(ProjectState const & other) {
-            for (auto const & i : other.trackedFiles_) {
-                unsigned pathId = i.first;
-                FileInfo fileInfo = i.second;
-                trackedFiles_[pathId].contents = fileInfo.contents;
-                trackedFiles_[pathId].selected = fileInfo.selected;
-                for (auto const & ci : fileInfo.clusterInfos) {
-                    trackedFiles_[pathId].clusterInfos.insert(new ClusterInfo(ci));
-                }
-            }
+        ProjectState(ProjectState const & other):
+            trackedFiles_(other.trackedFiles_) {
         }
 
         void mergeWith(ProjectState const & other, Commit *c) {
