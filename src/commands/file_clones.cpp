@@ -475,8 +475,8 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        static void LoadProjects(std::unordered_set<unsigned int> interestingProjectIds,
-                                 std::vector<Project *> interestingProjects) {
+        static void LoadProjects(std::unordered_set<unsigned int> const &interestingProjectIds,
+                                 std::vector<Project *> &interestingProjects) {
 
             clock_t timer;
             std::string task = "extracting project information";
@@ -517,14 +517,14 @@ namespace dejavu {
             size_t completed = 0;
 
             for (unsigned stride = 0; stride < NumThreads.value(); ++stride) {
-                threads.push_back(std::thread([stride, &completed, this]() {
+                threads.push_back(std::thread([stride, &completed, &projects, this]() {
                     while (true) {
                         Project *p;
                         {
                             std::lock_guard<std::mutex> g(mCerr_);
                             if (completed == projects.size())
                                 return;
-                            p = projects[completed];
+                            p = projects.at(completed);
                             helpers::Count(completed);
                         }
                         if (p == nullptr)
