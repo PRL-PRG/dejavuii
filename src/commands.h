@@ -40,7 +40,7 @@ namespace dejavu {
 
     /** Filters the folder clones so that clones of different subsets still use the same original.  
      */
-    void FolderClonesFilter(int ragc, char * argv[]);
+    void FolderClonesFilter(int argc, char * argv[]);
 
     /** Calculates project level summary counts of paths, changes and deletions and node_modules paths, changes and deletions.
      */
