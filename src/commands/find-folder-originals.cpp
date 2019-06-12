@@ -219,14 +219,18 @@ namespace dejavu {
                 std::vector<std::thread> threads;
                 size_t completed = 0;
                 size_t skipped = 0;
+                size_t updates = 0;
                 for (unsigned stride = 0; stride < NumThreads.value(); ++stride)
-                    threads.push_back(std::thread([stride, & completed, & skipped, this]() {
+                    threads.push_back(std::thread([stride, & completed, & skipped, & updates, this]() {
+                        size_t changes = 0;
                         while (true) {
                             Project * p ;
                             {
                                 std::lock_guard<std::mutex> g(mCerr_);
-                                if (completed == projects_.size())
+                                if (completed == projects_.size()) {
+                                    updates += changes;
                                     return;
+                                }
                                 p = projects_[completed];
                                 ++completed;
                                 if (completed % 1000 == 0)
@@ -241,7 +245,7 @@ namespace dejavu {
                                     break;
                                 }
                             if (test)
-                                calculateCloneSizesIn(p);
+                                changes += calculateCloneSizesIn(p);
                             else
                                 ++skipped;
                         }
@@ -249,7 +253,7 @@ namespace dejavu {
                 for (auto & i : threads)
                     i.join();
                 std::cout << "    " << skipped << " skipped projects" << std::endl;
-                
+                std::cout << "    " << updates << " updated clone sizes" << std::endl;
             }
 
             void output() {
@@ -258,6 +262,7 @@ namespace dejavu {
                 clones << "#cloneId,hash,occurences,files,projectId,commitId,path" << std::endl;
                 for (auto i : clones_)
                     clones << *(i) << std::endl;
+                std::cerr << "Done." << std::endl;
             }
         private:
 
@@ -447,7 +452,8 @@ namespace dejavu {
                 return true;
             }
 
-            void calculateCloneSizesIn(Project * p) {
+            unsigned calculateCloneSizesIn(Project * p) {
+                unsigned changes = 0;
                 CommitForwardIterator<Project,Commit,ProjectState> i(p, [&,this](Commit * c, ProjectState & state) {
                         // update the project state and determine the clone candidate folders
                         state.updateWith(c, paths_, nullptr);
@@ -458,14 +464,17 @@ namespace dejavu {
                                     assert(clone->commit == c);
                                     unsigned numFiles = state.getDir(clone->path, pathSegments_)->numFiles();
                                     assert(clone->files <= numFiles);
-                                    clone->files = numFiles;
+                                    if (numFiles > clone->files) {
+                                        ++changes;
+                                        clone->files = numFiles;
+                                    }
                                 }
                             }
                         }
                         return true;
                 });
-
-                
+                i.process();
+                return changes;
             }
             
             std::vector<Project *> projects_;
