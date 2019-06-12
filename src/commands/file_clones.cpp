@@ -16,7 +16,7 @@ namespace dejavu {
             Commit(unsigned int id, uint64_t time) : BaseCommit(id, time) {}
 
             static void LoadCommits(std::unordered_map<unsigned, Commit *> &commits) {
-                std::string task = "Loading commits";
+                std::string task = "loading commits";
                 clock_t timer;
                 helpers::StartTask(task, timer);
 
@@ -32,7 +32,7 @@ namespace dejavu {
             }
 
             static void LoadCommitParents(std::unordered_map<unsigned, Commit *> &commits) {
-                std::string task = "Loading commit parents";
+                std::string task = "loading commit parents";
                 clock_t timer;
                 unsigned relations;
                 helpers::StartTask(task, timer);
@@ -55,7 +55,7 @@ namespace dejavu {
             }
 
             static void LoadCommitFileChanges(std::unordered_map<unsigned, Commit *> &commits) {
-                std::string task = "Loading file changes (into commits)";
+                std::string task = "loading file changes (into commits)";
                 clock_t timer;
                 unsigned changes;
                 helpers::StartTask(task, timer);
@@ -125,7 +125,7 @@ namespace dejavu {
             }
 
             static void CountRepeats(std::unordered_map<unsigned, unsigned> &counters) {
-                std::string task = "Counting repeating file contents";
+                std::string task = "counting repeating file contents";
                 unsigned contents;
                 clock_t timer;
 
@@ -141,7 +141,7 @@ namespace dejavu {
             }
 
             static void CountPluralContentClusters(std::unordered_map<unsigned, unsigned> &counters) {
-                std::string task = "Counting plural content clusters: file content clusters with more than one member ";
+                std::string task = "counting plural content clusters: file content clusters with more than one member ";
                 unsigned contents;
                 unsigned pluralities;
                 clock_t timer;
@@ -163,7 +163,7 @@ namespace dejavu {
             static void LoadFileChanges(std::unordered_map<unsigned, Commit *> const &commits,
                                         std::unordered_map<unsigned, unsigned> &counters,
                                         std::unordered_map<unsigned, std::vector<Modification*>> & clusters) {
-                std::string task = "Loading file changes (into plural content clusters)";
+                std::string task = "loading file changes (into plural content clusters)";
                 clock_t timer;
                 helpers::StartTask(task, timer);
 
@@ -192,9 +192,9 @@ namespace dejavu {
             }
 
             static void MarkOriginalClonesInClusters(std::unordered_map<unsigned, std::vector<Modification*>> const &vectorClusters,
-                                                     std::unordered_map<unsigned, ModificationCluster*> clusters) {
+                                                     std::unordered_map<unsigned, ModificationCluster*> &clusters) {
                 clock_t timer;
-                std::string task = "Marking original clones in clusters";
+                std::string task = "marking original clones in clusters";
                 helpers::StartTask(task, timer);
 
                 unsigned counter;

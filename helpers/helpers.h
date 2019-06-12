@@ -153,12 +153,12 @@ namespace helpers {
     }
 
     inline void StartTask(const std::string &task, clock_t &timer) {
-        std::cerr << "started " << task << std::endl;
+        std::cerr << "Started " << task << std::endl;
     }
 
     inline void FinishTask(const std::string &task, clock_t &timer) {
         clock_t end = clock();
-        std::cerr << "finished " << task
+        std::cerr << "Finished " << task
                   << " in " << (double(end - timer) / CLOCKS_PER_SEC) << "s"
                   << std::endl;
     }
