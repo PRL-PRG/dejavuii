@@ -16,175 +16,33 @@
 
 #include "folder_clones.h"
 
-
-/** Folder Clone Detection
-
-
- */
-
 namespace dejavu {
 
     namespace {
 
-        class Detector;
+        /** Detects all folder clone candidates in the dataset.
 
+            A clone candidate is a folder with at least 2 (the threshold can be changed) files which has been added by a single commit. If the folder contains other subfolders which themselves meet the criteria, they are considered clone candidates as well.
 
+            The detector walks through all projects and commits and for each commit detect folders matching the criteria above. Each such folder is then analyzed:
 
+            The folder structure is encoded in a string with the following structure:
 
-        /** State of a project at given commit.
+            DIR := '(' [ id ':' STR { ',' id ':' STR }])
 
-            Keeps track of files & folders active and determines when folde clone candidates are present in given commit.
+            STR := contentsId (for files)
+                |= DIR (for directories)
+                |= '#' cloneId (for subdirectories that are themselves clones)
 
-            This is the state being tracked by the commit iterator. 
+            The `id` is a name id of the path segment and the ids are ordered (ascending), therefore the mapping from a directory to its structure is unambiguous.
+
+            The structure strings are necessary for the second step where originals are searched and the clones themselves must be reconstitured. 
          */
-        class ProjectState {
-        public:
-
-            // commit iterator requirements
-
-            /** Creates an empty project state.
-             */
-            ProjectState():
-                root_(nullptr) {
-            }
-
-            /** Creates a project state that is a copy of existing one.
-
-                Merges with the other state, which has semantics identical to the copy constructor.
-             */
-            ProjectState(ProjectState const & other):
-                root_(nullptr) {
-                mergeWith(other, nullptr);
-            }
-
-            /** Merges with the other state, i.e. adds all files from the other state which are not already present.
-             */
-            void mergeWith(ProjectState const & other, Commit * c) {
-                for (auto i : other.files_) {
-                    if (files_.find(i.first) == files_.end()) {
-                        File * f = addGlobalFile(i.second.file, nullptr);
-                        files_.insert(std::make_pair(i.first, FileInfo(i.second.contents, f)));
-                    }
-                }
-            }
-
-            void updateWith(Commit * c, Detector * d, std::unordered_set<Dir*> & cloneCandidates);
-
-            unsigned contentsOf(File * f) const {
-                auto i = files_.find(f->pathId);
-                assert(i != files_.end());
-                return i->second.contents;
-            }
-
-            ~ProjectState() {
-                delete root_;
-            }
-            
-        private:
-            struct FileInfo {
-                unsigned contents;
-                File * file;
-                FileInfo(unsigned contents = 0, File * file = nullptr):
-                    contents(contents),
-                    file(file) {
-                }
-            };
-
-
-            /** Adds given file to the project state.
-             */
-            void addFile(unsigned pathId, unsigned contentsId, Detector * d, std::unordered_set<Dir*> * createdDirs = nullptr);
-
-
-            /** Given a file from the global tree, creates its copy in the project state.
-
-                First makes recursively sure that all parent directories exist (adding newly created ones to the createdDirs vector if not null) and then adds the file to its parent directory and to the map of all files by path. 
-             */
-            File * addGlobalFile(File * globalFile, std::unordered_set<Dir*> * createdDirs) {
-                Dir * parent = addGlobalDir(globalFile->parent, createdDirs);
-                return new File(globalFile->pathId, globalFile->name, parent);
-            }
-
-            /** Makes sure that given global dir exists in the project state, creating it, or any of its parent dirs along the way.
-
-                If the createdDirs argument is specified, any newly created directories will be added to it.
-            */
-            Dir * addGlobalDir(Dir * globalDir, std::unordered_set<Dir*> * & createdDirs) {
-                // if the global directory is root, return our root, or create it if it does not exist
-                if (globalDir->parent == nullptr) {
-                    if (root_ == nullptr)
-                        root_ = createDirectory(globalDir->name, nullptr, createdDirs);
-                    else
-                        preventSubfolderCreation(root_, createdDirs);
-                    return root_;
-                    
-                }
-                Dir * parent = addGlobalDir(globalDir->parent, createdDirs);
-                auto i = parent->dirs.find(globalDir->name);
-                if (i != parent->dirs.end()) {
-                    preventSubfolderCreation(i->second, createdDirs);
-                    return i->second;
-                }
-                return createDirectory(globalDir->name, parent, createdDirs);
-            }
-
-            void preventSubfolderCreation(Dir * d, std::unordered_set<Dir *> * & createdDirs) {
-                if (createdDirs == nullptr)
-                    return;
-                if (createdDirs->find(d) != createdDirs->end())
-                    createdDirs = nullptr;
-            }
-            
-            /** Deletes the given file.
-
-                If the file was the last file in a folder, deletes the folder as well (recursively, including the root)
-             */
-            void deleteFile(unsigned pathId) {
-                File * f = files_[pathId].file;
-                
-                assert(f != nullptr);
-                files_.erase(pathId);
-                Dir * d = f->parent;
-                delete f;
-                while (d->empty()) {
-                    Dir * p = d->parent;
-                    delete d;
-                    if (p == nullptr) {
-                        assert(d == root_);
-                        root_ = nullptr;
-                        break;
-                    } else {
-                        d = p;
-                    }
-                }
-            }
-
-            Dir * createDirectory(unsigned name, Dir * localParent, std::unordered_set<Dir*> * & createdDirs) {
-                Dir * result = new Dir(name, localParent);
-                if (createdDirs != nullptr) {
-                    createdDirs->insert(result);
-                    // prevent subdirectories to be created
-                    createdDirs = nullptr;
-                }
-                return result;
-            }
-            
-            
-            /** The root directory, can be null. 
-             */
-            Dir * root_;
-
-            /** Maps files based on their path id to their contents and File object.
-             */
-            std::unordered_map<unsigned, FileInfo> files_;
-        };
-
         class Detector {
         public:
 
             Detector() {
             }
-                
 
             /** Loads the initial data required for the clone detection.
              */
@@ -286,16 +144,25 @@ namespace dejavu {
                 std::unordered_set<Dir*> cloneCandidates;
                 CommitForwardIterator<Project,Commit,ProjectState> i(p, [&,this](Commit * c, ProjectState & state) {
                         // update the project state and determine the clone candidate folders
-                        state.updateWith(c, this, cloneCandidates);
+                        state.updateWith(c, paths_, cloneCandidates);
                         for (auto i : cloneCandidates)
                             processCloneCandidate(p, c, i, state);
-                        //                        ccs += cloneCandidates.size();
                         cloneCandidates.clear();
                         return true;
                 });
                 i.process();
             }
 
+            /** Processes single clone candidate.
+
+                The clone candidate is defined by its root directory and the string which encodes the clone candidate structure is returned.
+
+                First all subdirs are processed as clone candidates and their structure is cached. After this, using the cached structures of the subdirs, remaining subdirs and files, the structure of the directory is created and then hashed.
+
+                Then we check, based on the hash, whether such a clone has already been found and if not, create the clone and output its structure.
+
+                Finally the number of occurences in the clone is bumped and the clone candidate is reported. 
+             */
             std::string processCloneCandidate(Project * p, Commit * c, Dir * cloneRoot, ProjectState & state) {
                 // first determine if any of the subdirs is a clone candidate itself and process it, returning its string
                 std::map<unsigned, std::string> subdirClones;
@@ -348,6 +215,8 @@ namespace dejavu {
                 return STR("#" << cloneId);
             }
 
+            /** Calculates the string representation of a given directory.
+             */
             std::string calculateCloneStringFragment(Dir * d, ProjectState & state) {
                 std::map<unsigned, std::string> parts;
                 for (auto i : d->dirs)
@@ -358,6 +227,8 @@ namespace dejavu {
                 return createCloneStringFromParts(parts);
             }
 
+            /** Creates string representation from fragments.
+             */
             std::string createCloneStringFromParts(std::map<unsigned, std::string> const & parts) {
                 std::stringstream result;
                 assert(!parts.empty());
@@ -392,35 +263,6 @@ namespace dejavu {
             std::mutex mCerr_;
             
         }; 
-
-        void ProjectState::updateWith(Commit * c, Detector * d, std::unordered_set<Dir*> & cloneCandidates) {
-            // first delete all files the commit deletes
-            for (auto i : c->deletions) 
-                deleteFile(i);
-            // now walk the changes and update the state
-            for (auto i : c->changes) {
-                auto j = files_.find(i.first);
-                if (j != files_.end()) 
-                    j->second.contents = i.second;
-                else 
-                    addFile(i.first, i.second, d, & cloneCandidates);
-            }
-        }
-
-        
-        void ProjectState::addFile(unsigned pathId, unsigned contentsId, Detector * d, std::unordered_set<Dir*> * createdDirs) {
-            assert(contentsId != FILE_DELETED);
-            auto i = files_.find(pathId);
-            // if the file already exists, just update its contents
-            if (i != files_.end()) {
-                i->second.contents = contentsId;
-            } else {
-                File * globalFile = d->paths_[pathId];
-                File *f  = addGlobalFile(globalFile, createdDirs);
-                files_.insert(std::make_pair(pathId, FileInfo(contentsId, f)));
-            }
-        }
-
         
     } // anonymous namespace
 

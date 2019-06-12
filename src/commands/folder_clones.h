@@ -196,6 +196,9 @@ namespace dejavu {
 
         Dir * root;
 
+        // contentsId -> set of Files in the clone with that contents
+        std::unordered_map<unsigned, std::unordered_set<File *>> validContents;
+
 
         /** Creates the clone as part of the clone finder with incomplete data.
 
@@ -242,18 +245,23 @@ namespace dejavu {
         
         /** Builds the directory structure of the clone.
 
-            Takes a vector of all clones as argument, since the clone may contain other clones recursively, which is where we get their contents from. 
+            Takes a vector of all clones as argument, since the clone may contain other clones recursively, which is where we get their contents from.
+
+            Also populates the map from contents to files
          */
         void buildStructure(std::vector<Clone *> const & clones) {
             root = new Dir(EMPTY_PATH, nullptr);
             char const * x = str.c_str();
             fillDir(root, x, clones);
             assert(*x == 0);
+            //fill the file contents map
+            fillFilesFrom(root);
         }
 
         void clearStructure() {
             delete root;
             root = nullptr;
+            validContents.clear();
         }
 
         ~Clone() {
@@ -305,8 +313,218 @@ namespace dejavu {
             }
             pop(x, ')');
         }
+
+        void fillFilesFrom(Dir * d) {
+            for (auto i : d->files)
+                validContents[i.second->pathId].insert(i.second); // remember pathId is contents id
+            for (auto i : d->dirs)
+                fillFilesFrom(i.second);
+        }
            
     }; // Clone
+
+
+        /** State of a project at given commit.
+
+            Keeps track of files & folders active and determines when folde clone candidates are present in given commit.
+
+            This is the state being tracked by the commit iterator. 
+         */
+        class ProjectState {
+        public:
+
+            // commit iterator requirements
+
+            /** Creates an empty project state.
+             */
+            ProjectState():
+                root_(nullptr) {
+            }
+
+            /** Creates a project state that is a copy of existing one.
+
+                Merges with the other state, which has semantics identical to the copy constructor.
+             */
+            ProjectState(ProjectState const & other):
+                root_(nullptr) {
+                mergeWith(other, nullptr);
+            }
+
+            /** Merges with the other state, i.e. adds all files from the other state which are not already present.
+             */
+            void mergeWith(ProjectState const & other, Commit * c) {
+                for (auto i : other.files_) {
+                    if (files_.find(i.first) == files_.end()) {
+                        File * f = addGlobalFile(i.second.file, nullptr);
+                        files_.insert(std::make_pair(i.first, FileInfo(i.second.contents, f)));
+                    }
+                }
+            }
+
+            void updateWith(Commit * c, std::vector<File*> const & paths, std::unordered_set<Dir*> & cloneCandidates) {
+                // first delete all files the commit deletes
+                for (auto i : c->deletions) 
+                    deleteFile(i);
+                // now walk the changes and update the state
+                for (auto i : c->changes) {
+                    auto j = files_.find(i.first);
+                    if (j != files_.end()) 
+                        j->second.contents = i.second;
+                    else 
+                        addFile(i.first, i.second, paths, & cloneCandidates);
+                }
+            }
+
+            void updateWith(Commit * c, std::vector<File*> const & paths, std::unordered_map<unsigned, std::unordered_set<File *>> const & validContents, std::unordered_set<File *> & changes) {
+                // first delete all files the commit deletes
+                for (auto i : c->deletions) {
+                    if (files_.find(i) == files_.end())
+                        continue;
+                    deleteFile(i);
+                }
+                // now walk the changes and update the state
+                for (auto i : c->changes) {
+                    // if the update is to invalid contents then either ignore it, or delete the file if the file existed since it is no longer interesting
+                    if (validContents.find(i.second) == validContents.end()) {
+                        if (files_.find(i.first) != files_.end())
+                            deleteFile(i.first);
+                        continue;
+                    }
+                    auto j = files_.find(i.first);
+                    File * f = nullptr;
+                    if (j != files_.end()) {
+                        f = j->second.file;
+                        j->second.contents = i.second;
+                    } else {
+                        f = addFile(i.first, i.second, paths, nullptr);
+                    }
+                    assert(f != nullptr);
+                    changes.insert(f);
+                }
+            }
+
+            unsigned contentsOf(File * f) const {
+                auto i = files_.find(f->pathId);
+                assert(i != files_.end());
+                return i->second.contents;
+            }
+
+            ~ProjectState() {
+                delete root_;
+            }
+            
+        private:
+            struct FileInfo {
+                unsigned contents;
+                File * file;
+                FileInfo(unsigned contents = 0, File * file = nullptr):
+                    contents(contents),
+                    file(file) {
+                }
+            };
+
+
+            /** Adds given file to the project state.
+             */
+            File * addFile(unsigned pathId, unsigned contentsId, std::vector<File *> const & paths, std::unordered_set<Dir*> * createdDirs = nullptr) {
+                assert(contentsId != FILE_DELETED);
+                auto i = files_.find(pathId);
+                // if the file already exists, just update its contents
+                if (i != files_.end()) {
+                    i->second.contents = contentsId;
+                    return i->second.file;
+                } else {
+                    File * globalFile = paths[pathId];
+                    File *f  = addGlobalFile(globalFile, createdDirs);
+                    files_.insert(std::make_pair(pathId, FileInfo(contentsId, f)));
+                    return f;
+                }
+            }
+
+
+            /** Given a file from the global tree, creates its copy in the project state.
+
+                First makes recursively sure that all parent directories exist (adding newly created ones to the createdDirs vector if not null) and then adds the file to its parent directory and to the map of all files by path. 
+             */
+            File * addGlobalFile(File * globalFile, std::unordered_set<Dir*> * createdDirs) {
+                Dir * parent = addGlobalDir(globalFile->parent, createdDirs);
+                return new File(globalFile->pathId, globalFile->name, parent);
+            }
+
+            /** Makes sure that given global dir exists in the project state, creating it, or any of its parent dirs along the way.
+
+                If the createdDirs argument is specified, any newly created directories will be added to it.
+            */
+            Dir * addGlobalDir(Dir * globalDir, std::unordered_set<Dir*> * & createdDirs) {
+                // if the global directory is root, return our root, or create it if it does not exist
+                if (globalDir->parent == nullptr) {
+                    if (root_ == nullptr)
+                        root_ = createDirectory(globalDir->name, nullptr, createdDirs);
+                    else
+                        preventSubfolderCreation(root_, createdDirs);
+                    return root_;
+                    
+                }
+                Dir * parent = addGlobalDir(globalDir->parent, createdDirs);
+                auto i = parent->dirs.find(globalDir->name);
+                if (i != parent->dirs.end()) {
+                    preventSubfolderCreation(i->second, createdDirs);
+                    return i->second;
+                }
+                return createDirectory(globalDir->name, parent, createdDirs);
+            }
+
+            void preventSubfolderCreation(Dir * d, std::unordered_set<Dir *> * & createdDirs) {
+                if (createdDirs == nullptr)
+                    return;
+                if (createdDirs->find(d) != createdDirs->end())
+                    createdDirs = nullptr;
+            }
+            
+            /** Deletes the given file.
+
+                If the file was the last file in a folder, deletes the folder as well (recursively, including the root)
+             */
+            void deleteFile(unsigned pathId) {
+                File * f = files_[pathId].file;
+                
+                assert(f != nullptr);
+                files_.erase(pathId);
+                Dir * d = f->parent;
+                delete f;
+                while (d->empty()) {
+                    Dir * p = d->parent;
+                    delete d;
+                    if (p == nullptr) {
+                        assert(d == root_);
+                        root_ = nullptr;
+                        break;
+                    } else {
+                        d = p;
+                    }
+                }
+            }
+
+            Dir * createDirectory(unsigned name, Dir * localParent, std::unordered_set<Dir*> * & createdDirs) {
+                Dir * result = new Dir(name, localParent);
+                if (createdDirs != nullptr) {
+                    createdDirs->insert(result);
+                    // prevent subdirectories to be created
+                    createdDirs = nullptr;
+                }
+                return result;
+            }
+            
+            
+            /** The root directory, can be null. 
+             */
+            Dir * root_;
+
+            /** Maps files based on their path id to their contents and File object.
+             */
+            std::unordered_map<unsigned, FileInfo> files_;
+        };
+    
 
 
 

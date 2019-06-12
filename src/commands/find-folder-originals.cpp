@@ -76,13 +76,18 @@ namespace dejavu {
                 return hints_.size();
             }
 
+            bool containsProject(Project * p) {
+                return hints_.find(p) != hints_.end();
+            }
+
             struct ByTime {
                 bool operator () (std::pair<Project *, uint64_t> const & first, std::pair<Project *, uint64_t> const & second) const {
-                    if (first.second < second.second)
-                        return true;
-                    if (first.second == second.second)
+                    if (first.second != second.second)
+                        return first.second < second.second;
+                    if (first.first->createdAt != second.first->createdAt)
                         return first.first->createdAt < second.first->createdAt;
-                    return false;
+                    // compare pointers just to make sure that two commits of same age from projects of same age are not treated as identical
+                    return first.first < second.first;
                 }
             };
 
@@ -92,6 +97,7 @@ namespace dejavu {
                 std::set<std::pair<Project *, uint64_t>, ByTime> result;
                 for (auto i : hints_)
                     result.insert(i);
+                assert(result.size() == hints_.size());
                 return result;
             }
 
@@ -166,7 +172,6 @@ namespace dejavu {
 
             void findOriginals() {
                 std::cerr << "Updating clone originals..." << std::endl;
-                totalCandidates = 0;
 
 
                 std::vector<std::thread> threads;
@@ -191,7 +196,25 @@ namespace dejavu {
                     }));
                 for (auto & i : threads)
                     i.join();
-                std::cerr << "    " << totalCandidates << " total candidates" << std::endl;
+                std::cerr << "    " << candidateProjects_ << " total candidates" << std::endl;
+                std::cerr << "    " << visitedProjects_ << " actually checked projects" << std::endl;
+                std::cerr << "    " << visitedCommits_ << " actually checked commits" << std::endl;
+                std::cerr << "    " << checkedDirs_ << " tested original directory candidates" << std::endl;
+            }
+
+            /** The last step is to actually calculate the total number of files in the originals now that we have proper original locations.
+                The easiest way to do this is to loop over all the projects once more, construct the project state (in full this time) and when we get a commit that is original of a clone, we determine the root directory and count its number of files.
+             */
+            void calculateFileCounts() {
+                
+            }
+
+            void output() {
+                std::cerr << "Writing results..." << std::endl;
+                std::ofstream clones(DataDir.value() + "/cloneOriginalsCandidates.csv");
+                clones << "#cloneId,hash,occurences,files,projectId,commitId,path" << std::endl;
+                for (auto i : clones_)
+                    clones << *(i) << std::endl;
             }
         private:
 
@@ -239,32 +262,124 @@ namespace dejavu {
                 c->buildStructure(clones_);
                 // get hints for projects which may contain the original
                 LocationHint candidates = getCloneLocationHints(c);
+                assert(candidates.containsProject(c->project));
                 // sort the candidates by time
                 unsigned vp = 0;
                 unsigned vc = 0;
+                unsigned cd = 0;
                 for (auto i : candidates.sort()) {
                     // if the time at which the clone may appear in the project is younger than currently available clone, we can stop the search
                     if (i.second > c->commit->time)
                         break;
+                    // if the time is equal, but the project is youner, then it can't be original either
+                    if (i.second == c->commit->time && i.first->createdAt > c->project->createdAt)
+                        break;
                     ++vp;
-                    vc += checkForOriginalIn(i.first, c);
+                    auto counts = checkForOriginalIn(i.first, c);
+                    vc += counts.first;
+                    cd += counts.second;
                 }
                 c->clearStructure();
                 {
                     std::lock_guard<std::mutex> g(mData_);
                     candidateProjects_ += candidates.size();
                     visitedProjects_ += vp;
+                    visitedCommits_ += vc;
+                    checkedDirs_ += cd;
                 }
             }
 
-            
-            unsigned checkForOriginalIn(Project * p, Clone * c) {
 
-                return 0;    
+            /** Given a project and clone, checks if the project contains a better clone original candidate and returns the number of commits tested.
+
+                Returns (checked commits, checked folders)
+             */
+            std::pair<unsigned,unsigned> checkForOriginalIn(Project * p, Clone * clone) {
+                unsigned checkedCommits = 0;
+                unsigned checkedDirs = 0;
+                std::unordered_set<File *> changedFiles;
+                std::unordered_set<Dir*> candidates;
+                CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [&, this](Commit * c, ProjectState & state) {
+                        if (c->time > clone->commit->time)
+                            return false;
+                        // no need to deal with the original clone commit already
+                        if (c == clone->commit)
+                            return false;
+                        ++checkedCommits;
+                        state.updateWith(c, paths_, clone->validContents, changedFiles);
+                        // for each file that has changed
+                        for (File * f : changedFiles) {
+                            // get all files in the clone with the same contents and see if there is a matching directory in project state that can be root
+                            for (File * cf : clone->validContents[state.contentsOf(f)]) { 
+                                Dir * rootCandidate = findPossibleRoot(f, cf);
+                                if (rootCandidate != nullptr)
+                                    candidates.insert(rootCandidate);
+                            }
+                        }
+                        changedFiles.clear();
+                        // for all candidate folders, see if they are identical
+                        if (!candidates.empty()) {
+                            for (Dir * d : candidates) {
+                                ++checkedDirs;
+                                if (isSubsetOf(clone->root, d, state)) {
+                                    // we have found a clone, no need to search in the project further
+                                    clone->project = p;
+                                    clone->commit = c;
+                                    clone->path = d->path(pathSegments_);
+                                    candidates.clear();
+                                    return false;
+                                }
+                            }
+                            candidates.clear();
+                        }
+                        return true;
+                    });
+                cfi.process();
+                return std::make_pair(checkedCommits, checkedDirs);
+            }
+
+            /** Takes two files, and returns a directory from the first file's path that might be mapped to the root directory of the second file.
+             */
+            Dir * findPossibleRoot(File * f, File * cf) {
+                if (f->name != cf->name)
+                    return nullptr;
+                Dir * d = f->parent;
+                Dir * cd = cf->parent;
+                while (d != nullptr) {
+                    if (cd->parent == nullptr)
+                        return d;
+                    if (d->name != cd->name)
+                        return nullptr;
+                    d = d->parent;
+                    cd = cd->parent;
+                }
+                return nullptr;
+            }
+
+            /** Returns true if the first directory is a subset of the second one.
+
+                A directory is a subset if all files in the directory are present in the other directory and have identical contents and if all its directories are subsets of equally named directories in the other dir.
+
+                The clone directory has contents stored in the pathId of the files, while the second directory's contents is to be obtained from the passed state. 
+             */
+            bool isSubsetOf(Dir * cd, Dir * d, ProjectState const & state) {
+                for (auto i : cd->files) {
+                    auto j = d->files.find(i.first);
+                    if (j == d->files.end())
+                        return false;
+                    if (i.second->pathId != state.contentsOf(j->second))
+                        return false;
+                }
+                for (auto i : cd->dirs) {
+                    auto j = d->dirs.find(i.first);
+                    if (j == d->dirs.end())
+                        return false;
+                    if (! isSubsetOf(i.second, j->second, state))
+                        return false;
+                }
+                return true;
             }
             
-            std::atomic<unsigned long> totalCandidates;
-                
             std::vector<Project *> projects_;
             std::vector<Commit *> commits_;
             std::vector<File *> paths_;
@@ -276,12 +391,10 @@ namespace dejavu {
             std::mutex mCerr_;
             std::mutex mData_;
 
-            size_t candidateProjects_;
-            size_t visitedProjects_;
-            size_t visitedCommits_;
-            
-
-            
+            size_t candidateProjects_ = 0;
+            size_t visitedProjects_ = 0;
+            size_t visitedCommits_ = 0;
+            size_t checkedDirs_ = 0;
         }; // OriginalFinder
         
     } // anonymous namespace
