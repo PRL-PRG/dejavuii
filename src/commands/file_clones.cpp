@@ -13,59 +13,7 @@ namespace dejavu {
     namespace {
         class Commit : public BaseCommit<Commit>{
         public:
-//            unsigned id;
-//
-//            /** Ids of the parent commits. */
-//            std::unordered_set<Commit *> parents;
-//            std::unordered_set<Commit *> children;
-//
-//            /** Changes made to files by the commit (pathId -> contentsId)
-//             */
-//            std::unordered_map<unsigned, unsigned> changes;
-//            std::unordered_set<unsigned> deletions;
-//
-//            uint64_t authorTime;
-//
-//            Commit(unsigned id,  uint64_t authorTime) : id(id), authorTime(authorTime);
-
-
             Commit(unsigned int id, uint64_t time) : BaseCommit(id, time) {}
-
-//            // Commit iterator interface
-//            unsigned numParentCommits() const {
-//                return parents.size();
-//            }
-//
-//            std::unordered_set<Commit *> const & childrenCommits() const {
-//                return children;
-//            }
-
-//            /** Adds the specified change to the commit.
-//
-//                It may happen that a change to the path specified has already been recorded in the following cases:
-//
-//                - the first change is a delete, the current change is update. This can happen if a commit renames two files A -> B and C -> A. We might first see the delete of A and create of B an then delete of C and create of A
-//                - the first change is valid, the second change is delete (the reverse of the above - there is no order for changes in single commit)
-//                - multiple updates to the same file as long as all updates change the path to the same contents id (merge commits report diffs to all their parents)
-//             */
-//            void addChangeOrDeletion(unsigned pathId, unsigned contentsId) {
-//                if (contentsId == 0 /*deletion*/) {
-//                    deletions.insert(pathId);
-//                    return;
-//                }
-//
-//                auto i = changes.find(pathId);
-//                if (i == changes.end()) {
-//                    changes.insert(std::make_pair(pathId, contentsId));
-//                } else {
-//                    if (i->second == FILE_DELETED) {
-//                        i->second = contentsId;
-//                    } else {
-//                        if (contentsId != FILE_DELETED)
-//                            assert(contentsId == i->second);
-//                    }
-//                }
-//            }
 
             static Commit *Get(unsigned id) {
                 assert(Commit::commits_.find(id) != commits_.end());
@@ -240,9 +188,6 @@ namespace dejavu {
         std::unordered_map<unsigned, ModificationCluster*> ModificationCluster::clusters;
     } //anonymoose namespace
 
-
-    // FROM HERE
-
     class ClusterInfo {
     public:
         unsigned notFromEmpty;
@@ -288,13 +233,12 @@ namespace dejavu {
         }
 
         void recordCommit(Commit * c, std::unordered_set<unsigned> const & contentsToBeTracked, std::vector<ClusterInfo *> & clusterInfos) {
-            // 
             for (unsigned path : c->deletions) {
                 for (ClusterInfo * ci : trackedFiles_[path].clusterInfos)
                     ++ci->deletions;
                 trackedFiles_.erase(path);
             }
-            //
+
             for (auto change : c->changes) {
                 auto i = trackedFiles_.find(change.first);
                 bool notFromEmpty = true;
@@ -319,9 +263,7 @@ namespace dejavu {
             }
         }
 
-
         struct FileInfo {
-            
             unsigned contents;
             bool selected;
             std::unordered_set<ClusterInfo *> clusterInfos;
@@ -333,48 +275,39 @@ namespace dejavu {
         };
 
         std::unordered_map<unsigned, FileInfo> trackedFiles_;
-
-        
     };
 
     class ChangesDetector {
     public:
-        void loadData() {
-            // load all projects
-
-            // load all commits
-
-            // load all changes, populate the commit changes and project commits
-
-            // load all clusters, keep their contents id
-
-            
-        }
-
         void analyze() {
             fOut_.open(DataDir.value() + "/fileCloneChanges.csv");
             fOut_ << "#projectId,clusterId,notFromEmpty,changes,deletions" << std::endl;
             
             std::vector<std::thread> threads;
             size_t completed = 0;
-            for (unsigned stride = 0; stride < NumThreads.value(); ++stride)
-                threads.push_back(std::thread([stride, & completed, this]() {
-                            while (true) {
-                                Project * p ;
-                                {
-                                    std::lock_guard<std::mutex> g(mCerr_);
-                                    if (completed == projects_.size())
-                                        return;
-                                    p = projects_[completed];
-                                    ++completed;
-                                    if (completed % 1000 == 0)
-                                        std::cerr << " : " << completed << "    \r" << std::flush;
-                                }
-                                if (p == nullptr)
-                                    continue;
-                                detectChangesInProject(p);
-                            }
-                        }));
+
+            for (unsigned stride = 0; stride < NumThreads.value(); ++stride) {
+                std::thread t = std::thread([stride, &completed, this]() {
+                    while (true) {
+                        Project *p;
+                        {
+                            std::lock_guard<std::mutex> g(mCerr_);
+                            if (completed == projects_.size())
+                                return;
+                            p = projects_[completed];
+                            ++completed;
+                            if (completed % 1000 == 0)
+                                std::cerr << " : " << completed << "    \r"
+                                          << std::flush;
+                        }
+                        if (p == nullptr)
+                            continue;
+                        detectChangesInProject(p);
+                    }
+                });
+                threads.push_back(t);
+            }
+
             for (auto & i : threads)
                 i.join();
         }
@@ -385,33 +318,28 @@ namespace dejavu {
             CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this](Commit *c, ProjectState & state) {
                     state.recordCommit(c, contentsToBeTracked_, clusterInfos);
                 });
+
             // clusterInfos contain information about all clusters found in the project
             {
                 std::lock_guard<std::mutex> g(mOut_);
                 for (ClusterInfo * ci : clusterInfos)
                     fOut_ << p->id << "," << *ci << std::endl;
             }
+
             for (ClusterInfo * ci : clusterInfos)
                 delete ci;
         }
 
 
         std::vector<Project *> projects_;
-        std::vector<Commit *> commits_;
+        //std::vector<Commit *> commits_;
         
         std::unordered_set<unsigned> contentsToBeTracked_;
-
 
         std::ofstream fOut_;
         std::mutex mOut_;
         std::mutex mCerr_;
-
-
     };
-    
-
-    
-
 
     void DetectFileClones(int argc, char * argv[]) {
         Settings.addOption(DataDir);
