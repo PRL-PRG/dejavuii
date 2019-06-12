@@ -216,7 +216,7 @@ namespace dejavu {
         }
 
         ProjectState(ProjectState const & other) {
-            mergeWith(other); // FIXME
+            mergeWith(other, nullptr); // FIXME
         }
 
         void mergeWith(ProjectState const & other, Commit *c) {
@@ -317,6 +317,7 @@ namespace dejavu {
             std::vector<ClusterInfo *> clusterInfos;
             CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this](Commit *c, ProjectState & state) {
                     state.recordCommit(c, contentsToBeTracked_, clusterInfos);
+                    return true;
                 });
 
             // clusterInfos contain information about all clusters found in the project
