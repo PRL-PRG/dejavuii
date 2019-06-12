@@ -21,6 +21,7 @@ namespace dejavu {
             }
 
             static void LoadCommits() {
+                std::cerr << "Loading commits ..." << std::endl;
                 new CommitLoader([&](unsigned commitId, uint64_t authorTime, uint64_t committerTime){
                     assert(Commit::commits_.find(commitId) == commits_.end());
 
@@ -28,6 +29,7 @@ namespace dejavu {
                     Commit::commits_[commitId] = commit;
                 });
 
+                std::cerr << "Loading commit parents ..." << std::endl;
                 new CommitParentsLoader([&](unsigned childId, unsigned parentId){
                     assert(Commit::commits_.find(childId) != commits_.end());
                     assert(Commit::commits_.find(parentId) != commits_.end());
@@ -37,6 +39,7 @@ namespace dejavu {
                     //parent->addChild(child); already done in addParent
                 });
 
+                std::cerr << "Loading file changes (into commits) ..." << std::endl;
                 new FileChangeLoader([&](unsigned projectId, unsigned commitId,
                                          unsigned pathId, unsigned contentsId){
                     assert(Commit::commits_.find(commitId) != commits_.end());
