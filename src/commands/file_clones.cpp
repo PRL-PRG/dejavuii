@@ -142,8 +142,8 @@ namespace dejavu {
 
             static void CountPluralContentClusters(std::unordered_map<unsigned, unsigned> &counters) {
                 std::string task = "counting plural content clusters: file content clusters with more than one member ";
-                unsigned contents;
-                unsigned pluralities;
+                size_t contents;
+                size_t pluralities;
                 clock_t timer;
 
                 helpers::StartTask(task, timer);
@@ -197,7 +197,7 @@ namespace dejavu {
                 std::string task = "marking original clones in clusters";
                 helpers::StartTask(task, timer);
 
-                unsigned counter;
+                size_t counter;
                 helpers::StartCounting(counter);
 
                 for (auto &it : vectorClusters) {
@@ -231,7 +231,7 @@ namespace dejavu {
                   << "commitId" << ","
                   << "pathId" << std::endl;
 
-                unsigned counter = 0;
+                size_t counter = 0;
                 helpers::StartCounting(counter);
 
                 for (auto & it : clusters) {
@@ -269,7 +269,7 @@ namespace dejavu {
                   << "clusterSize" << ","
                   << "originalCommitId" << std::endl;
 
-                unsigned  counter;
+                size_t counter;
                 helpers::StartCounting(counter);
 
                 for (auto & it : clusters) {
@@ -307,7 +307,7 @@ namespace dejavu {
                   << "originalCommitId" << ","
                   << "commitList" << std::endl;
 
-                unsigned counter;
+                size_t counter;
                 helpers::StartCounting(counter);
 
                 for (auto & it : clusters) {
@@ -469,7 +469,7 @@ namespace dejavu {
                 }
             });
 
-            std::cerr << "found " << projectsContainingClones.size()
+            std::cerr << "Found " << projectsContainingClones.size()
                       << " interesting projects";
 
             helpers::FinishTask(task, timer);
@@ -481,7 +481,12 @@ namespace dejavu {
         }
 
         void analyze() {
-            fOut_.open(DataDir.value() + "/fileCloneChanges.csv");
+            std::string path = DataDir.value() + "/fileCloneChanges.csv";
+            clock_t timer;
+            std::string task = "analyzing commit graphs (writing results to " + path + ")";
+            helpers::StartTask(task, timer);
+
+            fOut_.open(path);
             fOut_ << "#projectId,clusterId,notFromEmpty,changes,deletions" << std::endl;
             
             std::vector<std::thread> threads;
@@ -496,10 +501,7 @@ namespace dejavu {
                             if (completed == projects_.size())
                                 return;
                             p = projects_[completed];
-                            ++completed;
-                            if (completed % 1000 == 0)
-                                std::cerr << " : " << completed << "    \r"
-                                          << std::flush;
+                            helpers::Count(completed);
                         }
                         if (p == nullptr)
                             continue;
@@ -510,6 +512,9 @@ namespace dejavu {
 
             for (auto & i : threads)
                 i.join();
+
+            helpers::FinishCounting(completed, "projects");
+            helpers::FinishTask(task, timer);
         }
 
         static void LoadProjects(std::unordered_set<unsigned int> interestingProjectIds,
@@ -533,7 +538,7 @@ namespace dejavu {
             // Convert set to vector.
             //std::copy(projects.begin(), projects.end(), interestingProjects.begin());
 
-            std::cerr << "filled out " << interestingProjects.size()
+            std::cerr << "Filled out " << interestingProjects.size()
                       << " interesting projects";
 
             helpers::FinishTask(task, timer);

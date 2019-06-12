@@ -160,26 +160,26 @@ namespace helpers {
         clock_t end = clock();
         std::cerr << "Finished " << task
                   << " in " << (double(end - timer) / CLOCKS_PER_SEC) << "s"
-                  << std::endl;
+                  << std::endl << std::endl;
     }
 
-    inline void StartCounting(unsigned &counter) {
+    inline void StartCounting(size_t &counter) {
         counter = 0;
     }
 
-    inline void Count(unsigned &counter) {
+    inline void Count(size_t &counter) {
         ++counter;
         if (counter % 1000 == 0) {
             std::cerr << " : " << (counter / 1000) << "k\r" << std::flush;
         }
     }
 
-    inline void FinishCounting(unsigned counter) {
-        std::cerr << "iterated over " << counter << " items" << std::endl;
+    inline void FinishCounting(size_t counter) {
+        std::cerr << "Iterated over " << counter << " items" << std::endl;
     }
 
-    inline void FinishCounting(unsigned counter, std::string items_name) {
-        std::cerr << "iterated over " << counter << " " << items_name
+    inline void FinishCounting(size_t counter, std::string items_name) {
+        std::cerr << "Iterated over " << counter << " " << items_name
                   << std::endl;
     }
     
