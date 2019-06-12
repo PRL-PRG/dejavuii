@@ -87,7 +87,7 @@ namespace dejavu {
                     if (first.first->createdAt != second.first->createdAt)
                         return first.first->createdAt < second.first->createdAt;
                     // compare pointers just to make sure that two commits of same age from projects of same age are not treated as identical
-                    return first.first < second.first;
+                    return first.first->id < second.first->id;
                 }
             };
 
@@ -198,14 +198,57 @@ namespace dejavu {
                     i.join();
                 std::cerr << "    " << candidateProjects_ << " total candidates" << std::endl;
                 std::cerr << "    " << visitedProjects_ << " actually checked projects" << std::endl;
-                std::cerr << "    " << visitedCommits_ << " actually checked commits" << std::endl;
-                std::cerr << "    " << checkedDirs_ << " tested original directory candidates" << std::endl;
+                std::cerr << "    " << counts_.totalCommits << " total commits" << std::endl;
+                std::cerr << "    " << counts_.visitedCommits << " visited commits" << std::endl;
+                std::cerr << "    " << counts_.totalChanges << " observed changes" << std::endl;
+                std::cerr << "    " << counts_.checkedChanges << " checked changes" << std::endl;
+                std::cerr << "    " << counts_.totalDirs << " possible original roots" << std::endl;
+                std::cerr << "    " << counts_.checkedDirs << " checked original roots" << std::endl;
+                std::cerr << "    " << counts_.originalUpdates << " updates to clone originals" << std::endl;
             }
 
             /** The last step is to actually calculate the total number of files in the originals now that we have proper original locations.
                 The easiest way to do this is to loop over all the projects once more, construct the project state (in full this time) and when we get a commit that is original of a clone, we determine the root directory and count its number of files.
              */
             void calculateFileCounts() {
+                // first get for each commit the set of introduced clones
+                std::cerr << "Attaching original clones to commits ..." << std::endl;
+                for (Clone * c : clones_)
+                    originals_[c->commit].insert(c);
+                std::cerr << "Calculating clone original sizes ..." << std::endl;
+                std::vector<std::thread> threads;
+                size_t completed = 0;
+                size_t skipped = 0;
+                for (unsigned stride = 0; stride < NumThreads.value(); ++stride)
+                    threads.push_back(std::thread([stride, & completed, & skipped, this]() {
+                        while (true) {
+                            Project * p ;
+                            {
+                                std::lock_guard<std::mutex> g(mCerr_);
+                                if (completed == projects_.size())
+                                    return;
+                                p = projects_[completed];
+                                ++completed;
+                                if (completed % 1000 == 0)
+                                    std::cerr << " : " << completed << "    \r" << std::flush;
+                            }
+                            if (p == nullptr)
+                                continue;
+                            bool test = false;
+                            for (Commit * c : p->commits)
+                                if (originals_.find(c) != originals_.end()) {
+                                    test = true;
+                                    break;
+                                }
+                            if (test)
+                                calculateCloneSizesIn(p);
+                            else
+                                ++skipped;
+                        }
+                    }));
+                for (auto & i : threads)
+                    i.join();
+                std::cout << "    " << skipped << " skipped projects" << std::endl;
                 
             }
 
@@ -256,6 +299,27 @@ namespace dejavu {
             }
 
 
+            struct UpdateCounts {
+                size_t totalCommits = 0;
+                size_t visitedCommits = 0;
+                size_t totalChanges = 0;
+                size_t checkedChanges = 0;
+                size_t totalDirs = 0;
+                size_t checkedDirs = 0;
+                size_t originalUpdates = 0;
+
+                UpdateCounts & operator += (UpdateCounts const & other) {
+                    totalCommits += other.totalCommits;
+                    visitedCommits += other.visitedCommits;
+                    totalChanges += other.totalChanges;
+                    checkedChanges += other.checkedChanges;
+                    totalDirs += other.totalDirs;
+                    checkedDirs += other.checkedDirs;
+                    originalUpdates += other.originalUpdates;
+                    return *this;
+                }
+            };
+
 
             void updateOriginal(Clone * c) {
                 // build the clone dirs & files structure
@@ -264,9 +328,8 @@ namespace dejavu {
                 LocationHint candidates = getCloneLocationHints(c);
                 assert(candidates.containsProject(c->project));
                 // sort the candidates by time
+                UpdateCounts counts;
                 unsigned vp = 0;
-                unsigned vc = 0;
-                unsigned cd = 0;
                 for (auto i : candidates.sort()) {
                     // if the time at which the clone may appear in the project is younger than currently available clone, we can stop the search
                     if (i.second > c->commit->time)
@@ -275,28 +338,24 @@ namespace dejavu {
                     if (i.second == c->commit->time && i.first->createdAt > c->project->createdAt)
                         break;
                     ++vp;
-                    auto counts = checkForOriginalIn(i.first, c);
-                    vc += counts.first;
-                    cd += counts.second;
+                    counts += checkForOriginalIn(i.first, c);
                 }
                 c->clearStructure();
                 {
                     std::lock_guard<std::mutex> g(mData_);
                     candidateProjects_ += candidates.size();
                     visitedProjects_ += vp;
-                    visitedCommits_ += vc;
-                    checkedDirs_ += cd;
+                    counts_ += counts;
                 }
             }
 
 
             /** Given a project and clone, checks if the project contains a better clone original candidate and returns the number of commits tested.
 
-                Returns (checked commits, checked folders)
              */
-            std::pair<unsigned,unsigned> checkForOriginalIn(Project * p, Clone * clone) {
-                unsigned checkedCommits = 0;
-                unsigned checkedDirs = 0;
+            UpdateCounts checkForOriginalIn(Project * p, Clone * clone) {
+                UpdateCounts counts;
+                counts.totalCommits += p->commits.size();
                 std::unordered_set<File *> changedFiles;
                 std::unordered_set<Dir*> candidates;
                 CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [&, this](Commit * c, ProjectState & state) {
@@ -305,8 +364,10 @@ namespace dejavu {
                         // no need to deal with the original clone commit already
                         if (c == clone->commit)
                             return false;
-                        ++checkedCommits;
+                        ++counts.visitedCommits;
                         state.updateWith(c, paths_, clone->validContents, changedFiles);
+                        counts.totalChanges += c->changes.size();
+                        counts.checkedChanges += changedFiles.size();
                         // for each file that has changed
                         for (File * f : changedFiles) {
                             // get all files in the clone with the same contents and see if there is a matching directory in project state that can be root
@@ -317,17 +378,23 @@ namespace dejavu {
                             }
                         }
                         changedFiles.clear();
+                        counts.totalDirs += candidates.size();
                         // for all candidate folders, see if they are identical
                         if (!candidates.empty()) {
                             for (Dir * d : candidates) {
-                                ++checkedDirs;
+                                ++counts.checkedDirs;
                                 if (isSubsetOf(clone->root, d, state)) {
+                                    // to be deterministic, we do not optimize and we check all folders candidates taking the one with lexicographically smallest path
+                                    if (clone->project == p && clone->commit == c) {
+                                        std::string path = d->path(pathSegments_);
+                                        if (path >= clone->path) 
+                                            continue;
+                                    }
                                     // we have found a clone, no need to search in the project further
+                                    ++counts.originalUpdates;
                                     clone->project = p;
                                     clone->commit = c;
                                     clone->path = d->path(pathSegments_);
-                                    candidates.clear();
-                                    return false;
                                 }
                             }
                             candidates.clear();
@@ -335,7 +402,7 @@ namespace dejavu {
                         return true;
                     });
                 cfi.process();
-                return std::make_pair(checkedCommits, checkedDirs);
+                return counts;
             }
 
             /** Takes two files, and returns a directory from the first file's path that might be mapped to the root directory of the second file.
@@ -379,6 +446,27 @@ namespace dejavu {
                 }
                 return true;
             }
+
+            void calculateCloneSizesIn(Project * p) {
+                CommitForwardIterator<Project,Commit,ProjectState> i(p, [&,this](Commit * c, ProjectState & state) {
+                        // update the project state and determine the clone candidate folders
+                        state.updateWith(c, paths_, nullptr);
+                        auto i = originals_.find(c);
+                        if (i != originals_.end()) {
+                            for (Clone * clone : i->second) {
+                                if (clone->project == p) {
+                                    assert(clone->commit == c);
+                                    unsigned numFiles = state.getDir(clone->path, pathSegments_)->numFiles();
+                                    assert(clone->files <= numFiles);
+                                    clone->files = numFiles;
+                                }
+                            }
+                        }
+                        return true;
+                });
+
+                
+            }
             
             std::vector<Project *> projects_;
             std::vector<Commit *> commits_;
@@ -387,14 +475,14 @@ namespace dejavu {
             Dir * globalRoot_;
             std::unordered_map<uint64_t, LocationHint> locationHints_;
             std::vector<Clone *> clones_;
+            std::unordered_map<Commit *, std::unordered_set<Clone *>> originals_;
 
             std::mutex mCerr_;
             std::mutex mData_;
 
             size_t candidateProjects_ = 0;
             size_t visitedProjects_ = 0;
-            size_t visitedCommits_ = 0;
-            size_t checkedDirs_ = 0;
+            UpdateCounts counts_;
         }; // OriginalFinder
         
     } // anonymous namespace
@@ -410,6 +498,8 @@ namespace dejavu {
         OriginalFinder f;
         f.loadData();
         f.findOriginals();
+        f.calculateFileCounts();
+        f.output();
         
     }
     

@@ -144,7 +144,7 @@ namespace dejavu {
                 std::unordered_set<Dir*> cloneCandidates;
                 CommitForwardIterator<Project,Commit,ProjectState> i(p, [&,this](Commit * c, ProjectState & state) {
                         // update the project state and determine the clone candidate folders
-                        state.updateWith(c, paths_, cloneCandidates);
+                        state.updateWith(c, paths_, & cloneCandidates);
                         for (auto i : cloneCandidates)
                             processCloneCandidate(p, c, i, state);
                         cloneCandidates.clear();

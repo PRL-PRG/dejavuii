@@ -361,7 +361,7 @@ namespace dejavu {
                 }
             }
 
-            void updateWith(Commit * c, std::vector<File*> const & paths, std::unordered_set<Dir*> & cloneCandidates) {
+            void updateWith(Commit * c, std::vector<File*> const & paths, std::unordered_set<Dir*> * cloneCandidates) {
                 // first delete all files the commit deletes
                 for (auto i : c->deletions) 
                     deleteFile(i);
@@ -371,7 +371,7 @@ namespace dejavu {
                     if (j != files_.end()) 
                         j->second.contents = i.second;
                     else 
-                        addFile(i.first, i.second, paths, & cloneCandidates);
+                        addFile(i.first, i.second, paths, cloneCandidates);
                 }
             }
 
@@ -407,6 +407,20 @@ namespace dejavu {
                 auto i = files_.find(f->pathId);
                 assert(i != files_.end());
                 return i->second.contents;
+            }
+
+            /** Returns directory corresponding to the given path.
+             */
+            Dir * getDir(std::string const & path, PathSegments & segments) {
+                std::vector<std::string> psegs = helpers::Split(path, '/');
+                Dir * d = root_;
+                for (std::string const & name : psegs) {
+                    unsigned nameId = segments.getIndex(name);
+                    auto i = d->dirs.find(nameId);
+                    assert(i != d->dirs.end());
+                    d = i->second;
+                }
+                return d;
             }
 
             ~ProjectState() {
