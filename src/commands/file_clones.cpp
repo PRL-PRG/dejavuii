@@ -475,16 +475,40 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        ChangesDetector(std::vector<Project *> projects):
-                projects_(projects) {
+        static void LoadProjects(std::unordered_set<unsigned int> interestingProjectIds,
+                                 std::vector<Project *> interestingProjects) {
 
+            clock_t timer;
+            std::string task = "extracting project information";
+            helpers::StartTask(task, timer);
+
+            std::unordered_set<unsigned> insertedProjects;
+            new ProjectLoader([&](unsigned id, std::string const & user,
+                                  std::string const & repo, uint64_t createdAt){
+                if (interestingProjectIds.find(id) != interestingProjectIds.end()) {
+                    if (insertedProjects.find(id) == insertedProjects.end()) {
+                        interestingProjects.push_back(new Project(id, createdAt));
+                        insertedProjects.insert(id);
+                    }
+                }
+            });
+
+            // Convert set to vector.
+            //std::copy(projects.begin(), projects.end(), interestingProjects.begin());
+
+            std::cerr << "Filled out " << interestingProjects.size()
+                      << " interesting projects" << std::endl;
+
+            helpers::FinishTask(task, timer);
         }
 
-        void analyze() {
+        void analyze(std::vector<Project *> const & projects) {
             std::string path = DataDir.value() + "/fileCloneChanges.csv";
             clock_t timer;
             std::string task = "analyzing commit graphs (writing results to " + path + ")";
             helpers::StartTask(task, timer);
+
+            std::cerr << "TODO: " << projects.size() << " projects";
 
             fOut_.open(path);
             fOut_ << "#projectId,clusterId,notFromEmpty,changes,deletions" << std::endl;
@@ -498,9 +522,9 @@ namespace dejavu {
                         Project *p;
                         {
                             std::lock_guard<std::mutex> g(mCerr_);
-                            if (completed == projects_.size())
+                            if (completed == projects.size())
                                 return;
-                            p = projects_[completed];
+                            p = projects[completed];
                             helpers::Count(completed);
                         }
                         if (p == nullptr)
@@ -517,37 +541,11 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        static void LoadProjects(std::unordered_set<unsigned int> interestingProjectIds,
-                                 std::vector<Project *> interestingProjects) {
-
-            clock_t timer;
-            std::string task = "extracting project information";
-            helpers::StartTask(task, timer);
-
-            std::unordered_set<unsigned> insertedProjects;
-            new ProjectLoader([&](unsigned id, std::string const & user,
-                                 std::string const & repo, uint64_t createdAt){
-                if (interestingProjectIds.find(id) != interestingProjectIds.end()) {
-                    if (insertedProjects.find(id) == insertedProjects.end()) {
-                        interestingProjects.push_back(new Project(id, createdAt));
-                        insertedProjects.insert(id);
-                    }
-                }
-            });
-
-            // Convert set to vector.
-            //std::copy(projects.begin(), projects.end(), interestingProjects.begin());
-
-            std::cerr << "Filled out " << interestingProjects.size()
-                      << " interesting projects";
-
-            helpers::FinishTask(task, timer);
-        }
-
     private:
         void detectChangesInProject(Project *p) {
             std::vector<ClusterInfo *> clusterInfos;
-            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this, &clusterInfos](Commit *c, ProjectState & state) {
+
+            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this, &clusterInfos](Commit *c, ProjectState &state) {
                     state.recordCommit(c, contentsToBeTracked_, clusterInfos);
                     return true;
                 });
@@ -566,7 +564,7 @@ namespace dejavu {
         }
 
 
-        std::vector<Project *> projects_;
+        //std::vector<Project *> projects_;
         //std::vector<Commit *> commits_;
         
         std::unordered_set<unsigned> contentsToBeTracked_;
@@ -611,8 +609,8 @@ namespace dejavu {
         std::vector<Project *> interestingProjects;
         ChangesDetector::LoadProjects(interestingProjectIds, interestingProjects);
 
-        ChangesDetector cd(interestingProjects);
-        cd.analyze();
+        ChangesDetector cd;
+        cd.analyze(interestingProjects);
     }
     
 } // namespace dejavu
