@@ -49,6 +49,8 @@ namespace dejavu {
             static std::unordered_map<unsigned, Commit *> commits_;
         };
 
+        std::unordered_map<unsigned, Commit *> Commit::commits_;
+
         class Project : public BaseProject<Project, Commit> {
         public:
             Project(unsigned id, uint64_t createdAt):

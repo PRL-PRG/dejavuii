@@ -504,8 +504,7 @@ namespace dejavu {
         std::unordered_set<std::string> ProjectAnalyzer::completedProjects_;
         std::unordered_set<unsigned> ProjectAnalyzer::seenCommits_;
         
-
-        Commit::Commit(unsigned id, std::string const & hash, std::string const & authorEmail, uint64_t authorTime, std::string const & committerEmail, uint64_t committerTime, std::string const & tag):
+        Commit::Commit(std::string const & hash, std::string const & authorEmail, uint64_t authorTime, std::string const & committerEmail, uint64_t committerTime, std::string const & tag):
             id(0),
             hash(hash),
             authorEmail(authorEmail),
@@ -516,7 +515,7 @@ namespace dejavu {
                 tags.insert(tag);
         }
 
-        void Project::loadCommits(std::string const & path) {
+        inline void Project::loadCommits(std::string const & path) {
             std::cerr << "    commits ... ";
             std::string filename = getPath(path + "/commit_metadata") + ".csv";
             DownloaderCommitMetadataLoader{filename, [this](std::string const & hash, std::string const & authorEmail, uint64_t authorTime, std::string const & committerEmail, uint64_t committerTime, std::string const & tag) {
