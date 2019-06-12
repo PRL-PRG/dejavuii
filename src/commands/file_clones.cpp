@@ -15,44 +15,63 @@ namespace dejavu {
         public:
             Commit(unsigned int id, uint64_t time) : BaseCommit(id, time) {}
 
-            static Commit *Get(unsigned id) {
-                assert(Commit::commits_.find(id) != commits_.end());
-                return Commit::commits_[id];
+            static void LoadCommits(std::unordered_map<unsigned, Commit *> &commits) {
+                std::string task = "Loading commits";
+                clock_t timer;
+                helpers::StartTask(task, timer);
+
+                new CommitLoader([&](unsigned commitId, uint64_t authorTime,
+                                     uint64_t committerTime) {
+                    assert(commits.find(commitId) == commits.end());
+                    Commit *commit = new Commit(commitId, authorTime);
+                    commits[commitId] = commit;
+                });
+
+                helpers::FinishCounting(commits.size(), "commits");
+                helpers::FinishTask(task, timer);
             }
 
-            static void LoadCommits() {
-                std::cerr << "Loading commits ..." << std::endl;
-                new CommitLoader([&](unsigned commitId, uint64_t authorTime, uint64_t committerTime){
-                    assert(Commit::commits_.find(commitId) == commits_.end());
+            static void LoadCommitParents(std::unordered_map<unsigned, Commit *> &commits) {
+                std::string task = "Loading commit parents";
+                clock_t timer;
+                unsigned relations;
+                helpers::StartTask(task, timer);
 
-                    Commit *commit = new Commit(commitId, authorTime);
-                    Commit::commits_[commitId] = commit;
-                });
+                new CommitParentsLoader(
+                        [&](unsigned childId, unsigned parentId) {
+                            assert(commits.find(childId) !=
+                                   commits.end());
+                            assert(commits.find(parentId) !=
+                                   commits.end());
+                            Commit *child = commits[childId];
+                            Commit *parent = commits[parentId];
+                            child->addParent(parent);
+                            //parent->addChild(child); already done in addParent
+                            ++relations;
+                        });
 
-                std::cerr << "Loading commit parents ..." << std::endl;
-                new CommitParentsLoader([&](unsigned childId, unsigned parentId){
-                    assert(Commit::commits_.find(childId) != commits_.end());
-                    assert(Commit::commits_.find(parentId) != commits_.end());
-                    Commit *child = Commit::Get(childId);
-                    Commit *parent = Commit::Get(parentId);
-                    child->addParent(parent);
-                    //parent->addChild(child); already done in addParent
-                });
+                helpers::FinishCounting(relations, "parent-child relations");
+                helpers::FinishTask(task, timer);
+            }
 
-                std::cerr << "Loading file changes (into commits) ..." << std::endl;
+            static void LoadCommitFileChanges(std::unordered_map<unsigned, Commit *> &commits) {
+                std::string task = "Loading file changes (into commits)";
+                clock_t timer;
+                unsigned changes;
+                helpers::StartTask(task, timer);
+
                 new FileChangeLoader([&](unsigned projectId, unsigned commitId,
                                          unsigned pathId, unsigned contentsId){
-                    assert(Commit::commits_.find(commitId) != commits_.end());
-                    Commit *commit = Commit::Get(commitId);
+                    assert(commits.find(commitId) != commits.end());
+                    Commit *commit = commits[commitId];
                     commit->addChange(pathId,contentsId);
+                    ++changes;
                 });
+
+                helpers::FinishCounting(changes, "file changes");
+                helpers::FinishTask(task, timer);
             }
-
-        private:
-            static std::unordered_map<unsigned, Commit *> commits_;
         };
-
-        std::unordered_map<unsigned, Commit *> Commit::commits_;
 
         class Project : public BaseProject<Project, Commit> {
         public:
@@ -63,15 +82,17 @@ namespace dejavu {
 
         class Modification {
         public:
-            Modification(unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) :
-                    project_id(project_id), commit_id(commit_id), path_id(path_id), contents_id(contents_id) {};
+            Modification(unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id, unsigned timestamp) :
+                    project_id(project_id), commit_id(commit_id), path_id(path_id), contents_id(contents_id), timestamp(timestamp) {};
 
-        protected:
+
             const unsigned project_id;
             const unsigned commit_id;
             const unsigned path_id;
             const unsigned contents_id;
-            u_int64_t timestamp = 0L;
+            const u_int64_t timestamp = 0L;
+
+        protected:
             bool original = false;
 
             friend class ModificationCluster;
@@ -82,12 +103,10 @@ namespace dejavu {
             ModificationCluster(std::vector<Modification *> modifications) : modifications(modifications) {
                 // Elect first modification as provisionally oldest.
                 Modification *oldest = modifications[0];
-                oldest->timestamp = Commit::Get(oldest->commit_id)->time;
 
                 // Select oldest modification.
                 for (int i = 1, size = modifications.size(); i < size; i++) {
                     if (modifications[i]->timestamp < oldest->timestamp) {
-                        modifications[i]->timestamp = Commit::Get(modifications[i]->commit_id)->time;
                         oldest = modifications[i];
                     }
                 }
@@ -105,92 +124,228 @@ namespace dejavu {
                 return original;
             }
 
-            static void LoadClusters() {
-                std::cerr << "COWTING REPEATZ OF CONE TENTS" << std::endl;
-                std::unordered_map<unsigned, unsigned> counters;
-                FileChangeLoader([counters](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
-                    counters[contents_id]++;
-                });
-                std::cerr << "DONE COWTING REPEATZ OF CONE TENTS" << std::endl;
+            static void CountRepeats(std::unordered_map<unsigned, unsigned> &counters) {
+                std::string task = "Counting repeating file contents";
+                unsigned contents;
+                clock_t timer;
 
-                std::cerr << "CONTING CONTENT KLUSTERS" << std::endl;
-                int pluralities = 0;
+                helpers::StartTask(task, timer);
+
+                FileChangeLoader([&](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
+                    counters[contents_id]++;
+                    ++contents;
+                });
+
+                helpers::FinishCounting(contents, "file contents");
+                helpers::FinishTask(task, timer);
+            }
+
+            static void CountPluralContentClusters(std::unordered_map<unsigned, unsigned> &counters) {
+                std::string task = "Counting plural content clusters: file content clusters with more than one member ";
+                unsigned contents;
+                unsigned pluralities;
+                clock_t timer;
+
+                helpers::StartTask(task, timer);
+
                 for (auto it : counters) {
                     if (it.second > 1) {
-                        pluralities++;
+                        ++pluralities;
                     }
+                    helpers::Count(contents);
                 }
-                std::cerr << "DER " << pluralities << "CKONTENT CKLUSTERZ" << std::endl;
 
-                std::cerr << "KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
-                std::unordered_map<unsigned, std::vector<Modification*>> clusters;
-                FileChangeLoader([counters,clusters](unsigned project_id,
-                                                     unsigned commit_id,
-                                                     unsigned path_id,
-                                                     unsigned contents_id) mutable {
-                    if (counters[commit_id] < 2)
+                helpers::FinishCounting(pluralities, "plural clusters");
+                helpers::FinishCounting(contents, "all content clusters");
+                helpers::FinishTask(task, timer);
+            }
+
+            static void LoadFileChanges(std::unordered_map<unsigned, Commit *> const &commits,
+                                        std::unordered_map<unsigned, unsigned> &counters,
+                                        std::unordered_map<unsigned, std::vector<Modification*>> & clusters) {
+                std::string task = "Loading file changes (into plural content clusters)";
+                clock_t timer;
+                helpers::StartTask(task, timer);
+
+                unsigned skipped=0, pluralities=0;
+
+                FileChangeLoader([&](unsigned project_id,
+                                     unsigned commit_id,
+                                     unsigned path_id,
+                                     unsigned contents_id) mutable {
+                    if (counters.at(contents_id) < 2) {
+                        skipped++;
                         return;
+                    }
                     clusters[contents_id].push_back(new Modification(project_id,
                                                                      commit_id,
                                                                      path_id,
-                                                                     contents_id));
+                                                                     contents_id,
+                                                                     commits.at(commit_id)->time));
+                    pluralities++;
                 });
-                std::cerr << "DONE KOLLECTINK MODIFIKATIONZ FOR KONTENT KLUSTERZ" << std::endl;
 
-                std::cerr << "MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
-                int counter = 0;
-                for (auto & it : clusters) {
-                    // Mark oldest modification in cluster;
-                    ModificationCluster *cluster = new ModificationCluster(it.second);
-                    ModificationCluster::clusters[it.first] = cluster;
+                std::cerr << "processed " << pluralities << " plural clusters" << std::endl;
+                std::cerr << "skipped " << skipped << " singular clusters" << std::endl;
 
-                    // Count processed lines
-                    counter++;
-                    if (counter % 1000 == 0) {
-                        std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
-                    }
-                }
-                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
-                std::cerr << "DONE MARKING OLDEST MODIFIKATIONZ IN KLUSTERZ" << std::endl;
+                helpers::FinishTask(task, timer);
             }
 
-            static void SaveClusters() {
-                std::cerr << "WRITINK OUT KLUSTER INFORMESHON" << std::endl;
-                const std::string filename = DataDir.value() + "/fileClusters.csv";
+            static void MarkOriginalClonesInClusters(std::unordered_map<unsigned, std::vector<Modification*>> const &vectorClusters,
+                                                     std::unordered_map<unsigned, ModificationCluster*> clusters) {
+                clock_t timer;
+                std::string task = "Marking original clones in clusters";
+                helpers::StartTask(task, timer);
+
+                unsigned counter;
+                helpers::StartCounting(counter);
+
+                for (auto &it : vectorClusters) {
+                    // Mark oldest modification in cluster;
+                    ModificationCluster *cluster = new ModificationCluster(it.second);
+                    clusters[it.first] = cluster;
+
+                    // Count processed lines
+                    helpers::Count(counter);
+                }
+
+                helpers::FinishCounting(counter, "clusters");
+                helpers::FinishTask(task, timer);
+            }
+
+            static void SaveOriginalClones(std::unordered_map<unsigned, ModificationCluster *> const &clusters) {
+                std::string filename = DataDir.value() + "/fileCloneOriginals.csv";
+
+                clock_t timer;
+                std::string task = "saving original clones to " + filename;
+                helpers::StartTask(task, timer);
+
                 std::ofstream s(filename);
                 if (! s.good()) {
                     ERROR("Unable to open file " << filename << " for writing");
                 }
 
-                s << "\"content id\",\"cluster size\",\"original commit id\""
-                  << std::endl;
+                s << "contentId/cloneId" << ","
+                  << "numFiles" << ","
+                  << "projectId" << ","
+                  << "commitId" << ","
+                  << "pathId" << std::endl;
 
-                int counter = 0;
+                unsigned counter = 0;
+                helpers::StartCounting(counter);
+
+                for (auto & it : clusters) {
+                    ModificationCluster *cluster = it.second;
+                    Modification *original = cluster->original;
+                    s << original->contents_id << ","
+                      << 1 << ","
+                      << original->project_id << ","
+                      << original->commit_id << ","
+                      << original->path_id << ",";
+
+                    helpers::Count(counter);
+                }
+
+                s.close();
+
+                helpers::FinishCounting(counter, "clone clusters");
+                helpers::FinishTask(task, timer);
+            }
+
+            static void SaveClusters(std::unordered_map<unsigned, ModificationCluster *> const &clusters) {
+                const std::string filename = DataDir.value() + "/fileClusters.csv";
+
+                clock_t timer;
+                std::string task = "Saving clusters " + filename;
+                helpers::StartTask(task, timer);
+
+                std::ofstream s(filename);
+
+                if (! s.good()) {
+                    ERROR("Unable to open file " << filename << " for writing");
+                }
+
+                s << "contentId" << ","
+                  << "clusterSize" << ","
+                  << "originalCommitId" << std::endl;
+
+                unsigned  counter;
+                helpers::StartCounting(counter);
+
                 for (auto & it : clusters) {
                     unsigned content_id = it.first;
                     unsigned cluster_size = it.second->size();
                     unsigned original = it.second->get_original()->commit_id;
-                    s << content_id << "," << cluster_size << "," << original
-                      << std::endl;
 
-                    // Count processed lines
-                    counter++;
-                    if (counter % 1000 == 0) {
-                        std::cerr << " : " <<(counter / 1000) << "k\r" << std::flush;
-                    }
+                    s << content_id << ","
+                      << cluster_size << ","
+                      << original << std::endl;
+
+                    helpers::Count(counter);
                 }
-                std::cerr << " : " <<(counter / 1000) << "k" << std::endl;
-                std::cerr << "DONE WRITINK OUT KLUSTER INFORMESHON" << std::endl;
+
+                s.close();
+
+                helpers::FinishCounting(counter, "clone clusters");
+                helpers::FinishTask(task, timer);
             }
 
-        protected:
+            static void SaveClusterCommits(std::unordered_map<unsigned, ModificationCluster *> const &clusters) {
+                const std::string filename = DataDir.value() + "/fileClustersWithCommits.csv";
+
+                clock_t timer;
+                std::string task = "Saving clusters (with commit information) to " + filename;
+                helpers::StartTask(task, timer);
+
+                std::ofstream s(filename);
+                if (! s.good()) {
+                    ERROR("Unable to open file " << filename << " for writing");
+                }
+
+                s << "contentId" << ","
+                  << "clusterSize" << ","
+                  << "originalCommitId" << ","
+                  << "commitList" << std::endl;
+
+                unsigned counter;
+                helpers::StartCounting(counter);
+
+                for (auto & it : clusters) {
+                    unsigned content_id = it.first;
+                    unsigned cluster_size = it.second->size();
+                    unsigned original = it.second->get_original()->commit_id;
+
+                    s << content_id << ","
+                      << cluster_size << ","
+                      << original << ",";
+
+                    bool first = true;
+                    for (auto & mod : it.second->modifications) {
+                        if (first) {
+                            first = false;
+                        } else {
+                            s << " ";
+                        }
+                        s << mod->commit_id;
+                    }
+                    s << std::endl;
+
+                    helpers::Count(counter);
+                }
+
+                s.close();
+
+                helpers::FinishCounting(counter, "clone clusters");
+                helpers::FinishTask(task, timer);
+            }
+
             std::vector<Modification *> modifications;
             Modification * original;
 
-            static std::unordered_map<unsigned, ModificationCluster*> clusters;
+            //static std::unordered_map<unsigned, ModificationCluster*> clusters;
         };
 
-        std::unordered_map<unsigned, ModificationCluster*> ModificationCluster::clusters;
+        //std::unordered_map<unsigned, ModificationCluster*> ModificationCluster::clusters;
     } //anonymoose namespace
 
     class ClusterInfo {
@@ -284,6 +439,47 @@ namespace dejavu {
 
     class ChangesDetector {
     public:
+        static void ExtractClusterIds(std::unordered_set<unsigned> &clusterIds) {
+            clock_t timer;
+            std::string task = "loading file clone clusters (to get IDs)";
+            helpers::StartTask(task, timer);
+
+            FileClonesLoader([&clusterIds](unsigned content_id,
+                                          unsigned cluster_size,
+                                          unsigned original_commit_id) {
+                clusterIds.insert(content_id);
+            });
+
+            helpers::FinishTask(task, timer);
+        }
+
+        static void ExtractProjectsContainingClones(std::unordered_set<unsigned> const &clusterIds,
+                                                    std::unordered_set<unsigned> &projectsContainingClones) {
+            clock_t timer;
+            std::string task = "extracting projects containing clones";
+            helpers::StartTask(task, timer);
+
+            FileChangeLoader([&](unsigned project_id,
+                                 unsigned commit_id,
+                                 unsigned path_id,
+                                 unsigned contents_id) mutable {
+
+                if (clusterIds.find(contents_id) != clusterIds.end()) {
+                    projectsContainingClones.insert(project_id);
+                }
+            });
+
+            std::cerr << "found " << projectsContainingClones.size()
+                      << " interesting projects";
+
+            helpers::FinishTask(task, timer);
+        }
+
+        ChangesDetector(std::vector<Project *> projects):
+                projects_(projects) {
+
+        }
+
         void analyze() {
             fOut_.open(DataDir.value() + "/fileCloneChanges.csv");
             fOut_ << "#projectId,clusterId,notFromEmpty,changes,deletions" << std::endl;
@@ -315,7 +511,34 @@ namespace dejavu {
             for (auto & i : threads)
                 i.join();
         }
-        
+
+        static void LoadProjects(std::unordered_set<unsigned int> interestingProjectIds,
+                                 std::vector<Project *> interestingProjects) {
+
+            clock_t timer;
+            std::string task = "extracting project information";
+            helpers::StartTask(task, timer);
+
+            std::unordered_set<unsigned> insertedProjects;
+            new ProjectLoader([&](unsigned id, std::string const & user,
+                                 std::string const & repo, uint64_t createdAt){
+                if (interestingProjectIds.find(id) != interestingProjectIds.end()) {
+                    if (insertedProjects.find(id) == insertedProjects.end()) {
+                        interestingProjects.push_back(new Project(id, createdAt));
+                        insertedProjects.insert(id);
+                    }
+                }
+            });
+
+            // Convert set to vector.
+            //std::copy(projects.begin(), projects.end(), interestingProjects.begin());
+
+            std::cerr << "filled out " << interestingProjects.size()
+                      << " interesting projects";
+
+            helpers::FinishTask(task, timer);
+        }
+
     private:
         void detectChangesInProject(Project *p) {
             std::vector<ClusterInfo *> clusterInfos;
@@ -323,6 +546,8 @@ namespace dejavu {
                     state.recordCommit(c, contentsToBeTracked_, clusterInfos);
                     return true;
                 });
+
+            cfi.process();
 
             // clusterInfos contain information about all clusters found in the project
             {
@@ -352,9 +577,37 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
-        Commit::LoadCommits();
-        ModificationCluster::LoadClusters();
-        ModificationCluster::SaveClusters();
+        std::unordered_map<unsigned, Commit *> commits;
+        Commit::LoadCommits(commits);
+        Commit::LoadCommitParents(commits);
+        Commit::LoadCommitFileChanges(commits);
+
+        std::unordered_map<unsigned, unsigned> counters;
+        ModificationCluster::CountRepeats(counters);
+        ModificationCluster::CountPluralContentClusters(counters);
+
+        std::unordered_map<unsigned, std::vector<Modification*>> vectorClusters;
+        ModificationCluster::LoadFileChanges(commits, counters, vectorClusters);
+
+        std::unordered_map<unsigned, ModificationCluster*> clusters;
+        ModificationCluster::MarkOriginalClonesInClusters(vectorClusters, clusters);
+
+        ModificationCluster::SaveOriginalClones(clusters);
+        ModificationCluster::SaveClusters(clusters);
+        ModificationCluster::SaveClusterCommits(clusters);
+
+        // Can start from here.
+        std::unordered_set<unsigned> clusterIds;//(clusters.begin(), clusters.end());
+        ChangesDetector::ExtractClusterIds(clusterIds);
+
+        std::unordered_set<unsigned> interestingProjectIds;
+        ChangesDetector::ExtractProjectsContainingClones(clusterIds, interestingProjectIds);
+
+        std::vector<Project *> interestingProjects;
+        ChangesDetector::LoadProjects(interestingProjectIds, interestingProjects);
+
+        ChangesDetector cd(interestingProjects);
+        cd.analyze();
     }
     
 } // namespace dejavu

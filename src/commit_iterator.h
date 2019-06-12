@@ -1,6 +1,7 @@
 #pragma once
 #include <type_traits>
 #include <functional>
+#include <assert.h>
 
 namespace dejavu {
 

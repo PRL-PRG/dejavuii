@@ -156,7 +156,7 @@ namespace helpers {
         std::cerr << "started " << task << std::endl;
     }
 
-    inline void FinishTask(const std::string task, clock_t &timer) {
+    inline void FinishTask(const std::string &task, clock_t &timer) {
         clock_t end = clock();
         std::cerr << "finished " << task
                   << " in " << (double(end - timer) / CLOCKS_PER_SEC) << "s"
@@ -174,11 +174,11 @@ namespace helpers {
         }
     }
 
-    inline void FinishCounting(unsigned &counter) {
+    inline void FinishCounting(unsigned counter) {
         std::cerr << "iterated over " << counter << " items" << std::endl;
     }
 
-    inline void FinishCounting(unsigned &counter, std::string items_name) {
+    inline void FinishCounting(unsigned counter, std::string items_name) {
         std::cerr << "iterated over " << counter << " " << items_name
                   << std::endl;
     }
