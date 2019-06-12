@@ -287,7 +287,7 @@ namespace dejavu {
             size_t completed = 0;
 
             for (unsigned stride = 0; stride < NumThreads.value(); ++stride) {
-                std::thread t = std::thread([stride, &completed, this]() {
+                threads.push_back(std::thread([stride, &completed, this]() {
                     while (true) {
                         Project *p;
                         {
@@ -304,8 +304,7 @@ namespace dejavu {
                             continue;
                         detectChangesInProject(p);
                     }
-                });
-                threads.push_back(t);
+                }));
             }
 
             for (auto & i : threads)
@@ -315,7 +314,7 @@ namespace dejavu {
     private:
         void detectChangesInProject(Project *p) {
             std::vector<ClusterInfo *> clusterInfos;
-            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this](Commit *c, ProjectState & state) {
+            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this, &clusterInfos](Commit *c, ProjectState & state) {
                     state.recordCommit(c, contentsToBeTracked_, clusterInfos);
                     return true;
                 });
