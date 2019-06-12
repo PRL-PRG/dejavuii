@@ -11,6 +11,31 @@
 namespace dejavu {
 
     namespace {
+        class Commit;
+
+        class Project : public BaseProject<Project, Commit> {
+        public:
+            Project(unsigned id, uint64_t createdAt):
+                    BaseProject<Project, Commit>(id, createdAt) {
+            }
+            static void LoadProjects(std::unordered_map<unsigned, Project *> &projects) {
+                clock_t timer;
+                std::string task = "extracting project information (all projects)";
+                helpers::StartTask(task, timer);
+
+                std::unordered_set<unsigned> insertedProjects;
+                new ProjectLoader([&](unsigned id, std::string const & user,
+                                      std::string const & repo, uint64_t createdAt){
+                    assert(projects.find(id) == projects.end());
+                    projects[id] = new Project(id, createdAt);
+                });
+
+                std::cerr << "Loaded " << projects.size() << " projects" << std::endl;
+
+                helpers::FinishTask(task, timer);
+            }
+        };
+
         class Commit : public BaseCommit<Commit>{
         public:
             Commit(unsigned int id, uint64_t time) : BaseCommit(id, time) {}
@@ -54,7 +79,8 @@ namespace dejavu {
                 helpers::FinishTask(task, timer);
             }
 
-            static void LoadCommitFileChanges(std::unordered_map<unsigned, Commit *> &commits) {
+            static void LoadCommitFileChanges(std::unordered_map<unsigned, Commit *> &commits,
+                                              std::unordered_map<unsigned, Project *> &projects) {
                 std::string task = "loading file changes (into commits)";
                 clock_t timer;
                 unsigned changes;
@@ -65,18 +91,15 @@ namespace dejavu {
                     assert(commits.find(commitId) != commits.end());
                     Commit *commit = commits[commitId];
                     commit->addChange(pathId,contentsId);
+
+                    assert(projects.find(projectId) != projects.end());
+                    projects[projectId]->addCommit(commit);
+
                     ++changes;
                 });
 
                 helpers::FinishCounting(changes, "file changes");
                 helpers::FinishTask(task, timer);
-            }
-        };
-
-        class Project : public BaseProject<Project, Commit> {
-        public:
-            Project(unsigned id, uint64_t createdAt):
-                    BaseProject<Project, Commit>(id, createdAt) {
             }
         };
 
@@ -475,30 +498,21 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        static void LoadProjects(std::unordered_set<unsigned int> interestingProjectIds,
-                                 std::vector<Project *> interestingProjects) {
+        static void FilterProjects(std::unordered_map<unsigned, Project *> const &allProjects,
+                                   std::unordered_set<unsigned> const &interestingProjectIds,
+                                   std::vector<Project *> &interestingProjects) {
 
             clock_t timer;
-            std::string task = "extracting project information";
+            std::string task = "filtering out interesting projects";
+            size_t projectCount;
             helpers::StartTask(task, timer);
 
-            std::unordered_set<unsigned> insertedProjects;
-            new ProjectLoader([&](unsigned id, std::string const & user,
-                                  std::string const & repo, uint64_t createdAt){
-                if (interestingProjectIds.find(id) != interestingProjectIds.end()) {
-                    if (insertedProjects.find(id) == insertedProjects.end()) {
-                        interestingProjects.push_back(new Project(id, createdAt));
-                        insertedProjects.insert(id);
-                    }
-                }
-            });
+            for (auto id : interestingProjectIds) {
+                helpers::Count(projectCount);
+                interestingProjects.push_back(allProjects.at(id));
+            }
 
-            // Convert set to vector.
-            //std::copy(projects.begin(), projects.end(), interestingProjects.begin());
-
-            std::cerr << "Filled out " << interestingProjects.size()
-                      << " interesting projects" << std::endl;
-
+            helpers::FinishCounting(projectCount, "projects");
             helpers::FinishTask(task, timer);
         }
 
@@ -517,7 +531,7 @@ namespace dejavu {
             size_t completed = 0;
 
             for (unsigned stride = 0; stride < NumThreads.value(); ++stride) {
-                threads.push_back(std::thread([stride, &completed, this]() {
+                threads.push_back(std::thread([stride, &completed, this, &projects]() {
                     while (true) {
                         Project *p;
                         {
@@ -580,11 +594,15 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
+        std::unordered_map<unsigned, Project *> projects;
+        Project::LoadProjects(projects);
+
         std::unordered_map<unsigned, Commit *> commits;
         Commit::LoadCommits(commits);
         Commit::LoadCommitParents(commits);
-        Commit::LoadCommitFileChanges(commits);
+        Commit::LoadCommitFileChanges(commits, projects);
 
+        // The big stuff.
         std::unordered_map<unsigned, unsigned> counters;
         ModificationCluster::CountRepeats(counters);
         ModificationCluster::CountPluralContentClusters(counters);
@@ -597,7 +615,7 @@ namespace dejavu {
 
         ModificationCluster::SaveOriginalClones(clusters);
         ModificationCluster::SaveClusters(clusters);
-        ModificationCluster::SaveClusterCommits(clusters);
+        //ModificationCluster::SaveClusterCommits(clusters);
 
         // Can start from here.
         std::unordered_set<unsigned> clusterIds;//(clusters.begin(), clusters.end());
@@ -607,7 +625,7 @@ namespace dejavu {
         ChangesDetector::ExtractProjectsContainingClones(clusterIds, interestingProjectIds);
 
         std::vector<Project *> interestingProjects;
-        ChangesDetector::LoadProjects(interestingProjectIds, interestingProjects);
+        ChangesDetector::FilterProjects(projects, interestingProjectIds, interestingProjects);
 
         ChangesDetector cd;
         cd.analyze(interestingProjects);
