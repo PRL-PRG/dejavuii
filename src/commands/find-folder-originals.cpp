@@ -152,7 +152,7 @@ namespace dejavu {
                 std::cerr << "    " << locationHints_.size() << " location hints" << std::endl;
                 std::cerr << "    " << paths_.size() << " paths " << std::endl;
                 std::cerr << "Loading clone candidates ..." << std::endl;
-                FolderCloneLoader{DataDir.value() + "/clone_originals_candidates.csv", [this](unsigned id, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path){
+                FolderCloneOriginalsCandidateLoader{DataDir.value() + "/clone_originals_candidates.csv", [this](unsigned id, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path){
                         if (id >= clones_.size())
                             clones_.resize(id + 1);
                         Project * p = projects_[projectId];
