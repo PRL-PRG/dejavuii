@@ -165,8 +165,8 @@ namespace dejavu {
 
             static void CountPluralContentClusters(std::unordered_map<unsigned, unsigned> &counters) {
                 std::string task = "counting plural content clusters: file content clusters with more than one member ";
-                size_t contents;
-                size_t pluralities;
+                size_t contents = 0;
+                size_t pluralities = 0;
                 clock_t timer;
 
                 helpers::StartTask(task, timer);
@@ -462,6 +462,10 @@ namespace dejavu {
 
     class ChangesDetector {
     public:
+        ChangesDetector(std::unordered_set<unsigned> const &clusterIds):
+                contentsToBeTracked_(clusterIds) {
+        }
+
         static void ExtractClusterIds(std::unordered_set<unsigned> &clusterIds) {
             clock_t timer;
             std::string task = "loading file clone clusters (to get IDs)";
@@ -503,7 +507,7 @@ namespace dejavu {
                                    std::vector<Project *> &interestingProjects) {
             clock_t timer;
             std::string task = "filtering out interesting projects";
-            size_t projectCount;
+            size_t projectCount = 0;
             helpers::StartTask(task, timer);
 
             for (auto id : interestingProjectIds) {
@@ -627,7 +631,7 @@ namespace dejavu {
         std::vector<Project *> interestingProjects;
         ChangesDetector::FilterProjects(projects, interestingProjectIds, interestingProjects);
 
-        ChangesDetector cd;
+        ChangesDetector cd(clusterIds);
         cd.analyze(interestingProjects);
     }
     
