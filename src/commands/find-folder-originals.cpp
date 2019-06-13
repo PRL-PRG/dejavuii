@@ -139,7 +139,6 @@ namespace dejavu {
                             paths_.resize(id + 1);
                         paths_[id] = globalRoot_->addPath(id, path, pathSegments_);
                     }};
-                //pathSegments_.clearHelpers();
                 std::cerr << "Loading changes ... " << std::endl;
                 FileChangeLoader{[this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
                         Project * p = projects_[projectId];
@@ -172,7 +171,6 @@ namespace dejavu {
 
             void findOriginals() {
                 std::cerr << "Updating clone originals..." << std::endl;
-
 
                 std::vector<std::thread> threads;
                 size_t completed = 0;
@@ -340,7 +338,7 @@ namespace dejavu {
                     if (i.second > c->commit->time)
                         break;
                     // if the time is equal, but the project is youner, then it can't be original either
-                    if (i.second == c->commit->time && i.first->createdAt > c->project->createdAt)
+                    if (i.second == c->commit->time && i.first->createdAt >= c->project->createdAt)
                         break;
                     ++vp;
                     counts += checkForOriginalIn(i.first, c);
@@ -364,7 +362,11 @@ namespace dejavu {
                 std::unordered_set<File *> changedFiles;
                 std::unordered_set<Dir*> candidates;
                 CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [&, this](Commit * c, ProjectState & state) {
+                        // if we are past the so far original, stop
                         if (c->time > clone->commit->time)
+                            return false;
+                        // if we are the same time as the original, but the project is youner, stop
+                        if (c->time == clone->commit->time && p->createdAt >= clone->project->createdAt)
                             return false;
                         // no need to deal with the original clone commit already
                         if (c == clone->commit)
@@ -386,6 +388,7 @@ namespace dejavu {
                         counts.totalDirs += candidates.size();
                         // for all candidate folders, see if they are identical
                         if (!candidates.empty()) {
+                            bool updated = false;
                             for (Dir * d : candidates) {
                                 ++counts.checkedDirs;
                                 if (isSubsetOf(clone->root, d, state)) {
@@ -400,9 +403,12 @@ namespace dejavu {
                                     clone->project = p;
                                     clone->commit = c;
                                     clone->path = d->path(pathSegments_);
+                                    updated = true;
                                 }
                             }
                             candidates.clear();
+                            if (updated)
+                                return false;
                         }
                         return true;
                     });
