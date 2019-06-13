@@ -155,8 +155,10 @@ namespace dejavu {
                 helpers::StartTask(task, timer);
 
                 FileChangeLoader([&](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
-                    counters[contents_id]++;
-                    ++contents;
+                    if(contents_id != 0) {
+                        counters[contents_id]++;
+                        ++contents;
+                    }
                 });
 
                 helpers::FinishCounting(contents, "file contents");
