@@ -525,7 +525,7 @@ namespace dejavu {
             std::string task = "analyzing commit graphs (writing results to " + path + ")";
             helpers::StartTask(task, timer);
 
-            std::cerr << "TODO: " << projects.size() << " projects";
+            std::cerr << "TODO: " << projects.size() << " projects" << std::endl;
 
             fOut_.open(path);
             fOut_ << "#projectId,clusterId,notFromEmpty,changes,deletions" << std::endl;
