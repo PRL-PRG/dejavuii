@@ -155,10 +155,8 @@ namespace dejavu {
                 helpers::StartTask(task, timer);
 
                 FileChangeLoader([&](unsigned project_id, unsigned commit_id, unsigned path_id, unsigned contents_id) mutable {
-                    if(contents_id != 0) {
                         counters[contents_id]++;
                         ++contents;
-                    }
                 });
 
                 helpers::FinishCounting(contents, "file contents");
@@ -174,7 +172,7 @@ namespace dejavu {
                 helpers::StartTask(task, timer);
 
                 for (auto it : counters) {
-                    if (it.second > 1) {
+                    if (it.second > 1 && it.first != 0 /* exclude empty files */) {
                         ++pluralities;
                     }
                     helpers::Count(contents);
@@ -198,7 +196,7 @@ namespace dejavu {
                                      unsigned commit_id,
                                      unsigned path_id,
                                      unsigned contents_id) mutable {
-                    if (counters.at(contents_id) < 2) {
+                    if (counters.at(contents_id) < 2 && contents_id != 0  /* exclude empty files */) {
                         skipped++;
                         return;
                     }
