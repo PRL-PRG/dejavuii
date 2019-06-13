@@ -94,7 +94,7 @@ namespace dejavu {
             void detectCloneCandidates() {
                 std::cerr << "Analyzing projects for clone candidates..." << std::endl;
                 clonesOut_ = std::ofstream(DataDir.value() + "/clone_candidates.csv");
-                clonesOut_ << "#projectId,commitId,cloneId,folder,files" << std::endl;
+                clonesOut_ << "#cloneId,projectId,commitId,folder,files" << std::endl;
 
                 cloneStrings_ = std::ofstream(DataDir.value() + "/clone_strings.csv");
                 cloneStrings_ << "#cloneId,string" << std::endl;
@@ -157,7 +157,8 @@ namespace dejavu {
 
                 The clone candidate is defined by its root directory and the string which encodes the clone candidate structure is returned.
 
-                First all subdirs are processed as clone candidates and their structure is cached. After this, using the cached structures of the subdirs, remaining subdirs and files, the structure of the directory is created and then hashed.
+                First all subdirs are processed as clone candidates and their structure is cached. After this, using the cached 
+structures of the subdirs, remaining subdirs and files, the structure of the directory is created and then hashed.
 
                 Then we check, based on the hash, whether such a clone has already been found and if not, create the clone and output its structure.
 

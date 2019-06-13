@@ -397,17 +397,19 @@ namespace dejavu {
     };
 
 
-    class FolderCloneLoader : public BaseLoader {
+    /** Folder clone original candidate.
+     */
+    class FolderCloneOriginalsCandidateLoader : public BaseLoader {
     public:
         // cloneId, hash, occurences, files, projectId, commitId, path
         typedef std::function<void(unsigned, SHA1Hash const &, unsigned, unsigned, unsigned, unsigned, std::string const &)> RowHandler;
 
-        FolderCloneLoader(std::string const & filename, RowHandler f):
+        FolderCloneOriginalsCandidateLoader(std::string const & filename, RowHandler f):
             f_(f) {
             readFile(filename);
         }
 
-        FolderCloneLoader(RowHandler f):
+        FolderCloneOriginalsCandidateLoader(RowHandler f):
             f_(f) {
             readFile(DataDir.value() + "/clone_originals.csv");
         }
@@ -421,6 +423,35 @@ namespace dejavu {
             unsigned projectId = std::stoul(row[4]);
             unsigned cloneId = std::stoul(row[5]);
             f_(id, hash, occurences, files, projectId, cloneId, row[6]);
+        }
+
+    private:
+        RowHandler f_;
+    };
+
+    class FolderCloneCandidateLoader : public BaseLoader {
+    public:
+        // cloneId, projectId, commitId, folder, files
+        typedef std::function<void(unsigned, unsigned, unsigned, std::string const &, unsigned)> RowHandler;
+
+        FolderCloneCandidateLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        FolderCloneCandidateLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/clone_candidates.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 5);
+            unsigned cloneId = std::stoul(row[0]);
+            unsigned projectId = std::stoul(row[1]);
+            unsigned commitId = std::stoul(row[2]);
+            unsigned files = std::stoul(row[4]);
+            
+            f_(cloneId, projectId, commitId, row[3], files);
         }
 
     private:
