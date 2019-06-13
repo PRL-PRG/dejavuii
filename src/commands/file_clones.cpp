@@ -165,8 +165,8 @@ namespace dejavu {
 
             static void CountPluralContentClusters(std::unordered_map<unsigned, unsigned> &counters) {
                 std::string task = "counting plural content clusters: file content clusters with more than one member ";
-                size_t contents;
-                size_t pluralities;
+                size_t contents = 0;
+                size_t pluralities = 0;
                 clock_t timer;
 
                 helpers::StartTask(task, timer);
@@ -391,18 +391,144 @@ namespace dejavu {
         }
     };
 
+    class TrackingInfo {
+    public:
+        unsigned changed;
+        unsigned deleted;
+        bool currentlyDeleted;
+        bool existedBeforeTracking;
+        bool aliveBeforeTracking;
+
+        TrackingInfo():
+                changed(0),
+                deleted(0),
+                currentlyDeleted(false),
+                existedBeforeTracking(false),
+                aliveBeforeTracking(false) {
+        }
+
+        TrackingInfo(TrackingInfo const & other):
+                changed(other.changed),
+                deleted(other.deleted),
+                currentlyDeleted(other.currentlyDeleted),
+                existedBeforeTracking(other.existedBeforeTracking),
+                aliveBeforeTracking(other.aliveBeforeTracking) {
+        }
+
+        void mergeWith(TrackingInfo const * other) {
+            changed = std::max(changed, other->changed); // FIXME na pewno?
+            deleted = std::max(deleted, other->deleted);
+            currentlyDeleted &= other->currentlyDeleted;
+            existedBeforeTracking |= other->existedBeforeTracking;
+            aliveBeforeTracking |= other->aliveBeforeTracking;
+        }
+    };
 
     class ProjectState {
     public:
-
         ProjectState() {
+
         }
 
-        ProjectState(ProjectState const & other):
+        std::unordered_map<unsigned, TrackingInfo *> trackedPaths;
+        std::unordered_map<unsigned, bool /*alive?*/> untrackedPaths;
+
+        ProjectState(ProjectState const & other) :
+                trackedPaths(other.trackedPaths),
+                untrackedPaths(other.untrackedPaths) {
+        }
+
+        void mergeWith(ProjectState const & other, Commit * c) {
+            for (auto it : other.trackedPaths) {
+                unsigned key = it.first;
+                TrackingInfo * obj = trackedPaths[key];
+                TrackingInfo * otherObj = it.second;
+
+                // If a path is tracked in both this and other state, then merge
+                // the objects.
+                if (obj != nullptr) {
+                    obj->mergeWith(otherObj);
+
+                // If a path is only present in other but ont in this, then add
+                // the object to this as well.
+                } else {
+                    trackedPaths[key] = otherObj;
+                }
+
+                // Objects that are in this but not in other do not require any
+                // special action.
+            }
+
+            for (auto it : other.untrackedPaths) {
+                // If a path is alive in either branch, then it is alive in the
+                // merged branch.
+                unsigned key = it.first;
+                untrackedPaths[key] |= it.second;
+            }
+        }
+
+        bool isTracked(unsigned changePathId) {
+            if (trackedPaths.find(changePathId) == trackedPaths.end()) {
+                return false;
+            }
+            return !trackedPaths.at(changePathId)->currentlyDeleted;
+        }
+
+        void startTracking(Commit *commit, unsigned changePathId) {
+            // This path was previously untracked.
+            if (trackedPaths.find(changePathId) == trackedPaths.end()) {
+                trackedPaths[changePathId] = new TrackingInfo();
+
+                // If this path had previously existed. Otherwise
+                // existed = alive = false by default.
+                if (untrackedPaths.find(changePathId) != untrackedPaths.end()) {
+                    trackedPaths[changePathId]->existedBeforeTracking = true;
+                    trackedPaths[changePathId]->aliveBeforeTracking = untrackedPaths.at(changePathId);
+                }
+
+            // This path was previously tracked.
+            } else {
+                // If it was tracked, then it should be dead at this point (?)
+                assert(trackedPaths[changePathId]->currentlyDeleted);
+
+                trackedPaths[changePathId]->currentlyDeleted = false;
+                ++trackedPaths[changePathId]->changed; // FIXME na pewno?
+            }
+        }
+
+        void markTrackedDeleted(Commit *commit, unsigned changePathId) {
+            assert(trackedPaths.find(changePathId) != trackedPaths.end());
+            trackedPaths[changePathId]->currentlyDeleted = true;
+            ++trackedPaths[changePathId]->deleted;
+        }
+
+        void markTrackedChanged(Commit *commit, unsigned changePathId, unsigned changeContentId) {
+            assert(trackedPaths.find(changePathId) != trackedPaths.end());
+            ++trackedPaths[changePathId]->changed;
+        }
+
+        void markUntrackedDeleted(Commit *commit, unsigned changePathId) {
+            assert(untrackedPaths.find(changePathId) != untrackedPaths.end());
+            untrackedPaths[changePathId] = false;
+        }
+
+        void markUntrackedChanged(Commit *commit, unsigned changePathId, unsigned changeContentId) {
+            // Ignore past state.
+            untrackedPaths[changePathId] = true;
+        }
+    };
+
+    class ProjectState_fuck {
+    public:
+
+        ProjectState_fuck() {
+        }
+
+        ProjectState_fuck(ProjectState_fuck const & other):
             trackedFiles_(other.trackedFiles_) {
         }
 
-        void mergeWith(ProjectState const & other, Commit *c) {
+        void mergeWith(ProjectState_fuck const & other, Commit *c) {
             for (auto tf : other.trackedFiles_) {
                 auto & myTracked = trackedFiles_[tf.first];
                 if (tf.second.contents == c->changes[tf.first]) {
@@ -416,6 +542,7 @@ namespace dejavu {
         }
 
         void recordCommit(Commit * c, std::unordered_set<unsigned> const & contentsToBeTracked, std::vector<ClusterInfo *> & clusterInfos) {
+            // FIXME start here
             for (unsigned path : c->deletions) {
                 for (ClusterInfo * ci : trackedFiles_[path].clusterInfos)
                     ++ci->deletions;
@@ -503,7 +630,7 @@ namespace dejavu {
                                    std::vector<Project *> &interestingProjects) {
             clock_t timer;
             std::string task = "filtering out interesting projects";
-            size_t projectCount;
+            size_t projectCount = 0;
             helpers::StartTask(task, timer);
 
             for (auto id : interestingProjectIds) {
@@ -515,7 +642,7 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        void analyze(std::vector<Project *> const & projects) {
+        void analyze(std::vector<Project *> const & projects, std::unordered_set<unsigned> const & cloneContentIds) {
             std::string path = DataDir.value() + "/fileCloneChanges.csv";
             clock_t timer;
             std::string task = "analyzing commit graphs (writing results to " + path + ")";
@@ -531,7 +658,7 @@ namespace dejavu {
 
             for (unsigned stride = 0; stride < NumThreads.value(); ++stride) {
 
-                threads.push_back(std::thread([stride, &completed, this, &projects]() {
+                threads.push_back(std::thread([stride, &completed, this, &projects, &cloneContentIds]() {
                     while (true) {
                         Project *p;
                         {
@@ -543,7 +670,7 @@ namespace dejavu {
                         }
                         if (p == nullptr)
                             continue;
-                        detectChangesInProject(p);
+                        detectChangesInProject(p, cloneContentIds);
                     }
                 }));
             }
@@ -556,11 +683,38 @@ namespace dejavu {
         }
 
     private:
-        void detectChangesInProject(Project *p) {
+        void detectChangesInProject(Project *p, std::unordered_set<unsigned> const & cloneContentIds) {
             std::vector<ClusterInfo *> clusterInfos;
 
-            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this, &clusterInfos](Commit *c, ProjectState &state) {
-                    state.recordCommit(c, contentsToBeTracked_, clusterInfos);
+            CommitForwardIterator<Project, Commit, ProjectState> cfi(p, [this, &clusterInfos, &cloneContentIds](Commit *commit, ProjectState &state) {
+                    //state.recordCommit(c, contentsToBeTracked_, clusterInfos);
+
+                    for (auto change : commit->changes) {
+                        unsigned changePathId = change.first;
+                        unsigned changeContentId = change.second;
+
+                        // Check if this path is already tracked.
+                        if (state.isTracked(changePathId)) {
+                            if (changeContentId == FILE_DELETED) {
+                                state.markTrackedDeleted(commit, changePathId);
+                            } else {
+                                state.markTrackedChanged(commit, changePathId, changeContentId);
+                            }
+                        // We might also want to keep track of untracked existing files.
+                        } else {
+                            if (changeContentId == FILE_DELETED) {
+                                state.markUntrackedDeleted(commit, changePathId);
+                            } else {
+                                state.markUntrackedChanged(commit, changePathId, changeContentId);
+                            }
+                        }
+
+                        // This changePathId should be tracked because its content is one of the clones.
+                        if (cloneContentIds.find(changeContentId) != cloneContentIds.end()) {
+                            state.startTracking(commit, changePathId);
+                        }
+                    }
+
                     return true;
                 });
 
@@ -577,11 +731,10 @@ namespace dejavu {
                 delete ci;
         }
 
-
         //std::vector<Project *> projects_;
         //std::vector<Commit *> commits_;
         
-        std::unordered_set<unsigned> contentsToBeTracked_;
+        //std::unordered_set<unsigned> contentsToBeTracked_;
 
         std::ofstream fOut_;
         std::mutex mOut_;
@@ -628,7 +781,7 @@ namespace dejavu {
         ChangesDetector::FilterProjects(projects, interestingProjectIds, interestingProjects);
 
         ChangesDetector cd;
-        cd.analyze(interestingProjects);
+        cd.analyze(interestingProjects, clusterIds);
     }
     
 } // namespace dejavu
