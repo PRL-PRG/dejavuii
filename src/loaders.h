@@ -483,7 +483,9 @@ namespace dejavu {
         RowHandler f_;
     };
 
-    /** Loads the folder clone originals information.
+    /** Loads the folder clone occurences information.
+
+        This info is available after filter-folder-clones command.
      */
     class FolderCloneOccurencesLoader : public BaseLoader {
     public:
@@ -514,6 +516,10 @@ namespace dejavu {
         
     };
 
+    /** Loads the folder clone originals information.
+
+        This info is available after filter-folder-clones command.
+     */
     class FolderCloneOriginalsLoader : public BaseLoader {
     public:
         // cloneId, hash, occurences, files, projectId, commitId, path, isOriginalClone

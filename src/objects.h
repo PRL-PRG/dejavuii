@@ -15,6 +15,10 @@ namespace dejavu {
     constexpr unsigned EMPTY_PATH = 0;
 
 
+    /** To make sure that the originals are deterministic, this function should be used for checking whether an original value should be updated.
+
+        It expects project to support createdAt field and commit to support time field. 
+     */
     template<typename PROJECT, typename COMMIT>
         bool IsBetterOriginal(PROJECT * originalProject, COMMIT * originalCommit, std::string const & originalPath, PROJECT * project, COMMIT * commit, std::string const & path) {
         // if the new commit is younger then it is better candidateOB
@@ -35,7 +39,6 @@ namespace dejavu {
         }
         return false;
     }
-    
 
     /** Memory efficient implementation of the SHA1 hash used in the algorithms.
 
