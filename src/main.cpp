@@ -21,6 +21,7 @@ namespace dejavu {
     helpers::Option<unsigned> Seed("seed", 0, false);
     helpers::Option<unsigned> Threshold("threshold", 2, {"-t"}, false);
     helpers::Option<unsigned> Pct("pct", 5, {"-pct"}, false);
+    helpers::Option<std::string> GhtDir("ghtorrent", "", {"-ght"}, true);
     
 } // namespace dejavu
 
@@ -34,6 +35,7 @@ void InitializeCommands() {
     // TODO add command to run the downloader Konrad has implemented as a shell script
     new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes.");

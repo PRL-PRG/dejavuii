@@ -13,6 +13,10 @@ namespace dejavu {
      */
     void Join(int argc, char * argv[]);
 
+    /** The creation time join puts on projects is wrong (it is the oldest commit, which for forks is useless). This pass attempts to fix this by getting the proper (?) creation time from the ghtorrent database.
+     */
+    void PatchProjectsCreatedAt(int argc, char * argv[]);
+
     /** Verifies that the information in the dataset makes sense and creates a valid subset. Namely checks that the data in commit changes is coherent (i.e. no deletions of previously unknown files) and discrads projects for which it is not true that for each commit its parents are older.
         
         TODO does not deal with information we are not using for now (such as commit authors, etc.).

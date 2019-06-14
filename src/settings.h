@@ -43,5 +43,10 @@ namespace dejavu {
     /** Generic percentage value.
      */
     extern helpers::Option<unsigned> Pct;
+
+    /** Location of a ghtorrent output data.
+     */
+    extern helpers::Option<std::string> GhtDir;
+    
     
 } // dejavu

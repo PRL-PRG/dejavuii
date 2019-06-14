@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include <unordered_map>
+#include <limits>
 
 #include "helpers/csv-reader.h"
 #include "helpers/hash.h"
@@ -36,6 +37,56 @@ namespace dejavu {
     }; // dejavuii::BaseLoader
 
 
+    /** Loads projects from the GHTorrent dump.
+     */
+    class GHTorrentProjectsLoader : public BaseLoader {
+    public:
+        typedef std::function<void(unsigned, // id
+                                   std::string const &, // url
+                                   unsigned, // ownerId
+                                   std::string const &, // name
+                                   std::string const &, // description
+                                   std::string const &, // language
+                                   uint64_t, // createdAt
+                                   unsigned, // forkedFrom
+                                   uint64_t, // deleted
+                                   uint64_t // updatedAt
+                                   )> RowHandler;
+
+        GHTorrentProjectsLoader(RowHandler f):
+            f_(f) {
+            readFile(GhtDir.value() + "/projects.csv");
+        }
+
+        GHTorrentProjectsLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+    protected:
+
+        uint64_t strToTime(std::string const & str) {
+            struct tm t;
+            strptime(str.c_str(),"%Y-%m-%d %H:%M:%S",&t);
+            return mktime(&t);
+        }
+        
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 10);
+            unsigned id = std::stoul(row[0]);
+            unsigned ownerId = std::stoul(row[2]);
+            uint64_t createdAt = strToTime(row[6]);
+            unsigned forkedFrom = row[7] == "\\N" ? std::numeric_limits<unsigned>::max() : std::stoul(row[7]);
+            uint64_t deleted = strToTime(row[8]);
+            uint64_t updatedAt = strToTime(row[9]);
+            f_(id, row[1], ownerId, row[3], row[4], row[5], createdAt, forkedFrom, deleted, updatedAt);
+        }
+
+    private:
+        RowHandler f_;
+    };
+
+
+    
 
     /** Loads the table which translates hashes to their ids.
      */
