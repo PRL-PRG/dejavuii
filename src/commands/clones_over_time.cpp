@@ -1,7 +1,11 @@
 #include <unordered_map>
 #include <map>
 #include <vector>
+#include <thread>
+#include <mutex>
+#include <limits>
 
+#include "../objects.h"
 #include "../loaders.h"
 #include "../commands.h"
 #include "../commit_iterator.h"
@@ -14,8 +18,6 @@ namespace dejavu {
         class Clone;
         class Project;
         class TimeAggregator;
-
-
 
         /** Information about aggregated numbers of different files at a time.
 
@@ -103,139 +105,238 @@ namespace dejavu {
                 npmChangedFolderClones += other.npmChangedFolderClones;
                 return *this;
             }
-
-            
             
         }; // Stats
 
-        class Commit {
+        class CloneOriginal;
+
+        class Commit : public BaseCommit<Commit> {
         public:
-            size_t id;
-            uint64_t time;
-            std::unordered_map<unsigned, unsigned> changes;
-            std::vector<Commit *> children;
-            std::vector<Commit *> parents;
-
-            // implementation for the commit iterator
-            std::vector<Commit *> const & childrenCommits() const {
-                return children;
-            }
-
-            std::unordered_map<std::string, Clone*> introducedClones;
-
-            unsigned numParentCommits() const {
-                return parents.size();
-            }
-
             Commit(unsigned id, uint64_t time):
-                id(id),
-                time(time) {
+                BaseCommit<Commit>(id, time) {
             }
 
-            void addParent(Commit * p) {
-                p->children.push_back(this);
-                parents.push_back(p);
-            }
-
-            void addChange(unsigned pathId, unsigned contentsId) {
-                changes.insert(std::make_pair(pathId, contentsId));
-            }
-
+            /** path -> clone original
+             */
+            std::unordered_map<std::string, CloneOriginal *> addedClones;
         };
 
+        class Project : public BaseProject<Project, Commit> {
+        public:
+            Project(unsigned id, uint64_t createdAt):
+                BaseProject<Project, Commit>(id, createdAt) {
+            }
+        };
+
+        
+        /*
         class CloneOccurence {
         public:
             // the occurence specification
             Project * project;
             Commit * commit;
             std::string path;
-            // the clone id
-            Clone * clone;
 
-            CloneOccurence(Project * p, Commit * c, std::string const & path, Clone * clone):
+            CloneOccurence(Project * p, Commit * c, std::string const & path):
                 project(p),
                 commit(c),
                 // make sure there is always trailing / so that we do not match subexpressions but only whole dirs
-                path(path + "/"),
-                clone(clone) {
+                path(path + "/") {
             }
 
+            /** Returns true if the clone contains given path.
+             *  /
             bool contains(std::string const & path) {
                 return path.find(this->path) == 0; 
             }
 
-        };
+            }; */
 
-        class Project {
+        class CloneOriginal {
         public:
-            unsigned id;
-            uint64_t createdAt;
+            Project * project;
+            Commit * commit;
+            std::string root;
 
-            std::unordered_set<Commit *> commits;
-
-            // TODO should use objects
-            
-            typedef std::unordered_set<Commit*> COMMIT_SET;
-            
-            COMMIT_SET::iterator commitsBegin() {
-                return commits.begin();
+            CloneOriginal(Project * p, Commit * c, std::string const & path):
+                project(p),
+                commit(c),
+                root(path) {
             }
 
-            COMMIT_SET::iterator commitsEnd() {
-                return commits.end();
+            bool isOriginal(Project * p, Commit * c, std::string const & path) {
+                return commit == c && project == p && root == path;
             }
-            
-            bool hasCommit(Commit * c) const {
-                return commits.find(c) != commits.end();
-            }
+        }; 
 
-            Project(unsigned id, uint64_t createdAt):
-                id(id),
-                createdAt(createdAt) {
-            }
 
-            void addCommit(Commit * c) {
-                commits.insert(c);
-            }
+        /** Holds clone-specific information about a path.
 
-            void summarizeClones(TimeAggregator * ta);
-
-            bool shouldIgnore() {
-                for (auto c : commits)
-                    for (auto p : c->parents)
-                        if (p->time > c->time)
-                            return true;
-                return false;
-            }
-
-        };
-
-        /** Information about a clone.
+            Marks whether the patrh holds a file clone, folder clone, or a changed folder clone. 
          */
-        class Clone {
+        class PathInfo {
         public:
-            size_t id;
-            Project * originalProject;
-            Commit * originalCommit;
-            std::string originalRoot;
+            bool clone;
+            bool folderClone;
+            bool changedFolderClone;
 
-
-            Clone(unsigned id, Project * project, Commit * commit, std::string const & rootDir):
-                id(id),
-                originalProject(project),
-                originalCommit(commit),
-                originalRoot(rootDir) {
+            PathInfo():
+                clone(false),
+                folderClone(false),
+                changedFolderClone(false) {
             }
 
-            /** Returns true if the original of the clone is the provided project, clone and root dir combination, false otherwise.
+            void setAsFolderClone() {
+                assert(clone);
+                folderClone = true;
+                changedFolderClone =false;
+            }
+        };
+
+        class FileOriginalInfo {
+        public:
+            Project * project;
+            Commit * commit;
+            unsigned pathId;
+
+            FileOriginalInfo():
+                project(nullptr),
+                commit(nullptr),
+                pathId(0) {
+            }
+
+            void updateWith(Project * p, Commit * c, unsigned path, std::vector<std::pair<std::string, bool>> const & paths) {
+                if (project == nullptr || IsBetterOriginal(project, commit, paths[pathId].first, p, c, paths[path].first)) {
+                    project = p;
+                    commit = c;
+                    pathId = path;
+                }
+            }
+        };
+
+        /** Commit snapshots aggregates information about all files alive at any given commit.
+
+            This means that for a path there can only be *one* version, as opposed to the TimeSnapshot defined later, which allows multiple versions of single path to exist. 
+         */
+        class CommitSnapshot {
+        public:
+
+            /** In addition to path info we also need the contents of the file so that merges can be performed correctly.
              */
-            bool isOriginal(Project * p, Commit * c, std::string const & rootDir) {
-                //                std::cerr << "\"" << rootDir << "\"" << rootDir.size() <<  std::endl;
-                //std::cerr << originalRoot << std::endl;
-                return originalCommit == c && originalProject == p && originalRoot == rootDir;
-            }
-        }; // Clone
+            class CommitPathInfo : public PathInfo {
+            public:
+                unsigned contentsId;
 
+                CommitPathInfo():
+                    contentsId(0) {
+                }
+            };
+            
+            CommitSnapshot() {
+            }
+
+            CommitSnapshot(CommitSnapshot const & from):
+                files_(from.files_) {
+            }
+
+            /** Merges with other state.
+
+                Copies all files from the other state to the current state. However, care must be taken when the same path already exists in the state - in this case the merge commit may simply decide which version of the file will be used and therefore if the contents of the path of the other state matches the contents to which the commit will set the file, we simply copy the state verbatim. Otherwise we leave it be and deal with it in the update state. 
+             */
+            void mergeWith(CommitSnapshot const & from, Commit * c) {
+                for (auto i : from.files_) {
+                    auto j = files_.find(i.first);
+                    // if the file is not found in current state, simply add its info 
+                    if (j == files_.end()) {
+                        files_.insert(i);
+                     // otherwise, if the incomming contents is identical to the contents set by the commit, replace the pathInfo, ignore in other cases 
+                    } else {
+                        auto ci = c->changes.find(i.first);
+                        if (ci != c->changes.end()) {
+                            if (j->second.contentsId == ci->second)
+                                j->second = i.second;
+                        }
+                    }
+                }
+            }
+
+            void updateWith(Project * p, Commit * c, std::unordered_map<unsigned,  FileOriginalInfo> & fileOriginals, std::vector<std::pair<std::string, bool>> const & paths) {
+                // firt delete what must be deleted
+                for (unsigned pathId : c->deletions)
+                    files_.erase(pathId);
+                // the update the state based on changes in current commit
+                for (auto i : c->changes) {
+                    CommitPathInfo & pi = files_[i.first];
+                    // if the contents id of the stored path info matches the one of the commit change, then it is not a change, but was a merge selection dealth with in merge
+                    if (pi.contentsId == i.second)
+                        continue;
+                    // set the proper contents id, update the clone state
+                    pi.contentsId = i.second;
+                    pi.clone = isClone(i.second, i.first, p, c, fileOriginals);
+                    if (pi.folderClone)
+                        pi.changedFolderClone = true;
+                }
+                // finally, if the commit introduces any folder clones, we must mark them as such
+                for (auto clone : c->addedClones) {
+                    std::string const & root = clone.first;
+                    // We don't have to maintain project with folder clones, because if there is a clone in commit, then the clone happens in *all* projects containing the clone. The only exception is if the original is itself a clone and happens to be in the oldest of projects containing the clone, which is what we check here (or if the original is same project, same commit, different path), both are degenerate cases
+                    if (clone.second->isOriginal(p, c, root))
+                        continue;
+                    for (auto i : c->changes) {
+                        if (paths[i.first].first.find(root) == 0) {
+                            if (!files_[i.first].clone) {
+                                std::cerr << "Expected clone: " << p->id << "," << c->id << "," << i.first << "," << i.second << std::endl;
+                                std::cerr << "Original: " << fileOriginals[i.second].project->id << ","  << fileOriginals[i.second].commit->id << "," << fileOriginals[i.second].pathId << std::endl;
+                                std::cerr << "root: " << root << std::endl;
+                            }
+                            files_[i.first].setAsFolderClone();
+                        }
+                    }
+                }
+            }
+
+        private:
+            friend class TimeSnapshot;
+
+            bool isClone(unsigned contentsId, unsigned pathId, Project * p, Commit * c, std::unordered_map<unsigned, FileOriginalInfo> const & fileOriginals) {
+                auto i = fileOriginals.find(contentsId);
+                assert(i != fileOriginals.end());
+                // if the path, commit or project does not match, we have clone, 
+                if (pathId != i->second.pathId)
+                    return true;
+                if (c != i->second.commit)
+                    return true;
+                if (p != i->second.project)
+                    return true;
+                return false; // it's original, they all match
+            }
+
+            
+            std::unordered_map<unsigned, CommitPathInfo> files_;
+        };
+
+        /** Time snapshot is similar to clone snapshot, but may contain different versions of same path at the same time.
+
+            This is done by having the files map index based on both contents and path ids.
+         */
+        class TimeSnapshot {
+        public:
+
+            void updateWith(CommitSnapshot const & cs) {
+                for (auto i : cs.files_) {
+                    size_t index = (static_cast<size_t>(i.first) << 32) + i.second.contentsId;
+                    auto j = files_.find(index);
+                    if (j == files_.end())
+                        files_.insert(std::make_pair(index, static_cast<PathInfo>(i.second)));
+                }
+            }
+
+        private:
+            std::unordered_map<size_t, PathInfo> files_;
+            
+        };
+
+        
         /** Aggregates the number of clones over time.
 
             How to aggreegate over the projects w/o the need to go through all commit times? 
@@ -283,64 +384,70 @@ namespace dejavu {
                         // add the commit to the project
                         p->addCommit(c);
                         c->addChange(pathId, contentsId);
-                        updateFileOriginal(p, c, contentsId);
+                        fileOriginals_[contentsId].updateWith(p, c, pathId, paths_);
                     }};
-                std::cerr << "    " << originals_.size() << " unique contents" << std::endl;
-                // now thge basic data has been loaded, load the clone originals
+                std::cerr << "    " << fileOriginals_.size() << " unique contents" << std::endl;
                 std::cerr << "Loading clone originals..." << std::endl;
-                FolderCloneOriginalsLoader{[this](unsigned id, unsigned numFiles, unsigned projectId, unsigned commitId, std::string const & rootDir) {
-                        if (clones_.size() <= id)
-                            clones_.resize(id + 1);
-                        Project * project = projects_[projectId];
-                        Commit * commit = commits_[commitId];
-                        clones_[id] = new Clone(id, project, commit, rootDir + "/");
+                FolderCloneOriginalsLoader{[this](unsigned cloneId, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path, bool isOriginalClone){
+                        Commit * c = commits_[commitId];
+                        Project * p = projects_[projectId];
+                        if (cloneOriginals_.size() <= cloneId)
+                            cloneOriginals_.resize(cloneId + 1);
+                        cloneOriginals_[cloneId] = new CloneOriginal(p, c, path);
                     }};
-                std::cerr << "    " << clones_.size() << " unique clones loaded" << std::endl;
-                std::cerr << "Loading clones..." << std::endl;
-                size_t missingClones = 0;
-                FolderClonesLoader{[this, &missingClones](unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles, unsigned cloneId){
-                        Commit * commit = commits_[commitId];
-                        Clone * clone = clones_[cloneId];
-                        if (clone == nullptr) {
-                            ++missingClones;
-                            return;
-                        }
-                        assert(clone != nullptr);
-                        std::string rd = rootDir;
-                        if (rd.empty())
-                            rd = "/";
-                        else
-                            rd = rd + "/";
-                        auto i = commit->introducedClones.find(rd);
-                        if (i != commit->introducedClones.end()) 
-                            assert(i->second == clone && "Same commit must have same clones in same directory");
-                        else
-                            commit->introducedClones[rd] = clone;
+                std::cerr << "Loading clone occurences..." << std::endl;
+                FolderCloneOccurencesLoader{[this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles){
+                        Commit * c = commits_[commitId];
+                        Project * p = projects_[projectId];
+                        CloneOriginal * co = cloneOriginals_[cloneId];
+                        assert(p != nullptr);
+                        assert(c != nullptr);
+                        assert(co != nullptr);
+                        c->addedClones.insert(std::make_pair(rootDir, co));
                     }};
-                std::cerr << "    " << missingClones << " missing clones" << std::endl;
             }
 
 
             /** Calculates the time summaries of clones.
              */
             void calculateTimes() {
+                std::cerr << "Summarizing projects..." << std::endl;
+                std::vector<std::thread> threads;
+                size_t completed = 0;
+                for (unsigned stride = 0; stride < NumThreads.value(); ++stride)
+                    threads.push_back(std::thread([stride, & completed, this]() {
+                        while (true) {
+                            Project * p ;
+                            {
+                                std::lock_guard<std::mutex> g(mCerr_);
+                                if (completed == projects_.size())
+                                    return;
+                                p = projects_[completed];
+                                ++completed;
+                                if (completed % 1000 == 0)
+                                    std::cerr << " : " << completed << "    \r" << std::flush;
+                            }
+                            if (p == nullptr)
+                                continue;
+                            summarizeProject(p);
+                        }
+                    }));
+                for (auto & i : threads)
+                    i.join();
+
+                
+                #ifdef HAHA
                 // first initialize TimeInfos for all commit times
                 // now, add partial results from each project to the summary
                 std::cerr << "Summarizing projects..." << std::endl;
                 size_t i = 0;
-                size_t ignored = 0;
                 for (Project * p : projects_) {
                     if (p == nullptr)
                         continue;
-                    if (p->shouldIgnore()) {
-                        ++ignored;
-                        continue;
-                    }
                     p->summarizeClones(this);
                     std::cerr << (i++) << "\r";
                 }
                 std::cerr << "    " << projects_.size() << " projects analyzed..." << std::endl;
-                std::cerr << "    " << ignored << " projects ignored..." << std::endl;
                 // finally create live project counts
                 std::cerr << "    " << stats_.size() << " distinct times" << std::endl;
 
@@ -362,27 +469,39 @@ namespace dejavu {
                         x.changedFolderClones << "," <<
                         x.npmChangedFolderClones << std::endl;
                 }
+                #endif
             }
 
         private:
 
             friend class Project;
-            friend class ProjectState;
-            friend class CommitSnapshot;
-            friend class TimeSnapshot;
 
-            bool isFirstFileOccurence(Project * p, Commit * c, unsigned contents) {
-                if (visited_.find(contents) != visited_.end())
-                    return false;
-                auto i = originals_[contents];
-                if (i.first == p && i.second == c) {
-                    visited_.insert(contents);
-                    return true;
-                }
-                return false;
+
+            void summarizeProject(Project * p) {
+                // create time snapshots
+                std::unordered_map<uint64_t, TimeSnapshot> times;
+                for (Commit * c : p->commits)
+                    times[c->time];
+                // iterate over the project's commits
+                CommitForwardIterator<Project,Commit,CommitSnapshot> ci(p, [&,this](Commit * c, CommitSnapshot & state) {
+                        state.updateWith(p, c, fileOriginals_, paths_);
+                        uint64_t maxTime = 0;
+                        for (Commit * child : c->children)
+                            if (child->time > maxTime)
+                                maxTime = child->time;
+                        if (maxTime == 0)
+                            maxTime = std::numeric_limits<uint64_t>::max();
+                        auto t = times.find(c->time), e = times.end();
+                        do {
+                            t->second.updateWith(state);
+                            ++t;
+                        } while (t != e && t->first < maxTime);
+                        return true;
+                    });
+                ci.process();
+                // now calculate deltas and store them in the global delta map
+                
             }
-
-            
 
             /* All projects. */
             std::vector<Project*> projects_;
@@ -391,48 +510,18 @@ namespace dejavu {
             /** If true then given path is NPM path.
              */
             std::vector<std::pair<std::string, bool>> paths_;
-            std::vector<Clone*> clones_;
             
-            /** Already seen file contents so that we can determine whether a change makes file a clone or not.
-
-                We don't really care about who is the original in the summaries, so first occurence is fine. 
-             */
-            std::unordered_set<unsigned> visited_;
-            std::unordered_map<unsigned, std::pair<Project *, Commit *>> originals_;
-
-            void updateFileOriginal(Project * p, Commit * c, unsigned contents) {
-                auto i = originals_.find(contents);
-                if (i == originals_.end()) {
-                    originals_.insert(std::make_pair(contents, std::make_pair(p, c)));
-                } else {
-                    if ((c->time < i->second.second->time) ||
-                        (c->time == i->second.second->time && p->createdAt < i->second.first->createdAt)) {
-                        i->second.first = p;
-                        i->second.second = c;
-                    }
-                }
-            }
+            std::unordered_map<unsigned, FileOriginalInfo> fileOriginals_;
+            std::vector<CloneOriginal *> cloneOriginals_;
 
             std::map<unsigned, Stats> stats_;
+
+            std::mutex mCerr_;
         }; // TimeAggregator
 
 
-        /** Statistics for any given path.
+        #ifdef HAHA
 
-            Holds information whether the file contents is original, or a clone, whether it belongs to a folder clone, and whether it has been updated since the folder clone was established. 
-         */
-        class PathStats {
-        public:
-            bool clone;
-            bool folderClone;
-            bool changedFolderClone;
-
-            PathStats():
-                clone(false),
-                folderClone(false),
-                changedFolderClone(false) {
-            }
-        };
 
         /** Holds information about all files and their state at any given commit.
          */
@@ -495,7 +584,7 @@ namespace dejavu {
                     }
                 }
                 // now check any introduced clones and mark their files as folder clones
-                for (auto i : c->introducedClones) {
+                for (auto i : c->addedClones) {
                     Clone * co = i.second;
                     // if current project, commit and root dir are the original, don't do anything
                     if (co->isOriginal(p, c, i.first))
@@ -656,7 +745,7 @@ namespace dejavu {
             ta->stats_[timeSnapshots.begin()->first].projects += 1;
 
         }
-
+#endif
 
         
     } // anonymous namespace
@@ -671,6 +760,7 @@ namespace dejavu {
      */
     void ClonesOverTime(int argc, char * argv[]) {
         Settings.addOption(DataDir);
+        Settings.addOption(NumThreads);
         Settings.parse(argc, argv);
         Settings.check();
 

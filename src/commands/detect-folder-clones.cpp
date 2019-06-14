@@ -271,7 +271,6 @@ structures of the subdirs, remaining subdirs and files, the structure of the dir
 
     void DetectFolderClones(int argc, char * argv[]) {
         Threshold.updateDefaultValue(2);
-        NumThreads.updateDefaultValue(8);
         Settings.addOption(DataDir);
         Settings.addOption(Threshold);
         Settings.addOption(NumThreads);

@@ -230,17 +230,31 @@ namespace dejavu {
 
         /** Increases the number of clone occurences and updates the original info (the oldest clone occurence is consider an original at this stage).
          */
-        void updateWithOccurence(Project * p, Commit * c, std::string const & d, unsigned files) {
+        bool updateWithOccurence(Project * p, Commit * c, std::string const & d, unsigned files) {
             // increase the count
             ++occurences;
-            // now determine if this occurence is older and therefore should replace the original
-            if ((c->time < commit->time) ||
-                (c->time == commit->time && p->createdAt < project->createdAt)) {
+            if (IsBetterOriginal(project, commit, path, p, c, d)) {
                 project = p;
                 commit = c;
                 path = d;
                 files = files;
+                return true;
+            } else {
+                return false;
             }
+            // now determine if this occurence is older and therefore should replace the original
+            /*            bool update = c->time < commit->time;
+            if (! update && c->time == commit->time) {
+                update = p->createdAt < project->createdAt;
+                if (!update && p->createdAt == project->createdAt) {
+                    update = c->id < commit->id;
+                    if (!update && c->id == commit->id)
+                        update = d < path;
+                }
+            }
+            if (update) {
+            }
+            return update; */
         }
         
         /** Builds the directory structure of the clone.
