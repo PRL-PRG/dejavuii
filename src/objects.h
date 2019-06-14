@@ -14,6 +14,32 @@ namespace dejavu {
     constexpr unsigned FILE_DELETED = 0;
     constexpr unsigned EMPTY_PATH = 0;
 
+
+    /** To make sure that the originals are deterministic, this function should be used for checking whether an original value should be updated.
+
+        It expects project to support createdAt field and commit to support time field. 
+     */
+    template<typename PROJECT, typename COMMIT>
+        bool IsBetterOriginal(PROJECT * originalProject, COMMIT * originalCommit, std::string const & originalPath, PROJECT * project, COMMIT * commit, std::string const & path) {
+        // if the new commit is younger then it is better candidateOB
+        if (commit->time < originalCommit->time)
+            return true;
+        if (commit->time == originalCommit->time) {
+            // if the commit times are identical then if the new project is older, it is a better candidate
+            if (project->createdAt < originalProject->createdAt)
+                return true;
+            if (project->createdAt == originalProject->createdAt) {
+                // if the projects have the same age, then if one of the commits has smaller id, it is better candidate (just to disambiguate)
+                if (commit->id < originalCommit->id)
+                    return true;
+                // and finally, if even the commit is the same, the we use lexically smaller path
+                if (commit->id == originalCommit->id)
+                    return path < originalPath;
+            }
+        }
+        return false;
+    }
+
     /** Memory efficient implementation of the SHA1 hash used in the algorithms.
 
         Uses 20 bytes of memory, allows printing and can be used as index in associative containers.

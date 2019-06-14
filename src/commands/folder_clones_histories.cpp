@@ -11,6 +11,7 @@
 
  */
 namespace dejavu {
+#ifdef HAHA
 
     namespace {
 
@@ -278,7 +279,7 @@ namespace dejavu {
                     }};
                 // now thge basic data has been loaded, load the clone originals
                 std::cerr << "Loading clone originals..." << std::endl;
-                FolderCloneOriginalsLoader{[this](unsigned id, unsigned numFiles, unsigned projectId, unsigned commitId, std::string const & rootDir) {
+                FolderCloneOriginalsLoader{[this](unsigned id, SHA1Hash const & hash, unsigned occurences, unsigned numFiles, unsigned projectId, unsigned commitId, std::string const & rootDir, bool isOriginalClone) {
                         if (clones_.size() <= id)
                             clones_.resize(id + 1);
                         Project * project = projects_[projectId];
@@ -288,7 +289,7 @@ namespace dejavu {
                 std::cerr << "    " << clones_.size() << " unique clones loaded" << std::endl;
                 std::cerr << "Loading clones..." << std::endl;
                 size_t missingClones = 0;
-                FolderClonesLoader{[this, &missingClones](unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles, unsigned cloneId){
+                FolderCloneOccurencessLoader{[this, &missingClones](unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles, unsigned cloneId){
                         Commit * commit = commits_[commitId];
                         Clone * clone = clones_[cloneId];
                         if (clone == nullptr) {
@@ -489,7 +490,7 @@ namespace dejavu {
 
     
 
-
+#endif
 
 
 
@@ -499,11 +500,13 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
-        Analyzer a;
+        /*
+          Analyzer a;
         a.initialize();
         a.originalsWeight();
         a.projectsSummary();
         a.cloneHistories();
+        */
         
     }
 

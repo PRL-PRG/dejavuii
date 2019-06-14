@@ -393,17 +393,11 @@ namespace dejavu {
                                 ++counts.checkedDirs;
                                 if (isSubsetOf(clone->root, d, state)) {
                                     // to be deterministic, we do not optimize and we check all folders candidates taking the one with lexicographically smallest path
-                                    if (clone->project == p && clone->commit == c) {
-                                        std::string path = d->path(pathSegments_);
-                                        if (path >= clone->path) 
-                                            continue;
+                                    std::string path = d->path(pathSegments_);
+                                    if (clone->updateWithOccurence(p, c, path, clone->files)) {
+                                        ++counts.originalUpdates;
+                                        updated = true;
                                     }
-                                    // we have found a clone, no need to search in the project further
-                                    ++counts.originalUpdates;
-                                    clone->project = p;
-                                    clone->commit = c;
-                                    clone->path = d->path(pathSegments_);
-                                    updated = true;
                                 }
                             }
                             candidates.clear();
