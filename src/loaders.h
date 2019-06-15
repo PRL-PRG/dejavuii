@@ -71,11 +71,12 @@ namespace dejavu {
         }
         
         void row(std::vector<std::string> & row) override {
-            assert(row.size() == 10);
+            // NOTE there is an 11th column, but we don't really know what that one is 
+            assert(row.size() == 11);
             unsigned id = std::stoul(row[0]);
             unsigned ownerId = std::stoul(row[2]);
             uint64_t createdAt = strToTime(row[6]);
-            unsigned forkedFrom = row[7] == "\\N" ? std::numeric_limits<unsigned>::max() : std::stoul(row[7]);
+            unsigned forkedFrom = row[7] == "\\N" ? NO_FORK : std::stoul(row[7]);
             uint64_t deleted = strToTime(row[8]);
             uint64_t updatedAt = strToTime(row[9]);
             f_(id, row[1], ownerId, row[3], row[4], row[5], createdAt, forkedFrom, deleted, updatedAt);

@@ -13,6 +13,8 @@ namespace dejavu {
     constexpr unsigned UNKNOWN_HASH = -1;
     constexpr unsigned FILE_DELETED = 0;
     constexpr unsigned EMPTY_PATH = 0;
+    constexpr unsigned NO_FORK = std::numeric_limits<unsigned>::max();
+    constexpr unsigned UNKNOWN_FORK = std::numeric_limits<unsigned>::max() - 1;
 
 
     /** To make sure that the originals are deterministic, this function should be used for checking whether an original value should be updated.
