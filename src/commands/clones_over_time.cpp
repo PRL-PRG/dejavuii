@@ -126,6 +126,8 @@ namespace dejavu {
             Project(unsigned id, uint64_t createdAt):
                 BaseProject<Project, Commit>(id, createdAt) {
             }
+
+            Stats stats;
         };
 
         class CloneOriginal {
@@ -247,10 +249,24 @@ namespace dejavu {
                     if (pi.contentsId == i.second)
                         continue;
                     // set the proper contents id, update the clone state
+                    bool npm = paths[i.first].second;
                     pi.contentsId = i.second;
-                    pi.clone = isClone(i.second, i.first, p, c, fileOriginals);
-                    if (pi.folderClone)
-                        pi.changedFolderClone = true;
+                    ++p->stats.files;
+                    if (npm)
+                        ++p->stats.npmFiles;
+                    bool x = isClone(i.second, i.first, p, c, fileOriginals);
+                    if (x) {
+                        ++p->stats.clones;
+                        if (npm)
+                            ++p->stats.npmClones;
+                        pi.clone = true;
+                        if (pi.folderClone) {
+                            pi.changedFolderClone = true;
+                            ++p->stats.changedFolderClones;
+                            if (npm)
+                                ++p->stats.npmChangedFolderClones;
+                        }
+                    }                         
                 }
                 // finally, if the commit introduces any folder clones, we must mark them as such
                 for (auto clone : c->addedClones) {
@@ -266,6 +282,9 @@ namespace dejavu {
                                 std::cerr << "root: " << root << std::endl;
                             }
                             files_[i.first].setAsFolderClone();
+                            ++p->stats.folderClones;
+                            if (paths[i.first].second)
+                                ++p->stats.npmFolderClones;
                         }
                     }
                 }
@@ -451,23 +470,44 @@ namespace dejavu {
 
             void output() {
                 std::cerr << "Writing results..." << std::endl;
-                std::ofstream f(DataDir.value() + "/clonesOverTime.csv");
-                f << "#time,projects,files,npmFiles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
-                Stats x;
-                for (auto i : clonesOverTime_) {
-                    x += i.second;
-                    f << i.first << "," <<
-                        x.projects << "," <<
-                        x.files << "," <<
-                        x.npmFiles << "," <<
-                        x.clones << "," <<
-                        x.npmClones << "," <<
-                        x.folderClones << "," <<
-                        x.npmFolderClones << "," <<
-                        x.changedFolderClones << "," <<
-                        x.npmChangedFolderClones << std::endl;
+                {
+                    std::ofstream f(DataDir.value() + "/clonesOverTime.csv");
+                    f << "#time,projects,files,npmFiles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
+                    Stats x;
+                    for (auto i : clonesOverTime_) {
+                        x += i.second;
+                        f << i.first << "," <<
+                            x.projects << "," <<
+                            x.files << "," <<
+                            x.npmFiles << "," <<
+                            x.clones << "," <<
+                            x.npmClones << "," <<
+                            x.folderClones << "," <<
+                            x.npmFolderClones << "," <<
+                            x.changedFolderClones << "," <<
+                            x.npmChangedFolderClones << std::endl;
+                    }
+                    std::cerr << "Done." << std::endl;
                 }
-                std::cerr << "Done." << std::endl;
+                std::cerr << "Writing project results..." << std::endl;
+                {
+                    std::ofstream f(DataDir.value() + "/projectsCloneSummary.csv");
+                    f << "#projectId,changes,npmChanges,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
+                    for (Project * p : projects_) {
+                        if (p == nullptr)
+                            continue;
+                        f << p->id << "," <<
+                            p->stats.files << "," <<
+                            p->stats.npmFiles << "," <<
+                            p->stats.clones << "," <<
+                            p->stats.npmClones << "," <<
+                            p->stats.folderClones << "," <<
+                            p->stats.npmFolderClones << "," <<
+                            p->stats.changedFolderClones << "," <<
+                            p->stats.npmChangedFolderClones << std::endl;
+                    }
+                    std::cerr << "Done." << std::endl;
+                }
             }
 
         private:
