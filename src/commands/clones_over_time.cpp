@@ -165,7 +165,7 @@ namespace dejavu {
             }
 
             void setAsFolderClone() {
-                assert(clone);
+                //assert(clone);
                 folderClone = true;
                 changedFolderClone =false;
             }
@@ -272,15 +272,17 @@ namespace dejavu {
                 for (auto clone : c->addedClones) {
                     std::string const & root = clone.first;
                     // We don't have to maintain project with folder clones, because if there is a clone in commit, then the clone happens in *all* projects containing the clone. The only exception is if the original is itself a clone and happens to be in the oldest of projects containing the clone, which is what we check here (or if the original is same project, same commit, different path), both are degenerate cases
-                    if (clone.second->isOriginal(p, c, root))
-                        continue;
+                    //if (clone.second->isOriginal(p, c, root))
+                    //    continue;
                     for (auto i : c->changes) {
                         if (paths[i.first].first.find(root) == 0) {
+                            /*
                             if (!files_[i.first].clone) {
                                 std::cerr << "Expected clone: " << p->id << "," << c->id << "," << i.first << "," << i.second << std::endl;
                                 std::cerr << "Original: " << fileOriginals[i.second].project->id << ","  << fileOriginals[i.second].commit->id << "," << fileOriginals[i.second].pathId << std::endl;
                                 std::cerr << "root: " << root << std::endl;
                             }
+                            */
                             files_[i.first].setAsFolderClone();
                             ++p->stats.folderClones;
                             if (paths[i.first].second)
@@ -409,6 +411,7 @@ namespace dejavu {
                         fileOriginals_[contentsId].updateWith(p, c, pathId, paths_);
                     }};
                 std::cerr << "    " << fileOriginals_.size() << " unique contents" << std::endl;
+                /*
                 std::cerr << "Loading clone originals..." << std::endl;
                 FolderCloneOriginalsLoader{[this](unsigned cloneId, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path, bool isOriginalClone){
                         Commit * c = commits_[commitId];
@@ -417,14 +420,15 @@ namespace dejavu {
                             cloneOriginals_.resize(cloneId + 1);
                         cloneOriginals_[cloneId] = new CloneOriginal(p, c, path);
                     }};
+                */
                 std::cerr << "Loading clone occurences..." << std::endl;
-                FolderCloneOccurencesLoader{[this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles){
+                FolderCloneOccurencesLoader{DataDir.value() +"/clone_candidates.csv", [this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles){
                         Commit * c = commits_[commitId];
                         Project * p = projects_[projectId];
                         CloneOriginal * co = cloneOriginals_[cloneId];
                         assert(p != nullptr);
                         assert(c != nullptr);
-                        assert(co != nullptr);
+                        //assert(co != nullptr);
                         c->addedClones.insert(std::make_pair(rootDir, co));
                     }};
             }
@@ -449,7 +453,7 @@ namespace dejavu {
                                     break;
                                 p = projects_[completed];
                                 ++completed;
-                                if (completed % 1000 == 0)
+                                if (completed % 1 == 0)
                                     std::cerr << " : " << completed << "    \r" << std::flush;
                             }
                             if (p == nullptr)
@@ -471,7 +475,7 @@ namespace dejavu {
             void output() {
                 std::cerr << "Writing results..." << std::endl;
                 {
-                    std::ofstream f(DataDir.value() + "/clonesOverTime.csv");
+                    std::ofstream f(DataDir.value() + "/clonesOverTimeX.csv");
                     f << "#time,projects,files,npmFiles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
                     Stats x;
                     for (auto i : clonesOverTime_) {
@@ -491,7 +495,7 @@ namespace dejavu {
                 }
                 std::cerr << "Writing project results..." << std::endl;
                 {
-                    std::ofstream f(DataDir.value() + "/projectsCloneSummary.csv");
+                    std::ofstream f(DataDir.value() + "/projectsCloneSummaryX.csv");
                     f << "#projectId,changes,npmChanges,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
                     for (Project * p : projects_) {
                         if (p == nullptr)
@@ -513,6 +517,10 @@ namespace dejavu {
         private:
 
             friend class Project;
+
+            uint64_t convertTime(uint64_t time) {
+                return time - (time % Threshold.value());
+            }
 
             void summarizeProject(Project * p, std::unordered_map<uint64_t, Stats> & stats) {
                 // create time snapshots
@@ -543,7 +551,7 @@ namespace dejavu {
                 // calculate diff for every time of the project and update the thread local diffs
                 for (auto i : times) {
                     Stats current = i.second.getStats(paths_);
-                    stats[i.first] += (current - last);
+                    stats[convertTime(i.first)] += (current - last);
                     last = current;
                 }
             }
@@ -568,8 +576,10 @@ namespace dejavu {
     } // anonymous namespace
 
     void ClonesOverTime(int argc, char * argv[]) {
+        Threshold.updateDefaultValue(24 * 3600);
         Settings.addOption(DataDir);
         Settings.addOption(NumThreads);
+        Settings.addOption(Threshold);
         Settings.parse(argc, argv);
         Settings.check();
 

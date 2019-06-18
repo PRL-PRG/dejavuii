@@ -47,6 +47,9 @@ namespace dejavu {
     /** Location of a ghtorrent output data.
      */
     extern helpers::Option<std::string> GhtDir;
-    
+
+    /** When true, folder clones are considered clones even if they are their own originals, which allows measurement of all clone candidates.
+     */
+    extern helpers::Option<unsigned> IgnoreFolderOriginals;
     
 } // dejavu
