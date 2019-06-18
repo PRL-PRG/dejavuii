@@ -22,6 +22,7 @@ namespace dejavu {
     helpers::Option<unsigned> Threshold("threshold", 2, {"-t"}, false);
     helpers::Option<unsigned> Pct("pct", 5, {"-pct"}, false);
     helpers::Option<std::string> GhtDir("ghtorrent", "", {"-ght"}, true);
+    helpers::Option<unsigned> IgnoreFolderOriginals("ignoreFolderOriginals", 0, false);
     
 } // namespace dejavu
 

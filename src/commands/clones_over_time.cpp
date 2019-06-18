@@ -272,17 +272,17 @@ namespace dejavu {
                 for (auto clone : c->addedClones) {
                     std::string const & root = clone.first;
                     // We don't have to maintain project with folder clones, because if there is a clone in commit, then the clone happens in *all* projects containing the clone. The only exception is if the original is itself a clone and happens to be in the oldest of projects containing the clone, which is what we check here (or if the original is same project, same commit, different path), both are degenerate cases
-                    //if (clone.second->isOriginal(p, c, root))
-                    //    continue;
+                    if (! IgnoreFolderOriginals.value() && clone.second->isOriginal(p, c, root))
+                        continue;
                     for (auto i : c->changes) {
                         if (paths[i.first].first.find(root) == 0) {
-                            /*
-                            if (!files_[i.first].clone) {
-                                std::cerr << "Expected clone: " << p->id << "," << c->id << "," << i.first << "," << i.second << std::endl;
-                                std::cerr << "Original: " << fileOriginals[i.second].project->id << ","  << fileOriginals[i.second].commit->id << "," << fileOriginals[i.second].pathId << std::endl;
-                                std::cerr << "root: " << root << std::endl;
+                            if (! IgnoreFolderOriginals.value()) {
+                                if (!files_[i.first].clone) {
+                                    std::cerr << "Expected clone: " << p->id << "," << c->id << "," << i.first << "," << i.second << std::endl;
+                                    std::cerr << "Original: " << fileOriginals[i.second].project->id << ","  << fileOriginals[i.second].commit->id << "," << fileOriginals[i.second].pathId << std::endl;
+                                    std::cerr << "root: " << root << std::endl;
+                                }
                             }
-                            */
                             files_[i.first].setAsFolderClone();
                             ++p->stats.folderClones;
                             if (paths[i.first].second)
@@ -411,24 +411,30 @@ namespace dejavu {
                         fileOriginals_[contentsId].updateWith(p, c, pathId, paths_);
                     }};
                 std::cerr << "    " << fileOriginals_.size() << " unique contents" << std::endl;
-                /*
-                std::cerr << "Loading clone originals..." << std::endl;
-                FolderCloneOriginalsLoader{[this](unsigned cloneId, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path, bool isOriginalClone){
-                        Commit * c = commits_[commitId];
-                        Project * p = projects_[projectId];
-                        if (cloneOriginals_.size() <= cloneId)
-                            cloneOriginals_.resize(cloneId + 1);
-                        cloneOriginals_[cloneId] = new CloneOriginal(p, c, path);
-                    }};
-                */
+                std::string occurencesPath = DataDir.value() + "/folderCloneOccurences.csv";
+                if (! IgnoreFolderOriginals.value()) {
+                    std::cerr << "Loading clone originals..." << std::endl;
+                    FolderCloneOriginalsLoader{[this](unsigned cloneId, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path, bool isOriginalClone){
+                            Commit * c = commits_[commitId];
+                            Project * p = projects_[projectId];
+                            if (cloneOriginals_.size() <= cloneId)
+                                cloneOriginals_.resize(cloneId + 1);
+                            cloneOriginals_[cloneId] = new CloneOriginal(p, c, path);
+                        }};
+                } else {
+                    occurencesPath = DataDir.value() + "/clone_candidates.csv";
+                }
                 std::cerr << "Loading clone occurences..." << std::endl;
-                FolderCloneOccurencesLoader{DataDir.value() +"/clone_candidates.csv", [this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles){
+                FolderCloneOccurencesLoader{occurencesPath, [this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & rootDir, unsigned numFiles){
                         Commit * c = commits_[commitId];
                         Project * p = projects_[projectId];
-                        CloneOriginal * co = cloneOriginals_[cloneId];
+                        CloneOriginal * co = nullptr; 
                         assert(p != nullptr);
                         assert(c != nullptr);
-                        //assert(co != nullptr);
+                        if (! IgnoreFolderOriginals.value()) {
+                            co = cloneOriginals_[cloneId];
+                            assert(co != nullptr);
+                        }
                         c->addedClones.insert(std::make_pair(rootDir, co));
                     }};
             }
@@ -475,7 +481,7 @@ namespace dejavu {
             void output() {
                 std::cerr << "Writing results..." << std::endl;
                 {
-                    std::ofstream f(DataDir.value() + "/clonesOverTimeX.csv");
+                    std::ofstream f(DataDir.value() + "/clonesOverTime.csv");
                     f << "#time,projects,files,npmFiles,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
                     Stats x;
                     for (auto i : clonesOverTime_) {
@@ -495,7 +501,7 @@ namespace dejavu {
                 }
                 std::cerr << "Writing project results..." << std::endl;
                 {
-                    std::ofstream f(DataDir.value() + "/projectsCloneSummaryX.csv");
+                    std::ofstream f(DataDir.value() + "/projectsCloneSummary.csv");
                     f << "#projectId,changes,npmChanges,clones,npmClones,folderClones,npmFolderClones,changedFolderClones,npmChangedFolderClones" << std::endl;
                     for (Project * p : projects_) {
                         if (p == nullptr)
@@ -580,6 +586,7 @@ namespace dejavu {
         Settings.addOption(DataDir);
         Settings.addOption(NumThreads);
         Settings.addOption(Threshold);
+        Settings.addOption(IgnoreFolderOriginals);
         Settings.parse(argc, argv);
         Settings.check();
 
