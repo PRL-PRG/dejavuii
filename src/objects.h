@@ -160,6 +160,18 @@ namespace dejavu {
         };
     };
 
+    template<typename PROJECT,typename COMMIT, typename COMMIT_SET = std::unordered_set<COMMIT *>>
+    class FullProject : public BaseProject<PROJECT, COMMIT, COMMIT_SET> {
+    public:
+        std::string user;
+        std::string repo;
+        FullProject(unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt):
+            BaseProject<PROJECT,COMMIT,COMMIT_SET>(id, createdAt),
+            user(user),
+            repo(repo) {
+        }
+    };
+
     template<typename COMMIT>
     class BaseCommit {
     public:
