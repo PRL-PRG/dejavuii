@@ -49,6 +49,7 @@ void InitializeCommands() {
     new helpers::Command("stats", Stats, "Calculates interesting stats");
     new helpers::Command("detect-file-clones", DetectFileClones, "Detects file clones across all projects and find their originals");
     new helpers::Command("extract-js-projects", ExtractJSProjects, "Extracts JS projects from a GHTorrent projects.csv file which are not deleted and splits them into forked and non-forked.");
+    new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
 }
 
 

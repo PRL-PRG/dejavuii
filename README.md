@@ -95,4 +95,30 @@ Lists the projects available, indexed by `id`. For each project, we remember the
 
 > FIXME I believe we are now storing not date the project was created, but date of its oldest commit, which is useless (forks will have the same createdAt value).
 
+# TODO
+
+- put NPMs aside
+- ignore fixed versions
+- # of NPM pkgs, infor about how far behind they are
+- check the updating ones
+
+## per project
+
+- node_modules added/removed report on
+- either delete, or update, or manual update which is weird...
+
+- get the data
+
+- project,
+- number of updates/deletions/,,,
+
+
+- project, # commits, # paths, # npmPaths, # of updates to npm files, date of first and last commit dates
+
+
+- project, packahe.json path, deletions, manual updates, updates
+
+
+
+
 

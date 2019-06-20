@@ -76,4 +76,10 @@ namespace dejavu {
      *
      */
     void ExtractJSProjects(int argc, char * argv[]);
+
+
+
+    /** Produces a summary of the NPM packages and projects status.
+     */
+    void NPMSummary(int argc, char * argv[]);
 } // namespace dejavu

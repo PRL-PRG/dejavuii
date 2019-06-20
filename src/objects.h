@@ -218,6 +218,19 @@ namespace dejavu {
         
     };
 
+    template<typename COMMIT>
+    class BaseDummyState {
+    public:
+        BaseDummyState() {
+        }
+
+        BaseDummyState(BaseDummyState const &) {
+        }
+
+        void mergeWith(BaseDummyState const &, COMMIT *) {
+        }
+    };
+
 
 
     
