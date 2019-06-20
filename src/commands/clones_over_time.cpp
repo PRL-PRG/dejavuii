@@ -135,14 +135,18 @@ namespace dejavu {
             Project * project;
             Commit * commit;
             std::string root;
+            bool isClone;
 
-            CloneOriginal(Project * p, Commit * c, std::string const & path):
+            CloneOriginal(Project * p, Commit * c, std::string const & path, bool isClone):
                 project(p),
                 commit(c),
-                root(path) {
+                root(path),
+                isClone(isClone) {
             }
 
             bool isOriginal(Project * p, Commit * c, std::string const & path) {
+                if (isClone)
+                    return false;
                 return commit == c && project == p && root == path;
             }
         }; 
@@ -276,6 +280,7 @@ namespace dejavu {
                         continue;
                     for (auto i : c->changes) {
                         if (paths[i.first].first.find(root) == 0) {
+                            /*
                             if (! IgnoreFolderOriginals.value()) {
                                 if (!files_[i.first].clone) {
                                     std::cerr << "Expected clone: " << p->id << "," << c->id << "," << i.first << "," << i.second << std::endl;
@@ -283,6 +288,7 @@ namespace dejavu {
                                     std::cerr << "root: " << root << std::endl;
                                 }
                             }
+                            */
                             files_[i.first].setAsFolderClone();
                             ++p->stats.folderClones;
                             if (paths[i.first].second)
@@ -419,7 +425,7 @@ namespace dejavu {
                             Project * p = projects_[projectId];
                             if (cloneOriginals_.size() <= cloneId)
                                 cloneOriginals_.resize(cloneId + 1);
-                            cloneOriginals_[cloneId] = new CloneOriginal(p, c, path);
+                            cloneOriginals_[cloneId] = new CloneOriginal(p, c, path, isOriginalClone);
                         }};
                 } else {
                     occurencesPath = DataDir.value() + "/clone_candidates.csv";
