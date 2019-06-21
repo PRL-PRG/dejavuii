@@ -114,9 +114,11 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
+        typedef struct {unsigned commitId; unsigned contentsId;} CommitInfo;
+
         void LoadCommitsThatChangeToProjectDotJSON(std::unordered_set<unsigned> const &npm_project_ids,
                                                    std::unordered_set<unsigned> const &package_dot_json_ids,
-                                                   std::unordered_map<unsigned, std::unordered_set<unsigned>> &package_dot_json_commit_ids) {
+                                                   std::unordered_map<unsigned, std::vector<CommitInfo>> &package_dot_json_commit_ids) {
             clock_t timer;
             unsigned discarded = 0;
             unsigned kept = 0;
@@ -138,7 +140,12 @@ namespace dejavu {
                 }
 
                 ++kept;
-                package_dot_json_commit_ids[projectId].insert(commitId);
+
+                CommitInfo commitInfo;
+                commitInfo.commitId = commitId;
+                commitInfo.contentsId = contentsId;
+
+                package_dot_json_commit_ids[projectId].push_back(commitInfo);
             });
 
             std::cerr << "Kept " << kept << " commit IDs" << std::endl;
@@ -161,12 +168,23 @@ namespace dejavu {
         }
 
         void Download(std::unordered_set<NPMProject *> const &npm_projects,
-                      std::unordered_map<unsigned, std::string> const &hashes) {
-            for (NPMProject *project : npm_projects) {
-                std::string commit_hash = hashes.at(project->id);
-                std::string url = project->get_package_json(commit_hash);
+                      std::unordered_map<unsigned, std::string> const &hashes,
+                      std::unordered_map<unsigned, std::vector<CommitInfo>> const &package_dot_json_commit_id) {
 
-                std::cerr << url << std::endl;; //FIXME actually download
+            for (NPMProject *project : npm_projects) {
+                for (CommitInfo const &commit : package_dot_json_commit_id.at(project->id)) {
+                    std::string commit_hash = hashes.at(commit.commitId);
+                    std::string url = project->get_package_json(commit_hash);
+                    std::string output = DataDir.value() + "/package.json";
+
+                    std::stringstream command;
+                    command << "wget "
+                            << "-O " << output << "/" << project->id << "/"
+                            << commit.contentsId << " "
+                            << url;
+
+                    std::cerr << command.str() << std::endl;
+                }
             }
         }
     };
@@ -186,7 +204,7 @@ namespace dejavu {
         std::unordered_set<unsigned> package_dot_json_ids;
         LoadPackageDotJSONIds(package_dot_json_ids);
 
-        std::unordered_map<unsigned, std::unordered_set<unsigned>> package_dot_json_commit_ids;
+        std::unordered_map<unsigned, std::vector<CommitInfo>> package_dot_json_commit_ids;
         LoadCommitsThatChangeToProjectDotJSON(npm_project_ids,
                                               package_dot_json_ids,
                                               package_dot_json_commit_ids);
@@ -194,7 +212,7 @@ namespace dejavu {
         std::unordered_map<unsigned, std::string> hashes;
         LoadHashes(hashes);
 
-        Download(npm_projects, hashes);
+        Download(npm_projects, hashes, package_dot_json_commit_ids);
     }
     
 } // namespace dejavu
