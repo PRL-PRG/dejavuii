@@ -264,8 +264,7 @@ namespace dejavu {
                       << 1 << ","
                       << original->project_id << ","
                       << original->commit_id << ","
-                      << original->path_id << ","
-                      << std::endl;
+                      << original->path_id << ",";
 
                     helpers::Count(counter);
                 }
