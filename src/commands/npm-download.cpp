@@ -39,7 +39,8 @@ namespace dejavu {
                 std::stringstream s;
 
                 s << "https://raw.githubusercontent.com/"
-                  << user << "/" << repo << "/master/package.json";
+                  << user << "/" << repo << "/"
+                  << hash << "/package.json";
 
                 return s.str();
             }
@@ -117,26 +118,30 @@ namespace dejavu {
                                                    std::unordered_map<unsigned, std::unordered_set<unsigned>> &project_dot_json_commit_ids) {
             clock_t timer;
             unsigned discarded = 0;
+            unsigned kept = 0;
 
-            std::string task = "load file changes relevant for interesting NPM projects and their project.json files";
+            std::string task = "loading file changes relevant for interesting NPM projects and their project.json files";
             helpers::StartTask(task, timer);
 
             new FileChangeLoader([&](unsigned projectId, unsigned commitId,
                                      unsigned pathId, unsigned contentsId){
 
                 if (project_dot_json_ids.find(pathId) == project_dot_json_ids.end()) {
+                    ++discarded;
                     return;
                 }
 
                 if (npm_project_ids.find(projectId) == npm_project_ids.end()) {
+                    ++discarded;
                     return;
                 }
 
+                ++kept;
                 project_dot_json_commit_ids[projectId].insert(commitId);
             });
 
-            std::cerr << "Selected " << project_dot_json_ids.size() << " path IDs" << std::endl;
-            std::cerr << "Discarded " << discarded << " path IDs" << std::endl;
+            std::cerr << "Kept " << kept << " commit IDs" << std::endl;
+            std::cerr << "Discarded " << discarded << " commit IDs" << std::endl;
 
             helpers::FinishTask(task, timer);
         }
