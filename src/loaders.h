@@ -290,7 +290,7 @@ namespace dejavu {
         }
     protected:
         void row(std::vector<std::string> & row) override {
-            assert(row.size() == 8);
+            assert(row.size() == 2);
             unsigned pathId = std::stoul(row[0]);
             std::string path = row[1];
             f_(pathId, path);
