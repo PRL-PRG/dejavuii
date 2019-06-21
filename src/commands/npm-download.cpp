@@ -92,7 +92,8 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        void LoadProjectDotJSONIds(std::unordered_set<unsigned> & project_dot_json_ids) {
+        void LoadPackageDotJSONIds(
+                std::unordered_set<unsigned> &package_dot_json_ids) {
             clock_t timer;
             unsigned discarded = 0;
 
@@ -100,22 +101,22 @@ namespace dejavu {
             helpers::StartTask(task, timer);
 
             new PathLoader([&](unsigned id, std::string const & path){
-                if (path == "project.json") {
-                    project_dot_json_ids.insert(id);
+                if (path == "package.json") {
+                    package_dot_json_ids.insert(id);
                 } else {
                     ++discarded;
                 }
             });
 
-            std::cerr << "Selected " << project_dot_json_ids.size() << " path IDs" << std::endl;
+            std::cerr << "Selected " << package_dot_json_ids.size() << " path IDs" << std::endl;
             std::cerr << "Discarded " << discarded << " path IDs" << std::endl;
 
             helpers::FinishTask(task, timer);
         }
 
         void LoadCommitsThatChangeToProjectDotJSON(std::unordered_set<unsigned> const &npm_project_ids,
-                                                   std::unordered_set<unsigned> const &project_dot_json_ids,
-                                                   std::unordered_map<unsigned, std::unordered_set<unsigned>> &project_dot_json_commit_ids) {
+                                                   std::unordered_set<unsigned> const &package_dot_json_ids,
+                                                   std::unordered_map<unsigned, std::unordered_set<unsigned>> &package_dot_json_commit_ids) {
             clock_t timer;
             unsigned discarded = 0;
             unsigned kept = 0;
@@ -126,7 +127,7 @@ namespace dejavu {
             new FileChangeLoader([&](unsigned projectId, unsigned commitId,
                                      unsigned pathId, unsigned contentsId){
 
-                if (project_dot_json_ids.find(pathId) == project_dot_json_ids.end()) {
+                if (package_dot_json_ids.find(pathId) == package_dot_json_ids.end()) {
                     ++discarded;
                     return;
                 }
@@ -137,7 +138,7 @@ namespace dejavu {
                 }
 
                 ++kept;
-                project_dot_json_commit_ids[projectId].insert(commitId);
+                package_dot_json_commit_ids[projectId].insert(commitId);
             });
 
             std::cerr << "Kept " << kept << " commit IDs" << std::endl;
@@ -182,13 +183,13 @@ namespace dejavu {
         std::unordered_set<NPMProject *> npm_projects;
         LoadNPMProjects(npm_project_ids, npm_projects);
 
-        std::unordered_set<unsigned> project_dot_json_ids;
-        LoadProjectDotJSONIds(project_dot_json_ids);
+        std::unordered_set<unsigned> package_dot_json_ids;
+        LoadPackageDotJSONIds(package_dot_json_ids);
 
-        std::unordered_map<unsigned, std::unordered_set<unsigned>> project_dot_json_commit_ids;
+        std::unordered_map<unsigned, std::unordered_set<unsigned>> package_dot_json_commit_ids;
         LoadCommitsThatChangeToProjectDotJSON(npm_project_ids,
-                                              project_dot_json_ids,
-                                              project_dot_json_commit_ids);
+                                              package_dot_json_ids,
+                                              package_dot_json_commit_ids);
 
         std::unordered_map<unsigned, std::string> hashes;
         LoadHashes(hashes);
