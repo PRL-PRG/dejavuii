@@ -272,7 +272,67 @@ namespace dejavu {
     private:
         RowHandler f_;
         
-    }; 
+    };
+
+    class PathLoader : public BaseLoader {
+    public:
+        // pathId, path
+        typedef std::function<void(unsigned, std::string const &)> RowHandler;
+
+        PathLoader(std::string const & filename, RowHandler f):
+                f_(f) {
+            readFile(filename);
+        }
+
+        PathLoader(RowHandler f):
+                f_(f) {
+            readFile(DataDir.value() + "/paths.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 2);
+            unsigned pathId = std::stoul(row[0]);
+            std::string path = row[1];
+            f_(pathId, path);
+        }
+
+    private:
+        RowHandler f_;
+
+    };
+
+    class NPMSummaryLoader : public BaseLoader {
+    public:
+        // projectId, commits, firstTime, lastTime, numPaths, numNPMPaths, npmChanges, npmDeletions
+        typedef std::function<void(unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned)> RowHandler;
+
+        NPMSummaryLoader(std::string const & filename, RowHandler f):
+                f_(f) {
+            readFile(filename);
+        }
+
+        NPMSummaryLoader(RowHandler f):
+                f_(f) {
+            readFile(DataDir.value() + "/npm-summary.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 8);
+            unsigned projectId = std::stoul(row[0]);
+            unsigned commits = std::stoul(row[1]);
+            unsigned firstTime = std::stoul(row[2]);
+            unsigned lastTime = std::stoul(row[3]);
+            unsigned numPaths = std::stoul(row[4]);
+            unsigned numNPMPaths = std::stoul(row[5]);
+            unsigned npmChanges = std::stoul(row[6]);
+            unsigned npmDeletions = std::stoul(row[7]);
+            f_(projectId, commits, firstTime, lastTime, numPaths, numNPMPaths, npmChanges, npmDeletions);
+        }
+
+    private:
+        RowHandler f_;
+
+    };
 
     /** Loads the user email to id translation table.
      */

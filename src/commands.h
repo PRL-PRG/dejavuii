@@ -82,4 +82,8 @@ namespace dejavu {
     /** Produces a summary of the NPM packages and projects status.
      */
     void NPMSummary(int argc, char * argv[]);
+
+    /** Downloads project.json files from NPM packages.
+     */
+    void NPMDownload(int argc, char * argv[]);
 } // namespace dejavu
