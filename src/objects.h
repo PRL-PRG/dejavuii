@@ -16,6 +16,14 @@ namespace dejavu {
     constexpr unsigned NO_FORK = std::numeric_limits<unsigned>::max();
     constexpr unsigned UNKNOWN_FORK = std::numeric_limits<unsigned>::max() - 1;
 
+    inline uint64_t Join2Unsigned(unsigned a, unsigned b) {
+        return (static_cast<uint64_t>(a) << 32) + b;
+    }
+
+    inline std::pair<unsigned, unsigned> Decouple2Unsigned(uint64_t value) {
+        return std::make_pair(static_cast<unsigned>(value >> 32), static_cast<unsigned>(value & 0xffffffff));
+    }
+
 
     /** To make sure that the originals are deterministic, this function should be used for checking whether an original value should be updated.
 
