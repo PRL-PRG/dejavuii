@@ -196,6 +196,13 @@ namespace dejavu {
                 for (CommitInfo const &commit : package_dot_json_commit_id.at(
                         project->id)) {
 
+                    if (hashes.find(commit.commitId) == hashes.end()) {
+                        std::cerr << std::endl
+                                  << "Cannot find hash for commit " << commit.commitId
+                                  << std::endl;
+                        continue;
+                    }
+
                     std::string commit_hash = hashes.at(commit.commitId);
                     std::string url = project->get_package_json(commit_hash);
                     std::stringstream file;
