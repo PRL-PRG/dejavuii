@@ -1,0 +1,46 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+# better CSV reader
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+DROOT = "/data/dejavuii/full-verified"
+dFilePath <- function(x) {
+    paste0(DROOT,"/",x)
+}
+dRead <- function (x) {
+    read_delim(dFilePath(x), delim=',', escape_double=FALSE, escape_backslash=TRUE, quote="\"")
+}
+dLog <- function(msg, data, pct = NULL) {
+    if (! is.null(pct)) {
+        cat(paste0(msg, ": ", data, " (",round((data / pct) * 100, digits = 2), "%)\n"))
+    } else {
+        cat(paste0(msg, ": ", data, "\n"))
+    }
+}
+```
+
+```{r}
+npmSummary = dRead("npm-summary.csv")
+p = dRead("projects.csv")
+p$url = paste0("http://github.com/", p$user, "/", p$repo)
+#npm = dRead("npmModulesCounts.csv")
+npmSummary = merge(p, npmSummary, by.x = "#projectId", by.y = "projectId")
+
+```
+
+```{r}
+withNPM = npmSummary %>% filter(numNPMPaths > 0)
+withNPMChanges = withNPM %>% filter(npmChanges > 0)
+withNPMDeletions = withNPM %>% filter(npmDeletions > 0)
+withPossiblyAllDeleted = withNPM %>% filter(npmDeletions >= numNPMPaths)
+```
+
+```{r}
+summary(withNPMChanges$npmChanges)
+```
