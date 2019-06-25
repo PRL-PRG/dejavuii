@@ -220,9 +220,9 @@ namespace dejavu {
 
             clock_t timer;
             std::string task = "download stuff";
-            size_t downloaded;
-            size_t failed;
-            size_t attempted;
+            size_t downloaded = 0;
+            size_t failed = 0;
+            size_t attempted = 0;
             helpers::StartTask(task, timer);
 
             std::ofstream s(filename);
