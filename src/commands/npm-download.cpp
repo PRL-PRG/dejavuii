@@ -167,32 +167,100 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        void Download(std::unordered_set<NPMProject *> const &npm_projects,
-                      std::unordered_map<unsigned, std::string> const &hashes,
-                      std::unordered_map<unsigned, std::vector<CommitInfo>> const &package_dot_json_commit_id) {
+        class Download {
+        public:
+            Download(std::string url, std::string dir, std::string file):
+                    url(url), dir(dir), file(file), path(dir + "/" + file) {}
+            std::string url;
+            std::string dir;
+            std::string file;
+            std::string path;
+
+            std::string toCSV() {
+                return url + "," + dir + "," + file;
+            }
+        };
+
+        void PrepareForDownload(std::unordered_set<NPMProject *> const &npm_projects,
+                                std::unordered_map<unsigned, std::string> const &hashes,
+                                std::unordered_map<unsigned, std::vector<CommitInfo>> const &package_dot_json_commit_id,
+                                std::vector<Download *> &downloads) {
+
+            clock_t timer;
+            size_t items;
+            std::string task = "preparing list of files to download";
+            helpers::StartTask(task, timer);
+            helpers::StartCounting(items);
 
             for (NPMProject *project : npm_projects) {
-                for (CommitInfo const &commit : package_dot_json_commit_id.at(project->id)) {
+                for (CommitInfo const &commit : package_dot_json_commit_id.at(
+                        project->id)) {
+
                     std::string commit_hash = hashes.at(commit.commitId);
                     std::string url = project->get_package_json(commit_hash);
-                    std::string output = DataDir.value() + "/package.json";
+                    std::stringstream file;
+                    file << commit.contentsId;
 
-                    std::stringstream mkdir;
-                    mkdir << "mkdir -p " << output << "/" << project->id << "/";
+                    std::stringstream dir;
+                    dir << "/package.json/" << project->id << "/";
 
-                    std::stringstream wget;
-                    wget << "wget -nv "
-                         << "-O " << output << "/" << project->id << "/"
-                         << commit.contentsId << " "
-                         << url;
+                    Download *download = new Download(url, dir.str(), file.str());
+                    downloads.push_back(download);
 
-                    int status = system(mkdir.str().c_str());
-                    assert(status == 0);
-
-                    status = system(wget.str().c_str());
-                    assert(status == 0);
+                    helpers::Count(items);
                 }
             }
+
+            helpers::FinishCounting(items);
+            helpers::FinishTask(task, timer);
+        }
+
+        void DownloadAll(std::vector<Download *> const &downloads) {
+            std::string filename = DataDir.value() + "/package.json/__failed.csv";
+
+            clock_t timer;
+            std::string task = "download stuff";
+            size_t downloaded;
+            size_t failed;
+            size_t attempted;
+            helpers::StartTask(task, timer);
+
+            std::ofstream s(filename);
+            if (! s.good()) {
+                ERROR("Unable to open file " << filename << " for writing");
+            }
+
+            for (Download *download : downloads) {
+                std::stringstream mkdir;
+                mkdir << "mkdir -p "
+                      << DataDir.value() << "/" << download->dir;
+
+                std::stringstream wget;
+                wget << "wget -nv "
+                     << "-O " << DataDir.value() << "/" << download->path
+                     << " " << download->url;
+
+                int status = system(mkdir.str().c_str());
+                assert(status == 0);
+
+                status = system(wget.str().c_str());
+                if (status != 0) {
+                    s << download->toCSV() << std::endl;
+                    ++failed;
+                } else {
+                    ++downloaded;
+                }
+
+                helpers::Count(attempted);
+            }
+
+            s.close();
+
+            helpers::FinishCounting(attempted);
+            std::cerr << "Downloaded: " << downloaded << std::endl;
+            std::cerr << "Failed to download: " << failed << std::endl;
+
+            helpers::FinishTask(task, timer);
         }
     };
 
@@ -219,7 +287,13 @@ namespace dejavu {
         std::unordered_map<unsigned, std::string> hashes;
         LoadHashes(hashes);
 
-        Download(npm_projects, hashes, package_dot_json_commit_ids);
+        std::vector<Download *> downloads;
+        PrepareForDownload(npm_projects,
+                           hashes,
+                           package_dot_json_commit_ids,
+                           downloads);
+
+        DownloadAll(downloads);
     }
     
 } // namespace dejavu
