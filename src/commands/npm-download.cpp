@@ -177,13 +177,20 @@ namespace dejavu {
                     std::string url = project->get_package_json(commit_hash);
                     std::string output = DataDir.value() + "/package.json";
 
-                    std::stringstream command;
-                    command << "wget "
-                            << "-O " << output << "/" << project->id << "/"
-                            << commit.contentsId << " "
-                            << url;
+                    std::stringstream mkdir;
+                    mkdir << "mkdir -p " << output << "/" << project->id << "/";
 
-                    std::cerr << command.str() << std::endl;
+                    std::stringstream wget;
+                    wget << "wget -nv "
+                         << "-O " << output << "/" << project->id << "/"
+                         << commit.contentsId << " "
+                         << url;
+
+                    int status = system(mkdir.str().c_str());
+                    assert(status == 0);
+
+                    status = system(wget.str().c_str());
+                    assert(status == 0);
                 }
             }
         }
