@@ -48,7 +48,7 @@ namespace dejavu {
 
         void LoadNPMProjects(std::unordered_set<unsigned> &npm_project_ids,
                           std::unordered_set<NPMProject *> &npm_projects) {
-            clock_t timer;
+            clock_t timer = clock();
             unsigned discarded = 0;
 
             std::string task = "extracting project information (NPM projects only)";
@@ -72,7 +72,7 @@ namespace dejavu {
         }
 
         void LoadInterestingNPMProjectIDs(std::unordered_set<unsigned> &npm_project_ids) {
-            clock_t timer;
+            clock_t timer = clock();
             unsigned discarded = 0;
 
             std::string task = "extracting project IDs of interesting projects (numNPMChanges > 0)";
@@ -92,16 +92,21 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        void LoadPackageDotJSONIds(
-                std::unordered_set<unsigned> &package_dot_json_ids) {
-            clock_t timer;
+        void LoadPackageDotJSONIds(std::unordered_set<unsigned> &package_dot_json_ids) {
+
+            clock_t timer = clock();
             unsigned discarded = 0;
 
-            std::string task = "find IDs of paths that fit 'project.json'";
+            std::string task = "find IDs of paths that fit 'package.json'";
             helpers::StartTask(task, timer);
+            std::string ending = "package.json";
 
-            new PathLoader([&](unsigned id, std::string const & path){
-                if (path == "package.json") {
+            new PathLoader([&](unsigned id, std::string const & path) {
+                if (path == ending) {
+                    package_dot_json_ids.insert(id);
+                } else if (ending.size() > path.size()) {
+                    ++ discarded;
+                } else if (std::equal(ending.rbegin(), ending.rend(), path.rbegin())) {
                     package_dot_json_ids.insert(id);
                 } else {
                     ++discarded;
@@ -114,7 +119,11 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        typedef struct {unsigned commitId; unsigned contentsId;} CommitInfo;
+        typedef struct {
+            unsigned commitId;
+            unsigned contentsId;
+            unsigned pathId;
+        } CommitInfo;
 
         void LoadCommitsThatChangeToProjectDotJSON(std::unordered_set<unsigned> const &npm_project_ids,
                                                    std::unordered_set<unsigned> const &package_dot_json_ids,
@@ -144,6 +153,8 @@ namespace dejavu {
                 CommitInfo commitInfo;
                 commitInfo.commitId = commitId;
                 commitInfo.contentsId = contentsId;
+                commitInfo.pathId = pathId;
+                //commitInfo.path = package_dot_json_ids.at(pathId);
 
                 package_dot_json_commit_ids[projectId].push_back(commitInfo);
             });
@@ -155,7 +166,7 @@ namespace dejavu {
         }
 
         void LoadHashes(std::unordered_map<unsigned, std::string> &hashes) {
-            clock_t timer;
+            clock_t timer = clock();
             std::string task = "loading (all) hashes";
             helpers::StartTask(task, timer);
 
@@ -186,20 +197,29 @@ namespace dejavu {
                                 std::unordered_map<unsigned, std::vector<CommitInfo>> const &package_dot_json_commit_id,
                                 std::vector<Download *> &downloads) {
 
-            clock_t timer;
-            size_t items;
+            clock_t timer = clock();
+            size_t inspected_projects = 0;
+            size_t inspected_commits = 0;
+            size_t skipped_projects = 0;
+            size_t skipped_commits = 0;
             std::string task = "preparing list of files to download";
             helpers::StartTask(task, timer);
-            helpers::StartCounting(items);
 
             for (NPMProject *project : npm_projects) {
-                for (CommitInfo const &commit : package_dot_json_commit_id.at(
-                        project->id)) {
+                if (package_dot_json_commit_id.find(project->id)
+                    == package_dot_json_commit_id.end()) {
+                    ++skipped_projects;
+                    continue;
+                }
+                ++inspected_projects;
+                auto &commits = package_dot_json_commit_id.at(project->id);
+                for (CommitInfo const &commit : commits) {
 
                     if (hashes.find(commit.commitId) == hashes.end()) {
                         std::cerr << std::endl
                                   << "Cannot find hash for commit " << commit.commitId
                                   << std::endl;
+                        ++skipped_projects;
                         continue;
                     }
 
@@ -209,16 +229,22 @@ namespace dejavu {
                     file << commit.contentsId;
 
                     std::stringstream dir;
-                    dir << "/package.json/" << project->id << "/";
+                    dir << "/package.json/" << project->id << "/"
+                     // << commit.path << "/";
+                        << commit.pathId << "/";
 
                     Download *download = new Download(url, dir.str(), file.str());
                     downloads.push_back(download);
 
-                    helpers::Count(items);
+                    helpers::Count(inspected_commits);
                 }
             }
 
-            helpers::FinishCounting(items);
+            std::cerr << "Projects (skipped):" << inspected_projects
+                      << "(" << skipped_projects << ")" << std::endl;
+            std::cerr << "Commits (skipped):" << inspected_commits
+                      << "(" << skipped_commits << ")" << std::endl;
+
             helpers::FinishTask(task, timer);
         }
 
