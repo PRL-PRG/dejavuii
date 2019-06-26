@@ -26,21 +26,13 @@ namespace dejavu {
                     id(id), user(user), repo(repo) {
             }
 
-            std::string get_package_json() {
-                std::stringstream s;
-
-                s << "https://raw.githubusercontent.com/"
-                << user << "/" << repo << "/master/package.json";
-
-                return s.str();
-            }
-
-            std::string get_package_json(std::string const & hash) {
+            std::string get_file(std::string const & hash, std::string const & path) {
                 std::stringstream s;
 
                 s << "https://raw.githubusercontent.com/"
                   << user << "/" << repo << "/"
-                  << hash << "/package.json";
+                  << hash << "/"
+                  << path;
 
                 return s.str();
             }
@@ -92,7 +84,7 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        void LoadPackageDotJSONIds(std::unordered_set<unsigned> &package_dot_json_ids) {
+        void LoadPackageDotJSONIds(std::unordered_map<unsigned, std::string> &package_dot_json_ids) {
 
             clock_t timer = clock();
             unsigned discarded = 0;
@@ -103,11 +95,11 @@ namespace dejavu {
 
             new PathLoader([&](unsigned id, std::string const & path) {
                 if (path == ending) {
-                    package_dot_json_ids.insert(id);
+                    package_dot_json_ids[id] = path;
                 } else if (ending.size() > path.size()) {
                     ++ discarded;
                 } else if (std::equal(ending.rbegin(), ending.rend(), path.rbegin())) {
-                    package_dot_json_ids.insert(id);
+                    package_dot_json_ids[id] = path;
                 } else {
                     ++discarded;
                 }
@@ -123,10 +115,11 @@ namespace dejavu {
             unsigned commitId;
             unsigned contentsId;
             unsigned pathId;
+            std::string path;
         } CommitInfo;
 
         void LoadCommitsThatChangeToProjectDotJSON(std::unordered_set<unsigned> const &npm_project_ids,
-                                                   std::unordered_set<unsigned> const &package_dot_json_ids,
+                                                   std::unordered_map<unsigned, std::string> const &package_dot_json_ids,
                                                    std::unordered_map<unsigned, std::vector<CommitInfo>> &package_dot_json_commit_ids) {
             clock_t timer;
             unsigned discarded = 0;
@@ -154,7 +147,7 @@ namespace dejavu {
                 commitInfo.commitId = commitId;
                 commitInfo.contentsId = contentsId;
                 commitInfo.pathId = pathId;
-                //commitInfo.path = package_dot_json_ids.at(pathId);
+                commitInfo.path = package_dot_json_ids.at(pathId);
 
                 package_dot_json_commit_ids[projectId].push_back(commitInfo);
             });
@@ -224,7 +217,7 @@ namespace dejavu {
                     }
 
                     std::string commit_hash = hashes.at(commit.commitId);
-                    std::string url = project->get_package_json(commit_hash);
+                    std::string url = project->get_file(commit_hash, commit.path);
                     std::stringstream file;
                     file << commit.contentsId;
 
@@ -284,7 +277,9 @@ namespace dejavu {
                     ++downloaded;
                 }
 
-                helpers::Count(attempted);
+                ++attempted;
+                std::cerr << "Downloaded " << attempted << " out of "
+                          << downloads.size() << std::endl;
             }
 
             s.close();
@@ -309,7 +304,7 @@ namespace dejavu {
         std::unordered_set<NPMProject *> npm_projects;
         LoadNPMProjects(npm_project_ids, npm_projects);
 
-        std::unordered_set<unsigned> package_dot_json_ids;
+        std::unordered_map<unsigned, std::string> package_dot_json_ids;
         LoadPackageDotJSONIds(package_dot_json_ids);
 
         std::unordered_map<unsigned, std::vector<CommitInfo>> package_dot_json_commit_ids;
