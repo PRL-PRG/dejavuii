@@ -151,3 +151,17 @@ nrow(ipx)
 
 ```
 
+
+
+```{r}
+summary(pds$numManualChanges)
+x = pds %>% filter(numManualChanges > 1)
+
+```
+
+
+```{r}
+summary(x$numManualChanges)
+nrow(x)
+
+```
