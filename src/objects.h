@@ -190,12 +190,12 @@ namespace dejavu {
         // pathId
         std::unordered_set<unsigned> deletions;
 
-        std::vector<COMMIT *> children;
-        std::vector<COMMIT *> parents;
+        std::unordered_set<COMMIT*> children;
+        std::unordered_set<COMMIT*> parents;
 
         // interface for Commits iterator
         
-        std::vector<COMMIT *> const & childrenCommits() const {
+        std::unordered_set<COMMIT *> const & childrenCommits() const {
             return children;
         }
 
@@ -206,8 +206,8 @@ namespace dejavu {
         // basic access methods
 
         void addParent(COMMIT * c) {
-            parents.push_back(c);
-            c->children.push_back(reinterpret_cast<COMMIT*>(this));
+            parents.insert(c);
+            c->children.insert(reinterpret_cast<COMMIT*>(this));
         }
 
         void addChange(unsigned path, unsigned contents) {
