@@ -65,6 +65,10 @@ namespace dejavu {
 
             std::unordered_set<unsigned> files;
 
+            std::unordered_set<unsigned> changedFiles;
+            std::unordered_set<unsigned> deletedFiles;
+            std::unordered_set<unsigned> changingCommits;
+            std::unordered_set<unsigned> deletingCommits;
 
             NPMPackage(std::string const & name, std::string const & root, unsigned packageJson):
                 name(name),
@@ -428,7 +432,10 @@ namespace dejavu {
         
     } // anonymous namespace
 
-    
+
+    // TODO fix deletion of packaghe.json dmarks the package as changed auto
+    // also store # of commits, # of filesd
+    // are the changes to original, or cloned contents? 
 
 
     void NPMSummary(int argc, char * argv[]) {
