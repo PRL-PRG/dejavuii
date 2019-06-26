@@ -44,3 +44,110 @@ withPossiblyAllDeleted = withNPM %>% filter(npmDeletions >= numNPMPaths)
 ```{r}
 summary(withNPMChanges$npmChanges)
 ```
+
+Package Details
+
+```{r}
+pds = dRead("npm-summary-details.csv")
+pdsBackup = pds
+packageRecords = nrow(pds)
+packageRecords
+```
+
+Ok, so we have `43804991` entries. First separate those with 0 versions, because they are likely not created via `npm` automatically (0 versions means we have not seen their `package.json` files).
+
+```{r}
+nopjsons = pds %>% filter(numVersions == 0)
+pds = pds %>% filter(numVersions > 0)
+cat(paste("Missing packahe.json ",nrow(nopjsons), ", %:", nrow(nopjsons)/packageRecords))
+```
+
+Ok, these out of the way, we can start calculating interesting stuff, starting with looking at how many of the node modules do not survive till today (i.e. they were completely deleted at some point and not introduced again):
+
+```{r}
+deletedNPMs = pds %>% filter(numActiveFiles == 0)
+cat(paste("Deleted NPMs ",nrow(deletedNPMs), ", %:", nrow(deletedNPMs)/packageRecords))
+pds = pds %>% filter(numActiveFiles != 0)
+```
+
+Ok, that's interesting. How many projects is that? 
+
+```{r}
+x = deletedNPMs %>% group_by(projectId) %>% summarize(count=n())
+nrow(x)
+```
+
+That's not tiny number. Good. Are there any projects that have deleted *some* node_modules, but not all? 
+
+```{r}
+y = pds %>% group_by(projectId) %>% summarize(count=n())
+z = inner_join(x, y, by = c("projectId"))
+nrow(z)
+```
+
+Interesting... We'll get back to these soon. Now back to the packages. Now let's see their versions
+
+```{r}
+summary(pds$numVersions)
+summary(pds$numManualChanges)
+summary(pds$numDeletions)
+```
+
+So very few updated and deletions indeed, with some really weird outliers. Similar stuff goes for version updates. Let's get the boring ones out of the way, i.e. no version changes, no manual updates, no manual deletions:
+
+```{r}
+boring = pds %>% filter(numVersions == 1 & numManualChanges == 0 & numDeletions == 0)
+cat(paste("1 version, no changes, no deletions ",nrow(boring), ", %:", nrow(boring)/packageRecords), "\n")
+pds = pds %>% filter(numVersions > 1 | numManualChanges > 0 | numDeletions > 0)
+cat(paste("more versions, changes or deletions ",nrow(pds), ", %:", nrow(pds)/packageRecords), "\n")
+```
+
+Yeah... Kinda as expected. Vast majority is not interesting, to sum up so far:
+
+- 32% of the packages ever included are deleted at some point
+- 63% of the packages are never updated, never deleted, never nothing
+- 3% of the packages are updated, or manually changed
+
+So these 3%. How many are actually not manually touched at all:
+
+```{r}
+noManual = pds %>% filter(numManualChanges == 0 & numDeletions == 0)
+cat(paste("more versions, no manual changes ",nrow(noManual), ", %:", nrow(noManual)/packageRecords), "\n")
+pds = pds %>% filter(numManualChanges > 0 | numDeletions > 0)
+cat(paste("manual changes ",nrow(pds), ", %:", nrow(pds)/packageRecords), "\n")
+```
+
+Let's look at the stats again:
+
+```{r}
+summary(noManual$numVersions)
+summary(pds$numVersions)
+summary(pds$numManualChanges)
+summary(pds$numDeletions)
+hist(noManual$numVersions, breaks = 31)
+```
+
+And now, let's look at project numbers again:
+
+```{r}
+ip = pds %>% group_by(projectId) %>% summarize(count=n())
+nrow(ip)
+```
+
+Ok, that's not that many projects. What we can do now is calculate a dataset that will have *all* entries from the interesting projects
+
+```{r}
+ipAll = pdsBackup %>% filter(projectId %in% ip$projectId)
+cat(paste("packages in interesting projects ",nrow(ipAll), ", %:", nrow(ipAll)/packageRecords), "\n")
+```
+
+So that's about 13% of package records... Ok. 
+
+
+
+```{r}
+ipx = pdsBackup %>% group_by(projectId) %>% summarize(count=n())
+nrow(ipx)
+
+```
+
