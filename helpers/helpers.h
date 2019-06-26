@@ -153,6 +153,7 @@ namespace helpers {
     }
 
     inline void StartTask(const std::string &task, clock_t &timer) {
+        timer = clock();
         std::cerr << "Started " << task << std::endl;
     }
 
