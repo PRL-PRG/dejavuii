@@ -58,10 +58,6 @@ namespace dejavu {
      */
     void ClonesOverTime(int argc, char * argv[]);
 
-    /** Filters out files in node_modules.
-     */
-    void FilterNPM(int argc, char * argv[]);
-
     /** Calculates interesting stats.
      */
     void Stats(int argc, char * argv[]);
@@ -77,12 +73,16 @@ namespace dejavu {
      */
     void ExtractJSProjects(int argc, char * argv[]);
 
-
-
+    
     /** Produces a summary of the NPM packages and projects status.
      */
     void NPMSummary(int argc, char * argv[]);
 
+    /** Filters out files in node_modules.
+     */
+    void NPMFilter(int argc, char * argv[]);
+
+    
     /** Downloads project.json files from NPM packages.
      */
     void NPMDownload(int argc, char * argv[]);

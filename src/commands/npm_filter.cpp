@@ -207,6 +207,15 @@ namespace dejavu {
                 }
             }
 
+            /** Creates symlinks for non-filtered files from the original dataset to the verified one to save disk space.
+             */
+            void createSymlinks() {
+                std::cerr << "Creating symlinks..." << std::endl;
+                helpers::System(STR("ln -s " << DataDir.value() + "/hashes.csv " << OutputDir.value() << "/hashes.csv"));
+                // TODO do we want more symlinks?
+            }
+            
+
             
         private:
 
@@ -232,24 +241,17 @@ namespace dejavu {
                 return 1;
             }
 
-
-
             std::unordered_set<unsigned> paths_;
             std::vector<Project*> projects_;
             std::vector<Commit*> commits_;
-
-
-
             
         };
-
-
         
     } //anonymous namespace
 
     /** Filters out any files contained in node_modules directories.
      */
-    void FilterNPM(int argc, char * argv[]) {
+    void NPMFilter(int argc, char * argv[]) {
         Settings.addOption(DataDir);
         Settings.addOption(OutputDir);
         Settings.parse(argc, argv);
@@ -259,6 +261,7 @@ namespace dejavu {
         f.filter();
         f.removeEmptyCommits();
         f.output();
+        f.createSymlinks();
     }
     
 } // namespace dejavu
