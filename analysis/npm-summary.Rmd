@@ -1,9 +1,17 @@
 ---
-title: "R Notebook"
+title: "npm-summary"
 output: html_notebook
 ---
+```{r}
+DROOT = "/data/dejavuii/test-verified"
+source("helpers.R")
+loadProjects()
+```
+
+
 
 ```{r}
+
 # better CSV reader
 library(readr)
 library(dplyr)
@@ -150,6 +158,53 @@ ipx = pdsBackup %>% group_by(projectId) %>% summarize(count=n())
 nrow(ipx)
 
 ```
+
+# -------------------------------------------------------------------------------------------------
+
+```{r}
+summary(pds$numManualChanges)
+summary(pds$numManualChangesOriginal)
+```
+
+```{r}
+summary(pds$numChangedFiles)
+summary(pds$numChangedFilesOriginal)
+summary(pds$numDeletedFiles)
+```
+
+```{r}
+summary(pds$numChangingCommits)
+summary(pds$numChangingCommitsOriginal)
+```
+
+Let's now look only at those that have some manual changes in them, not just deletions. 
+
+```{r}
+manualChanges = pds %>% filter(numManualChanges > 0)
+cat(paste("Packages with manual changes ",nrow(manualChanges), ", %:", nrow(manualChanges)/packageRecords), "\n")
+manualDeletions = pds %>% filter(numDeletions > 0)
+cat(paste("Packages with manual deletions ",nrow(manualDeletions), ", %:", nrow(manualDeletions)/packageRecords), "\n")
+```
+
+Ok, so we have 10times more deletions than we have changes. Let's look at the changes alone:
+
+```{r}
+summary(manualChanges$numManualChanges)
+summary(manualChanges$numManualChangesOriginal)
+summary(manualChanges$numChangedFiles)
+summary(manualChanges$numChangedFilesOriginal)
+summary(manualChanges$numChangingCommits)
+summary(manualChanges$numChangingCommitsOriginal)
+```
+
+Out of curiosity what is the percentage of packages that have changes to unique contents? 
+
+```{r}
+manualOriginalChanges = manualChanges %>% filter(numManualChangesOriginal > 0)
+cat(paste("Packages with unique manual changes ",nrow(manualOriginalChanges), ", %:", nrow(manualOriginalChanges) /packageRecords), "\n")
+```
+
+
 
 
 
