@@ -241,10 +241,37 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
+        void SaveDownload(std::vector<Download *> const &downloads) {
+            std::string filename = DataDir.value() + "/package.json/__all.csv";
+
+            clock_t timer = clock();
+            std::string task = "saving list of stuff to download";
+            size_t items = 0;
+            helpers::StartCounting(items);
+            helpers::StartTask(task, timer);
+
+            std::ofstream s(filename);
+            if (! s.good()) {
+                ERROR("Unable to open file " << filename << " for writing");
+            }
+
+            s << "url,filename" << std::endl;
+            for (Download *download : downloads) {
+                s << DataDir.value() << "/" << download->path << ","
+                  << download->url << std::endl;
+                helpers::Count(items);
+            }
+
+            s.close();
+
+            helpers::FinishCounting(items);
+            helpers::FinishTask(task, timer);
+        }
+
         void DownloadAll(std::vector<Download *> const &downloads) {
             std::string filename = DataDir.value() + "/package.json/__failed.csv";
 
-            clock_t timer;
+            clock_t timer = clock();
             std::string task = "download stuff";
             size_t downloaded = 0;
             size_t failed = 0;
@@ -320,6 +347,8 @@ namespace dejavu {
                            hashes,
                            package_dot_json_commit_ids,
                            downloads);
+
+        SaveDownload(downloads);
 
         DownloadAll(downloads);
     }
