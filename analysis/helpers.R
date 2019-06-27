@@ -7,6 +7,9 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 
+# nicer table output
+library(DT)
+
 # Logging -----------------------------------------------------------------------------------------
 
 LOG = function(..., d = NULL, pct = NULL) {
@@ -86,5 +89,11 @@ filePaths = function(pathIndices) {
   
 }
 
+# NPM Package links -------------------------------------------------------------------------------
+
+npmPackageUrl = function(name) {
+    x = paste0("https://www.npmjs.com/package/", name)
+    paste0("<a target='_blank' href=',x,"'>",name,"</a>")
+}
 
 

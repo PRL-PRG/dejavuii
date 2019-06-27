@@ -1,37 +1,52 @@
 ---
 title: "npm-summary"
-output: html_notebook
+output:
+  html_notebook:
+    df_print: kable
 ---
-```{r}
+
+```{r,echo=F}
 DROOT = "/data/dejavuii/test-verified"
 source("helpers.R")
-loadProjects()
 ```
 
+This notebook shows the analysis of npm modules created by the `npm-summary` command and its friends. 
 
+## NPM Packages Summary
+
+The summary table contains info about unique paths from all projects and splits them into npm and non-npm paths. 
 
 ```{r}
-
-# better CSV reader
-library(readr)
-library(dplyr)
-library(ggplot2)
-
-DROOT = "/data/dejavuii/full-verified"
-dFilePath <- function(x) {
-    paste0(DROOT,"/",x)
-}
-dRead <- function (x) {
-    read_delim(dFilePath(x), delim=',', escape_double=FALSE, escape_backslash=TRUE, quote="\"")
-}
-dLog <- function(msg, data, pct = NULL) {
-    if (! is.null(pct)) {
-        cat(paste0(msg, ": ", data, " (",round((data / pct) * 100, digits = 2), "%)\n"))
-    } else {
-        cat(paste0(msg, ": ", data, "\n"))
-    }
-}
+psum = readDataset("npm-summary.csv")
+LOG("Total projects", d = nrow(psum))
+LOG("With NPM files", d = nrow(psum %>% filter(numNPMPaths > 0)), pct = nrow(psum))
 ```
+
+Since the other columns in the summary table are only approximations, we are not going to deal with them. Their more fine grained and non approximative versions are calculated from the details below. 
+
+```{r, echo = F}
+remove("psum")
+```
+
+## Package Details
+
+The package details table contains information about packages found in projects. For each tuple (projectId,packagePath) it contains a record summarizing the lifetime of that package. 
+
+```{r}
+pds = readDataset("npm-summary-details.csv")
+pds$name = factor(pds$name)
+LOG("Total number of records", d = nrow(pds))
+LOG("Unique packages", d = length(levels(pds$name)))
+```
+
+We can have a look at the package frequencies now:
+
+```{r}
+x = pds %>% group_by(name) %>% summarize(count = n())
+hist(x$count, breaks = 100)
+DT::datatable(x %>% arrange(desc(count)) %>% top_n(100) %>% mutate(url = npmPackageUrl(name)) %>% select(url,count), escape = F)
+```
+
 
 ```{r}
 npmSummary = dRead("npm-summary.csv")
