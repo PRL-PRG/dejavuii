@@ -58,6 +58,7 @@ namespace dejavu {
             std::unordered_set<unsigned> activeFiles;
 
             std::unordered_set<uint64_t> manualChanges;
+            std::unordered_set<uint64_t> manualChangesOriginal;
             
             std::unordered_set<uint64_t> deletions;
 
@@ -65,6 +66,12 @@ namespace dejavu {
 
             std::unordered_set<unsigned> files;
 
+            std::unordered_set<unsigned> changedFiles;
+            std::unordered_set<unsigned> changedFilesOriginal;
+            std::unordered_set<unsigned> deletedFiles;
+            std::unordered_set<unsigned> changingCommits;
+            std::unordered_set<unsigned> changingCommitsOriginal;
+            std::unordered_set<unsigned> deletingCommits;
 
             NPMPackage(std::string const & name, std::string const & root, unsigned packageJson):
                 name(name),
@@ -80,9 +87,16 @@ namespace dejavu {
                 versions.insert(other.versions.begin(), other.versions.end());
                 activeFiles.insert(other.activeFiles.begin(), other.activeFiles.end());
                 manualChanges.insert(other.manualChanges.begin(), other.manualChanges.end());
+                manualChangesOriginal.insert(other.manualChangesOriginal.begin(), other.manualChangesOriginal.end());
                 deletions.insert(other.deletions.begin(), other.deletions.end());
                 completeDeletions.insert(other.completeDeletions.begin(), other.completeDeletions.end());
                 files.insert(other.files.begin(), other.files.end());
+                changedFiles.insert(other.changedFiles.begin(), other.changedFiles.end());
+                changedFilesOriginal.insert(other.changedFilesOriginal.begin(), other.changedFilesOriginal.end());
+                deletedFiles.insert(other.deletedFiles.begin(), other.deletedFiles.end());
+                changingCommits.insert(other.changingCommits.begin(), other.changingCommits.end());
+                changingCommitsOriginal.insert(other.changingCommitsOriginal.begin(), other.changingCommitsOriginal.end());
+                deletingCommits.insert(other.deletingCommits.begin(), other.deletingCommits.end());
             }
 
             // we have project, package root, package name, 
@@ -92,8 +106,15 @@ namespace dejavu {
                   << p.versions.size() << ","
                   << p.files.size() << ","
                   << p.manualChanges.size() << ","
+                  << p.manualChangesOriginal.size() << ","
                   << p.deletions.size() << ","
                   << p.completeDeletions.size() << ","
+                  << p.changedFiles.size() << ","
+                  << p.changedFilesOriginal.size() << ","
+                  << p.deletedFiles.size() << ","
+                  << p.changingCommits.size() << ","
+                  << p.changingCommitsOriginal.size() << ","
+                  << p.deletingCommits.size() << ","
                   << p.activeFiles.size();
                 return s;
             }
@@ -125,8 +146,18 @@ namespace dejavu {
                 if (i == packages_.end())
                     std::cout << root << std::endl;
                 assert(i != packages_.end());
+                i->second.activeFiles.erase(pathId);
+            }
+
+            void handleManualFileDeletion(Commit * c, std::string const & root, unsigned pathId) {
+                auto i = packages_.find(root);
+                if (i == packages_.end())
+                    std::cout << root << std::endl;
+                assert(i != packages_.end());
                 i->second.deletions.insert(Join2Unsigned(c->id, pathId));
                 i->second.activeFiles.erase(pathId);
+                i->second.deletedFiles.insert(pathId);
+                i->second.deletingCommits.insert(c->id);
             }
 
             void addPackageVersion(std::string const & name, std::string const & root, unsigned packageJsonId, unsigned version) {
@@ -143,15 +174,23 @@ namespace dejavu {
                 i->second.files.insert(fileId);
             }
 
-            void registerFileChange(Commit * c, std::string const & packageName, std::string const & packageRoot, unsigned fileId) {
+            void registerFileChange(Commit * c, std::string const & packageName, std::string const & packageRoot, unsigned fileId, bool original) {
                 auto i = packages_.find(packageRoot);
                 if (i == packages_.end()) {
                     // packageJson id will be 0 for packages created this way
                     i = packages_.insert(std::make_pair(packageRoot, NPMPackage(packageName, packageRoot, 0))).first;
                 }
                 i->second.activeFiles.insert(fileId);
-                i->second.manualChanges.insert(Join2Unsigned(c->id, fileId));
                 i->second.files.insert(fileId);
+                // TODO maybe I want this exclusive?
+                i->second.manualChanges.insert(Join2Unsigned(c->id, fileId));
+                i->second.changedFiles.insert(fileId);
+                i->second.changingCommits.insert(c->id);
+                if (original) {
+                    i->second.manualChangesOriginal.insert(Join2Unsigned(c->id, fileId));
+                    i->second.changedFilesOriginal.insert(fileId);
+                    i->second.changingCommitsOriginal.insert(c->id);
+                } 
             }
 
             void mergeEmptyPackages(Commit * c, std::unordered_map<std::string, NPMPackage> & into) {
@@ -251,6 +290,7 @@ namespace dejavu {
                 {
                     std::cerr << "Loading file changes ... " << std::endl;
                     size_t totalChanges = 0;
+                    std::unordered_map<unsigned, unsigned> contents;
                     FileChangeLoader{[&,this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
                             ++totalChanges;
                             Project * p = projects_[projectId];
@@ -259,8 +299,17 @@ namespace dejavu {
                             assert(c != nullptr);
                             p->addCommit(c);
                             c->addChange(pathId, contentsId);
+                            auto i = contents.find(contentsId);
+                            if (i == contents.end())
+                                contents.insert(std::make_pair(contentsId, 0));
+                            else
+                                ++i->second;
                         }};
                     std::cerr << "    " << totalChanges << " total changes read" << std::endl;
+                    for (auto i : contents)
+                        if (i.second == 0)
+                            originalContents_.insert(i.first);
+                    std::cerr << "    " << originalContents_.size() << " unique files" << std::endl;
                 }
             }
 
@@ -286,12 +335,12 @@ namespace dejavu {
             void analyzeDetails() {
                 std::cerr << "Calculating project NPM details " << std::endl;
                 packageDetails_.open(DataDir.value() + "/npm-summary-details.csv");
-                packageDetails_ << "projectId,path,name,numVersions,numFiles,numManualChanges,numDeletions,numCompleteDeletions,numActiveFiles" << std::endl;
+                packageDetails_ << "projectId,path,name,numVersions,numFiles,numManualChanges,numManualChangesOriginal,numDeletions,numCompleteDeletions,numChangedFiles,numChangedFilesOriginal,numDeletedFiles,numChangingCommits,numChangingCommitsOriginal,numDeletingCommits,numActiveFiles" << std::endl;
                 unsigned i = 0;
                 for (Project * p : projects_) {
                     if (++i % 1000 == 0)
                         std::cerr << " : " << i << '\r' << std::flush;
-                    if (p == nullptr)
+                    if (p == nullptr || p->hasNPM == false)
                         continue;
                     analyzeProjectProper(p);
                     p->paths.clear();
@@ -356,12 +405,6 @@ namespace dejavu {
             void analyzeProjectProper(Project * p) {
                 std::unordered_map<std::string, NPMPackage> packages;
                 CommitForwardIterator<Project, Commit, State> cfi(p, [&,this](Commit * c, State & state) {
-                        // first deal with deletions
-                        for (auto i : c->deletions) {
-                            PathInfo const & pi = getNPMPathInfo(i);
-                            if (pi.valid())
-                                state.handleFileDeletion(c, pi.root, i);
-                        }
                         // check if any package has been completely deleted and if so, mark it as such and update the main package
                         state.mergeEmptyPackages(c, packages);
                         // now deal with package.jsons since any changes to them mean that the package has version update and therefore we ignore changes to it
@@ -373,6 +416,16 @@ namespace dejavu {
                                 changedPackages.insert(pi.root);
                             }
                         }
+                        // deal with deletions now, file deletion is manual if package.json is not changed. Issue is if package.json is deleted, and so are other files. If all other files are deleted then the package will not exist and will be uninteresting even if we mark the deletions as manual. If some files survive and package.json is deleted, then it is indeed manual deletion, so it is correct. 
+                        for (auto i : c->deletions) {
+                            PathInfo const & pi = getNPMPathInfo(i);
+                            if (pi.valid()) {
+                                if (changedPackages.find(pi.root) != changedPackages.end())
+                                    state.handleFileDeletion(c, pi.root, i);
+                                else
+                                    state.handleManualFileDeletion(c, pi.root, i);
+                            }
+                        }
                         // now deal with other changes, for each change determine if it belongs to a package and if it does, update the package
                         for (auto i : c->changes) {
                             PathInfo const & pi = getNPMPathInfo(i.first);
@@ -380,7 +433,7 @@ namespace dejavu {
                                 if (changedPackages.find(pi.root) != changedPackages.end())
                                     state.registerFile(pi.root, i.first);
                                 else
-                                    state.registerFileChange(c, pi.name, pi.root, i.first);
+                                    state.registerFileChange(c, pi.name, pi.root, i.first, isOriginal(i.second));
                             }
                         }
 
@@ -396,6 +449,13 @@ namespace dejavu {
                 }
             }
 
+            /** Returns true if the given contents id was seen only once in the entire corpus.
+
+                TODO maybe we want unique files *and* the originals? 
+             */
+            bool isOriginal(unsigned contentsId) {
+                return originalContents_.find(contentsId) != originalContents_.end();
+            }
 
             /** Returns true if given path is NPM file.
              */
@@ -421,15 +481,13 @@ namespace dejavu {
             std::vector<Project *> projects_;
             std::vector<Commit *> commits_;
             std::ofstream packageDetails_;
+            std::unordered_set<unsigned> originalContents_;
 
             
         }; 
 
         
     } // anonymous namespace
-
-    
-
 
     void NPMSummary(int argc, char * argv[]) {
         Settings.addOption(DataDir);

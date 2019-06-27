@@ -45,7 +45,7 @@ void InitializeCommands() {
     new helpers::Command("filter-folder-clones", FolderClonesFilter, "Filters folder clones so that different subsets of same original use same clone id");
     new helpers::Command("folder-clones-history", FolderCloneHistoryAnalysis, "Detects folder clones across all projects and find their originals");
     new helpers::Command("clones-over-time", ClonesOverTime, "Aggregates clone stats over time");
-    new helpers::Command("filter-npm", FilterNPM, "Filters node_modules files");
+    new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");
     new helpers::Command("stats", Stats, "Calculates interesting stats");
     new helpers::Command("detect-file-clones", DetectFileClones, "Detects file clones across all projects and find their originals");
     new helpers::Command("extract-js-projects", ExtractJSProjects, "Extracts JS projects from a GHTorrent projects.csv file which are not deleted and splits them into forked and non-forked.");
