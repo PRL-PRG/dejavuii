@@ -284,7 +284,8 @@ namespace dejavu {
 //        }
 
         void DownloadAll(std::vector<Download> const &downloads) {
-            std::string filename = DataDir.value() + "/package.json/__failed.csv";
+            std::string filename_failed = DataDir.value() + "/package.json/__failed.csv";
+            std::string filename_downloaded = DataDir.value() + "/package.json/__downloaded.csv";
 
             clock_t timer = clock();
             std::string task = "downloading stuff";
@@ -293,11 +294,19 @@ namespace dejavu {
             size_t attempted = 0;
             helpers::StartTask(task, timer);
 
-            std::ofstream s(filename);
-            if (! s.good()) {
-                ERROR("Unable to open file " << filename << " for writing");
+            std::ofstream sf(filename_failed);
+            if (! sf.good()) {
+                ERROR("Unable to open file " << filename_failed
+                                             << " for writing");
             }
-            s << "url,dir,file" <<std::endl;
+            sf << "url,dir,file" <<std::endl;
+
+            std::ofstream sd(filename_downloaded);
+            if (! sd.good()) {
+                ERROR("Unable to open file " << filename_downloaded
+                                             << " for writing");
+            }
+            sd << "url,dir,file" <<std::endl;
 
             for (Download const &download : downloads) {
                 std::stringstream mkdirPath;
@@ -314,20 +323,23 @@ namespace dejavu {
 
                 status = system(wgetCmd.str().c_str());
                 if (status != 0) {
-                    s << download.url << "," << download.dir << "," << download.file << std::endl;
+                    sf << download.url << "," << download.dir << ","
+                       << download.file << std::endl;
                     ++failed;
                 } else {
+                    sd << download.url << "," << download.dir << ","
+                       << download.file << std::endl;
                     ++downloaded;
                 }
 
-                ++attempted;
-                std::cerr << "Downloaded " << attempted << " out of "
-                          << downloads.size() << std::endl;
+                helpers::Count(attempted);
             }
 
-            s.close();
+            sd.close();
+            sf.close();
 
             helpers::FinishCounting(attempted);
+            std::cerr << "Attempted: " << attempted << std::endl;
             std::cerr << "Downloaded: " << downloaded << std::endl;
             std::cerr << "Failed to download: " << failed << std::endl;
 
