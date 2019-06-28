@@ -99,6 +99,7 @@ namespace dejavu {
                                            unsigned numChangingCommitsOriginal,
                                            unsigned numDeletingCommits, 
                                            unsigned numActiveFiles){
+                
                 if (numManualChanges > 0) {
                     interesting_projects.insert(projectId);
                     paths_to_interesting_package_json.insert(path);
@@ -168,12 +169,14 @@ namespace dejavu {
             new FileChangeLoader([&](unsigned projectId, unsigned commitId,
                                      unsigned pathId, unsigned contentsId){
 
-                if (ids_of_paths_to_interesting_package_json.find(pathId) == ids_of_paths_to_interesting_package_json.end()) {
+                if (ids_of_paths_to_interesting_package_json.find(pathId) ==
+                        ids_of_paths_to_interesting_package_json.end()) {
                     ++discarded;
                     return;
                 }
 
-                if (interesting_projects.find(projectId) == interesting_projects.end()) {
+                if (interesting_projects.find(projectId) ==
+                        interesting_projects.end()) {
                     ++discarded;
                     return;
                 }
@@ -206,7 +209,7 @@ namespace dejavu {
             std::string task = "loading (all) hashes";
             helpers::StartTask(task, timer);
 
-            new HashToIdLoader([&](unsigned id, std::string const & hash){
+            new HashToIdLoader([&](unsigned id, std::string const &hash){
                 assert(hashes.find(id) == hashes.end());
                 hashes[id] = hash;
             });
