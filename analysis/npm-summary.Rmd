@@ -6,7 +6,7 @@ output:
 ---
 
 ```{r,echo=F}
-DROOT = "/data/dejavuii/test-verified"
+DROOT = "/data/dejavuii/full-verified"
 source("helpers.R")
 ```
 
@@ -43,9 +43,22 @@ We can have a look at the package frequencies now:
 
 ```{r}
 x = pds %>% group_by(name) %>% summarize(count = n())
-hist(x$count, breaks = 100)
+h = hist(x$count, breaks = 100, plot = F)
+h$counts =log10(h$counts + 1)
+plot(h, ylab="log10(Frequency)")
 DT::datatable(x %>% arrange(desc(count)) %>% top_n(100) %>% mutate(url = npmPackageUrl(name)) %>% select(url,count), escape = F)
 ```
+
+Ok, next step is to remove data that are not interesting:
+
+```{r}
+x = pds %>% filter(numVersions != 0)
+LOG("No package.json present", d = nrow(pct) - nrow(x), pct = nrow(pds))
+x = x %>% filter(numManualChanges > 0)
+LOG("Manual changes", d = nrow(x), pct = nrow(pds))
+```
+
+
 
 
 ```{r}

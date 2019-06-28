@@ -358,7 +358,7 @@ namespace dejavu {
     protected:
         void row(std::vector<std::string> & row) override {
             assert(row.size() == 16);
-            unsigned projectId = std::stoul(row[0]); 
+            unsigned projectId = std::stoul(row[0]);
             std::string path = row[1]; 
             std::string name = row[2];
             unsigned numVersions = std::stoul(row[3]); 
