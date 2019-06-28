@@ -52,7 +52,7 @@ namespace dejavu {
             clock_t timer = clock();
             unsigned discarded = 0;
 
-            std::string task = "extracting project information (NPM projects only)";
+            std::string task = "extracting project information (interesting projects only)";
             helpers::StartTask(task, timer);
 
             std::unordered_set<unsigned> insertedProjects;
@@ -66,7 +66,7 @@ namespace dejavu {
                 interesting_projects_info[id] = new NPMProject(id, user, repo);
             });
 
-            std::cerr << "Loaded " << interesting_projects_info.size() << " NPM projects" << std::endl;
+            std::cerr << "Loaded " << interesting_projects_info.size() << " interesting projects" << std::endl;
             std::cerr << "Discarded " << discarded << " projects" << std::endl;
 
             helpers::FinishTask(task, timer);
@@ -99,7 +99,7 @@ namespace dejavu {
                                            unsigned numChangingCommitsOriginal,
                                            unsigned numDeletingCommits, 
                                            unsigned numActiveFiles){
-                
+
                 if (numManualChanges > 0) {
                     interesting_projects.insert(projectId);
                     paths_to_interesting_package_json.insert(path);
@@ -110,8 +110,10 @@ namespace dejavu {
                 }
             });
 
-            std::cerr << "Loaded " << added << " NPM projects" << std::endl;
-            std::cerr << "Discarded " << discarded << " projects" << std::endl;
+            std::cerr << "Loaded " << interesting_projects.size() << " projects" << std::endl;
+            std::cerr << "Loaded " << paths_to_interesting_package_json.size() << " paths" << std::endl;
+            std::cerr << "Loaded " << added << " items" << std::endl;
+            std::cerr << "Discarded " << discarded << " items" << std::endl;
 
             helpers::FinishTask(task, timer);
         }
