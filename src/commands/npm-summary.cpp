@@ -336,6 +336,8 @@ namespace dejavu {
                 std::cerr << "Calculating project NPM details " << std::endl;
                 packageDetails_.open(DataDir.value() + "/npm-summary-details.csv");
                 packageDetails_ << "projectId,path,name,numVersions,numFiles,numManualChanges,numManualChangesOriginal,numDeletions,numCompleteDeletions,numChangedFiles,numChangedFilesOriginal,numDeletedFiles,numChangingCommits,numChangingCommitsOriginal,numDeletingCommits,numActiveFiles" << std::endl;
+                manualChanges_.open(DataDir.value() + "/npm-summary-manualChanges.csv");
+                manualChanges_ << "projectId,commitId,pathId,contentsId" << std::endl;
                 unsigned i = 0;
                 for (Project * p : projects_) {
                     if (++i % 1000 == 0)
@@ -430,10 +432,14 @@ namespace dejavu {
                         for (auto i : c->changes) {
                             PathInfo const & pi = getNPMPathInfo(i.first);
                             if (pi.valid()) {
-                                if (changedPackages.find(pi.root) != changedPackages.end())
+                                if (changedPackages.find(pi.root) != changedPackages.end()) {
                                     state.registerFile(pi.root, i.first);
-                                else
-                                    state.registerFileChange(c, pi.name, pi.root, i.first, isOriginal(i.second));
+                                } else {
+                                    bool orig = isOriginal(i.second);
+                                    if (orig)
+                                        manualChanges_ << p->id << "," << c->id << "," << i.first << "," << i.second << std::endl;
+                                    state.registerFileChange(c, pi.name, pi.root, i.first, orig);
+                                }
                             }
                         }
 
@@ -482,6 +488,7 @@ namespace dejavu {
             std::vector<Commit *> commits_;
             std::ofstream packageDetails_;
             std::unordered_set<unsigned> originalContents_;
+            std::ofstream manualChanges_;
 
             
         }; 

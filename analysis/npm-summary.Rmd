@@ -1,29 +1,52 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "npm-summary"
+output:
+  html_notebook:
+    df_print: kable
 ---
 
-```{r}
-# better CSV reader
-library(readr)
-library(dplyr)
-library(ggplot2)
-
-DROOT = "/data/dejavuii/full-verified"
-dFilePath <- function(x) {
-    paste0(DROOT,"/",x)
-}
-dRead <- function (x) {
-    read_delim(dFilePath(x), delim=',', escape_double=FALSE, escape_backslash=TRUE, quote="\"")
-}
-dLog <- function(msg, data, pct = NULL) {
-    if (! is.null(pct)) {
-        cat(paste0(msg, ": ", data, " (",round((data / pct) * 100, digits = 2), "%)\n"))
-    } else {
-        cat(paste0(msg, ": ", data, "\n"))
-    }
-}
+```{r,echo=F}
+DROOT = "/data/dejavuii/test-verified"
+source("helpers.R")
 ```
+
+This notebook shows the analysis of npm modules created by the `npm-summary` command and its friends. 
+
+## NPM Packages Summary
+
+The summary table contains info about unique paths from all projects and splits them into npm and non-npm paths. 
+
+```{r}
+psum = readDataset("npm-summary.csv")
+LOG("Total projects", d = nrow(psum))
+LOG("With NPM files", d = nrow(psum %>% filter(numNPMPaths > 0)), pct = nrow(psum))
+```
+
+Since the other columns in the summary table are only approximations, we are not going to deal with them. Their more fine grained and non approximative versions are calculated from the details below. 
+
+```{r, echo = F}
+remove("psum")
+```
+
+## Package Details
+
+The package details table contains information about packages found in projects. For each tuple (projectId,packagePath) it contains a record summarizing the lifetime of that package. 
+
+```{r}
+pds = readDataset("npm-summary-details.csv")
+pds$name = factor(pds$name)
+LOG("Total number of records", d = nrow(pds))
+LOG("Unique packages", d = length(levels(pds$name)))
+```
+
+We can have a look at the package frequencies now:
+
+```{r}
+x = pds %>% group_by(name) %>% summarize(count = n())
+hist(x$count, breaks = 100)
+DT::datatable(x %>% arrange(desc(count)) %>% top_n(100) %>% mutate(url = npmPackageUrl(name)) %>% select(url,count), escape = F)
+```
+
 
 ```{r}
 npmSummary = dRead("npm-summary.csv")
@@ -150,6 +173,53 @@ ipx = pdsBackup %>% group_by(projectId) %>% summarize(count=n())
 nrow(ipx)
 
 ```
+
+# -------------------------------------------------------------------------------------------------
+
+```{r}
+summary(pds$numManualChanges)
+summary(pds$numManualChangesOriginal)
+```
+
+```{r}
+summary(pds$numChangedFiles)
+summary(pds$numChangedFilesOriginal)
+summary(pds$numDeletedFiles)
+```
+
+```{r}
+summary(pds$numChangingCommits)
+summary(pds$numChangingCommitsOriginal)
+```
+
+Let's now look only at those that have some manual changes in them, not just deletions. 
+
+```{r}
+manualChanges = pds %>% filter(numManualChanges > 0)
+cat(paste("Packages with manual changes ",nrow(manualChanges), ", %:", nrow(manualChanges)/packageRecords), "\n")
+manualDeletions = pds %>% filter(numDeletions > 0)
+cat(paste("Packages with manual deletions ",nrow(manualDeletions), ", %:", nrow(manualDeletions)/packageRecords), "\n")
+```
+
+Ok, so we have 10times more deletions than we have changes. Let's look at the changes alone:
+
+```{r}
+summary(manualChanges$numManualChanges)
+summary(manualChanges$numManualChangesOriginal)
+summary(manualChanges$numChangedFiles)
+summary(manualChanges$numChangedFilesOriginal)
+summary(manualChanges$numChangingCommits)
+summary(manualChanges$numChangingCommitsOriginal)
+```
+
+Out of curiosity what is the percentage of packages that have changes to unique contents? 
+
+```{r}
+manualOriginalChanges = manualChanges %>% filter(numManualChangesOriginal > 0)
+cat(paste("Packages with unique manual changes ",nrow(manualOriginalChanges), ", %:", nrow(manualOriginalChanges) /packageRecords), "\n")
+```
+
+
 
 
 
