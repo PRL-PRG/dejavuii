@@ -158,6 +158,7 @@ namespace dejavu {
 
           void LoadCommitsThatChangeProjectJSONPathsInInterestingProjects(
                   std::unordered_set<unsigned> const &interesting_projects,
+                  std::unordered_map<unsigned, std::unordered_set<std::string>> const &interesting_projects_and_paths_to_package_json,
                   std::unordered_map<unsigned, std::string> const &ids_of_paths_to_interesting_package_json,
                   std::vector<CommitInfo> &interesting_commits) {
 
@@ -172,16 +173,33 @@ namespace dejavu {
                                      unsigned pathId, unsigned contentsId){
 
                 if (ids_of_paths_to_interesting_package_json.find(pathId) ==
-                        ids_of_paths_to_interesting_package_json.end()) {
+                    ids_of_paths_to_interesting_package_json.end()) {
                     ++discarded;
                     return;
                 }
 
-                if (interesting_projects.find(projectId) ==
-                        interesting_projects.end()) {
+                if(interesting_projects_and_paths_to_package_json.find(projectId) ==
+                        interesting_projects_and_paths_to_package_json.end()) {
                     ++discarded;
                     return;
                 }
+
+                std::unordered_set<std::string> const &paths =
+                        interesting_projects_and_paths_to_package_json.at(projectId);
+                std::string const &path =
+                        ids_of_paths_to_interesting_package_json.at(pathId);
+
+                if(paths.find(path) == paths.end()) {
+                    ++discarded;
+                    return;
+                }
+
+                // redundant wrt interesting_projects_and_paths_to_package_json
+//                if (interesting_projects.find(projectId) ==
+//                        interesting_projects.end()) {
+//                    ++discarded;
+//                    return;
+//                }
 
                 if (contentsId == FILE_DELETED) {
                     ++discarded;
@@ -195,7 +213,7 @@ namespace dejavu {
                 commitInfo.commitId = commitId;
                 commitInfo.contentsId = contentsId;
                 commitInfo.pathId = pathId;
-                commitInfo.path = ids_of_paths_to_interesting_package_json.at(pathId);
+                commitInfo.path = path;
 
                 interesting_commits.push_back(commitInfo);
             });
@@ -373,6 +391,7 @@ namespace dejavu {
 
         std::vector<CommitInfo> interesting_commits;
         LoadCommitsThatChangeProjectJSONPathsInInterestingProjects(interesting_projects,
+                                                                   interesting_projects_and_paths_to_package_json,
                                                                    ids_of_paths_to_interesting_package_json,
                                                                    interesting_commits);
 
