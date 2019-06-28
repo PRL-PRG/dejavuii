@@ -353,7 +353,7 @@ namespace dejavu {
 
         NPMSummaryDetailLoader(RowHandler f):
                 f_(f) {
-            readFile(DataDir.value() + "/npm-summary-details.csv.lnk");
+            readFile(DataDir.value() + "/npm-summary-details.csv");
         }
     protected:
         void row(std::vector<std::string> & row) override {
