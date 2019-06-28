@@ -6,6 +6,8 @@
 #include <mutex>
 #include <src/commit_iterator.h>
 #include <sstream>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "../loaders.h"
 #include "../commands.h"
@@ -69,7 +71,7 @@ namespace dejavu {
 
             std::string task = "extracting project IDs of interesting projects (numManualChanges > 0)";
             helpers::StartTask(task, timer);
-
+            size_t added = 0;
             new NPMSummaryDetailLoader([&](unsigned projectId, 
                                            std::string const &path, 
                                            std::string const &name,
@@ -83,28 +85,35 @@ namespace dejavu {
                                            unsigned numChangedFilesOriginal, 
                                            unsigned numDeletedFiles,
                                            unsigned numChangingCommits, 
-                                           unsigned numchangingCommitsOriginal,
+                                           unsigned numChangingCommitsOriginal,
                                            unsigned numDeletingCommits, 
                                            unsigned numActiveFiles){
                 if (numManualChanges > 0) {
                     npm_project_ids.insert(projectId);
+                    ++added;
                 } else {
                     ++discarded;
                 }
             });
 
             std::cerr << "Loaded " << npm_project_ids.size() << " NPM projects" << std::endl;
+            std::cerr << " Added: " << added << std::endl;
             std::cerr << "Discarded " << discarded << " projects" << std::endl;
 
             helpers::FinishTask(task, timer);
         }
+
+//        class PackageDotJSONLoader : public BaseLoader {
+//
+//
+//        };
 
         void LoadPackageDotJSONIds(std::unordered_map<unsigned, std::string> &package_dot_json_ids) {
 
             clock_t timer = clock();
             unsigned discarded = 0;
 
-            std::string task = "find IDs of paths that fit 'package.json'";
+            std::string task = "finding IDs of paths that fit 'package.json'";
             helpers::StartTask(task, timer);
             std::string ending = "package.json";
 
@@ -122,6 +131,20 @@ namespace dejavu {
 
             std::cerr << "Selected " << package_dot_json_ids.size() << " path IDs" << std::endl;
             std::cerr << "Discarded " << discarded << " path IDs" << std::endl;
+
+            helpers::FinishTask(task, timer);
+        }
+
+        void SavePackageDotJSONIds(std::unordered_map<unsigned, std::string> const &package_dot_json_ids) {
+            clock_t timer = clock();
+            unsigned discarded = 0;
+
+            std::string task = "saving IDs of paths that fit 'package.json'";
+            helpers::StartTask(task, timer);
+
+            for (auto &it : package_dot_json_ids) {
+
+            }
 
             helpers::FinishTask(task, timer);
         }
@@ -299,19 +322,19 @@ namespace dejavu {
             }
 
             for (Download *download : downloads) {
-                std::stringstream mkdir;
-                mkdir << "mkdir -p "
-                      << DataDir.value() << "/" << download->dir;
+                std::stringstream mkdirPath;
+                mkdirPath << DataDir.value() + "/" + download->dir;
 
-                std::stringstream wget;
-                wget << "wget -nv "
-                     << "-O " << DataDir.value() << "/" << download->path
-                     << " " << download->url;
+                std::stringstream wgetCmd;
+                wgetCmd << "wget -nv "
+                        << "-O " << DataDir.value() << "/" << download->path
+                        << " " << download->url;
 
-                int status = system(mkdir.str().c_str());
+                int status = mkdir(mkdirPath.str().c_str(),
+                                   S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
                 assert(status == 0);
 
-                status = system(wget.str().c_str());
+                status = system(wgetCmd.str().c_str());
                 if (status != 0) {
                     s << download->toCSV() << std::endl;
                     ++failed;

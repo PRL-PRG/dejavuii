@@ -301,6 +301,8 @@ namespace dejavu {
 
     };
 
+
+
     class NPMSummaryLoader : public BaseLoader {
     public:
         // projectId, commits, firstTime, lastTime, numPaths, numNPMPaths, npmChanges, npmDeletions
