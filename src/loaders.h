@@ -334,6 +334,57 @@ namespace dejavu {
 
     };
 
+    class NPMSummaryDetailLoader : public BaseLoader {
+    public:
+        typedef std::function<void(unsigned /*projectId*/, std::string const & /*path*/, std::string const & /*name*/, 
+                                   unsigned /*numVersions*/, unsigned /*numFiles*/, unsigned /*numManualChangesa*/, 
+                                   unsigned /*numManualChangesOriginal*/, unsigned /*numDeletions*/, 
+                                   unsigned /*numCompleteDeletions*/, unsigned /*numChangedFiles*/, 
+                                   unsigned /*numChangedFilesOriginal*/, unsigned /*numDeletedFiles*/,
+                                   unsigned /*numChangingCommits*/, unsigned /*numchangingCommitsOriginal*/,
+                                   unsigned /*numDeletingCommits*/, unsigned /*numActiveFiles*/)> RowHandler;
+
+        NPMSummaryDetailLoader(std::string const & filename, RowHandler f):
+                f_(f) {
+            readFile(filename);
+        }
+
+        NPMSummaryDetailLoader(RowHandler f):
+                f_(f) {
+            readFile(DataDir.value() + "/npm-summary-details.csv.lnk");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 16);
+            unsigned projectId = std::stoul(row[0]); 
+            std::string path = row[1]; 
+            std::string name = row[2];
+            unsigned numVersions = std::stoul(row[3]); 
+            unsigned numFiles = std::stoul(row[4]); 
+            unsigned numManualChanges = std::stoul(row[5]);
+            unsigned numManualChangesOriginal = std::stoul(row[6]); 
+            unsigned numDeletions = std::stoul(row[7]); 
+            unsigned numCompleteDeletions = std::stoul(row[8]); 
+            unsigned numChangedFiles = std::stoul(row[9]);
+            unsigned numChangedFilesOriginal = std::stoul(row[10]);
+            unsigned numDeletedFiles = std::stoul(row[11]);
+            unsigned numChangingCommits = std::stoul(row[12]);
+            unsigned numChangingCommitsOriginal = std::stoul(row[13]);
+            unsigned numDeletingCommits = std::stoul(row[14]);
+            unsigned numActiveFiles = std::stoul(row[15]);
+            f_(projectId, path, name, numVersions, numFiles, numManualChanges,
+               numManualChangesOriginal, numDeletions, numCompleteDeletions,
+               numChangedFiles, numChangedFilesOriginal, numDeletedFiles, 
+               numChangingCommits, numChangingCommitsOriginal, 
+               numDeletingCommits, numActiveFiles);
+        }
+
+    private:
+        RowHandler f_;
+
+    };
+
+
     /** Loads the user email to id translation table.
      */
     class UsersLoader : public BaseLoader {

@@ -67,11 +67,26 @@ namespace dejavu {
             clock_t timer = clock();
             unsigned discarded = 0;
 
-            std::string task = "extracting project IDs of interesting projects (numNPMChanges > 0)";
+            std::string task = "extracting project IDs of interesting projects (numManualChanges > 0)";
             helpers::StartTask(task, timer);
 
-            new NPMSummaryLoader([&](unsigned projectId, unsigned commits, unsigned firstTime, unsigned lastTime, unsigned numPaths, unsigned numNPMPaths, unsigned npmChanges, unsigned npmDeletions){
-                if (npmChanges > 0) {
+            new NPMSummaryDetailLoader([&](unsigned projectId, 
+                                           std::string const &path, 
+                                           std::string const &name,
+                                           unsigned numVersions, 
+                                           unsigned numFiles, 
+                                           unsigned numManualChanges,
+                                           unsigned numManualChangesOriginal, 
+                                           unsigned numDeletions,
+                                           unsigned numCompleteDeletions, 
+                                           unsigned numChangedFiles,
+                                           unsigned numChangedFilesOriginal, 
+                                           unsigned numDeletedFiles,
+                                           unsigned numChangingCommits, 
+                                           unsigned numchangingCommitsOriginal,
+                                           unsigned numDeletingCommits, 
+                                           unsigned numActiveFiles){
+                if (numManualChanges > 0) {
                     npm_project_ids.insert(projectId);
                 } else {
                     ++discarded;
