@@ -162,7 +162,7 @@ namespace dejavu {
                   std::unordered_map<unsigned, std::string> const &ids_of_paths_to_interesting_package_json,
                   std::vector<CommitInfo> &interesting_commits) {
 
-            clock_t timer;
+            clock_t timer = clock();
             size_t discarded = 0;
             size_t kept = 0;
 
@@ -327,16 +327,15 @@ namespace dejavu {
             sd << "url,dir,file" <<std::endl;
 
             for (Download const &download : downloads) {
-                std::stringstream mkdirPath;
-                mkdirPath << DataDir.value() + "/" + download.dir;
+                std::stringstream mkdirCmd;
+                mkdirCmd << "mkdir -p " << DataDir.value() + "/" + download.dir;
 
                 std::stringstream wgetCmd;
                 wgetCmd << "wget -nv -q "
                         << "-O " << DataDir.value() << "/" << download.path
                         << " " << download.url;
 
-                int status = mkdir(mkdirPath.str().c_str(),
-                                   S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+                int status =  system(mkdirCmd.str().c_str());
                 assert(status == 0);
 
                 status = system(wgetCmd.str().c_str());
