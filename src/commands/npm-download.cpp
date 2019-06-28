@@ -118,6 +118,11 @@ namespace dejavu {
             std::string ending = "package.json";
 
             new PathLoader([&](unsigned id, std::string const & path) {
+                if (IsNPMPath(path) && helpers::endsWith(path, "package.json"))
+                    package_dot_json_ids[id] = path;
+                else
+                    ++discarded;
+                /*
                 if (path == ending) {
                     package_dot_json_ids[id] = path;
                 } else if (ending.size() > path.size()) {
@@ -126,7 +131,7 @@ namespace dejavu {
                     package_dot_json_ids[id] = path;
                 } else {
                     ++discarded;
-                }
+                    }*/
             });
 
             std::cerr << "Selected " << package_dot_json_ids.size() << " path IDs" << std::endl;
@@ -179,6 +184,11 @@ namespace dejavu {
                     return;
                 }
 
+                if (contentsId == FILE_DELETED) {
+                    ++discarded;
+                    return;
+                }
+
                 ++kept;
 
                 CommitInfo commitInfo;
@@ -190,6 +200,7 @@ namespace dejavu {
                 package_dot_json_commit_ids[projectId].push_back(commitInfo);
             });
 
+            // these are not commit ids!!!!
             std::cerr << "Kept " << kept << " commit IDs" << std::endl;
             std::cerr << "Discarded " << discarded << " commit IDs" << std::endl;
 

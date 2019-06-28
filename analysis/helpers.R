@@ -57,9 +57,12 @@ loadProjects = function(force = T) {
 
 # For given project id, returns its github url
 projectUrl = function(id) {
-    pInfo = loadProjects(F) %>% filter(projectId == id)
+    x = data.frame(projectId = id)
+    pInfo = loadProjects(F)
+    pInfo = inner_join(x, pInfo, by=c("projectId"))
     paste0("https://github.com/",pInfo$user,"/",pInfo$repo)
 }
+
 
 # Given list of hash ids, returns a data frame that contains the actual SHA1 hash for each of the ids. Does this by grepping through the hashes.csv file, which is not particularly fast, but the idea is that we don't do that that often. 
 objectHashes = function(hashIndices) {
@@ -93,7 +96,7 @@ filePaths = function(pathIndices) {
 
 npmPackageUrl = function(name) {
     x = paste0("https://www.npmjs.com/package/", name)
-    paste0("<a target='_blank' href=',x,"'>",name,"</a>")
+    paste0("<a target='_blank' href=',x,'>",name,"</a>")
 }
 
 
