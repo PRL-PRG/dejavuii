@@ -102,8 +102,8 @@ namespace dejavu {
 
                 if (numManualChanges > 0) {
                     interesting_projects.insert(projectId);
-                    paths_to_interesting_package_json.insert(path);
-                    interesting_projects_and_paths_to_package_json[projectId].insert(path);
+                    paths_to_interesting_package_json.insert(path + "/package.json");
+                    interesting_projects_and_paths_to_package_json[projectId].insert(path + "/package.json");
                     ++added;
                 } else {
                     ++discarded;
@@ -126,7 +126,7 @@ namespace dejavu {
 
             std::string task = "finding IDs of interesting paths to 'package.json' files";
             helpers::StartTask(task, timer);
-            std::string ending = "package.json";
+            //std::string ending = "package.json";
 
             new PathLoader([&](unsigned id, std::string const & path) {
                 if (paths_to_interesting_package_json.find(path) != paths_to_interesting_package_json.end()) {
