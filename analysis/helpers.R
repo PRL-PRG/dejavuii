@@ -43,6 +43,13 @@ readDataset = function(x) {
 }
 
 
+# UI ----------------------------------------------------------------------------------------------
+
+A = function(name, url, target="_blank") {
+  paste0("<a href='", url, "' target='",target,"'>",name,"</a>")
+}
+
+
 # GitHub Links and Objects Retrieval --------------------------------------------------------------
 
 # Loads the information about projects. If forced, the table is always loaded, if not forced, the table is loaded only if DEJAVU_PROJECTS global variable does not exist yet. Returns the loaded projects and stores them in the DEJAVU_PROJECTS
@@ -55,14 +62,30 @@ loadProjects = function(force = T) {
   invisible(DEJAVU_PROJECTS)
 }
 
+# For given project id, returns its name
+projectName = function(id) {
+  x = data.frame(projectId = id)
+  pInfo = loadProjects(F)
+  pInfo = left_join(x, pInfo, by=c("projectId"))
+  paste0(pInfo$user,"/",pInfo$repo)
+}
+
+
 # For given project id, returns its github url
 projectUrl = function(id) {
     x = data.frame(projectId = id)
     pInfo = loadProjects(F)
-    pInfo = inner_join(x, pInfo, by=c("projectId"))
+    pInfo = left_join(x, pInfo, by=c("projectId"))
     paste0("https://github.com/",pInfo$user,"/",pInfo$repo)
 }
 
+commitUrl = function(projectUrl, commitHash) {
+  paste0(projectUrl, "/commit/", commitHash)
+}
+
+fileChangeUrl = function(projectUrl, commitHash, filePath) {
+  paste0(projectUrl, "/commit/", commitHash,"/", filePath)
+}
 
 # Given list of hash ids, returns a data frame that contains the actual SHA1 hash for each of the ids. Does this by grepping through the hashes.csv file, which is not particularly fast, but the idea is that we don't do that that often. 
 objectHashes = function(hashIndices) {
@@ -72,9 +95,8 @@ objectHashes = function(hashIndices) {
     x = strsplit(x, ",")
     x = data.frame(matrix(unlist(x), nrow=length(x), byrow=T),stringsAsFactors=FALSE)
     colnames(x) = c("id","hash")
-    if (nrow(x) != length(hashIndices))
-      warning(paste0("Asked for ", length(hashIndices), " hash indices, but only ", nrow(x), " found"))
-    x
+    x$id = as.numeric(x$id)
+    left_join(data.frame(id = hashIndices), x, by=c("id"))$hash
 }
 
 # Given list of file path ids, returns the actual path strings associated with them. Does this by grepping through the paths.csv file, which is not particularly fast, but the idea is that we don't do that that often. 
@@ -85,18 +107,15 @@ filePaths = function(pathIndices) {
   x = strsplit(x, ",")
   x = data.frame(matrix(unlist(x), nrow=length(x), byrow=T),stringsAsFactors=FALSE)
   colnames(x) = c("id","path")
-  if (nrow(x) != length(pathIndices))
-    warning(paste0("Asked for ", length(pathIndices), " path indices, but only ", nrow(x), " found"))
+  x$id = as.numeric(x$id)
   x$path = substr(x$path, 2, nchar(x$path) - 1)
-  x
-  
+  left_join(data.frame(id = pathIndices), x, by=c("id"))$path
 }
 
 # NPM Package links -------------------------------------------------------------------------------
 
 npmPackageUrl = function(name) {
-    x = paste0("https://www.npmjs.com/package/", name)
-    paste0("<a target='_blank' href=',x,'>",name,"</a>")
+    paste0("https://www.npmjs.com/package/", name)
 }
 
 

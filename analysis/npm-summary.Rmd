@@ -46,16 +46,40 @@ x = pds %>% group_by(name) %>% summarize(count = n())
 h = hist(x$count, breaks = 100, plot = F)
 h$counts =log10(h$counts + 1)
 plot(h, ylab="log10(Frequency)")
-DT::datatable(x %>% arrange(desc(count)) %>% top_n(100) %>% mutate(url = npmPackageUrl(name)) %>% select(url,count), escape = F)
+DT::datatable(x %>% arrange(desc(count)) %>% top_n(100) %>% mutate(url = A(name, npmPackageUrl(name))) %>% select(url,count), escape = F)
 ```
 
 Ok, next step is to remove data that are not interesting:
 
 ```{r}
 x = pds %>% filter(numVersions != 0)
-LOG("No package.json present", d = nrow(pct) - nrow(x), pct = nrow(pds))
+LOG("No package.json present", d = nrow(pds) - nrow(x), pct = nrow(pds))
 x = x %>% filter(numManualChanges > 0)
 LOG("Manual changes", d = nrow(x), pct = nrow(pds))
+```
+
+## Manual analysis of manual changes
+
+Now, we load the manual changes, randomly select a few and then analyze them:
+
+```{r}
+manualChanges = readDataset("npm-summary-manualChanges.csv")
+manualChangesSample = manualChanges %>% sample_n(50)
+```
+
+```{r}
+manualChangesSample$projectName = projectName(manualChangesSample$projectId)
+manualChangesSample$projectUrl = projectUrl(manualChangesSample$projectId)
+manualChangesSample$commitHash = objectHashes(manualChangesSample$commitId)
+manualChangesSample$path = filePaths(manualChangesSample$pathId)
+```
+
+```{r}
+x = data.frame(
+    project = A(manualChangesSample$projecName, manualChangesSample$projectUrl),
+    file = A(manualChangesSample$path,commitUrl(manualChangesSample$projectUrl, manualChangesSample$commitHash))
+)
+DT::datatable(x, escape = F)
 ```
 
 
