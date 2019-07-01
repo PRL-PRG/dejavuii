@@ -2,6 +2,7 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <thread>
 #include <mutex>
 #include <src/commit_iterator.h>
@@ -27,51 +28,61 @@ namespace dejavu {
                        std::string const & repo):
                     id(id), user(user), repo(repo) {
             }
-
-            std::string get_file(std::string const & hash, std::string const & path) {
-                std::stringstream s;
-
-                s << "https://raw.githubusercontent.com/"
-                  << user << "/" << repo << "/"
-                  << hash << "/"
-                  << path;
-
-                return s.str();
-            }
         };
 
-        void LoadNPMProjects(std::unordered_set<unsigned> &npm_project_ids,
-                          std::unordered_set<NPMProject *> &npm_projects) {
+        struct CommitInfo {
+            unsigned projectId;
+            unsigned commitId;
+            unsigned contentsId;
+            unsigned pathId;
+            std::string path;
+        };
+
+        struct Download {
+            Download(std::string url, std::string dir, std::string file):
+                    url(url), dir(dir), file(file), path(dir + "/" + file) {}
+            std::string url;
+            std::string dir;
+            std::string file;
+            std::string path;
+        };
+
+        void LoadInfoForInterestingProjects(std::unordered_set<unsigned> const &interesting_projects,
+                                            std::unordered_map<unsigned, NPMProject *> &interesting_projects_info) {
             clock_t timer = clock();
             unsigned discarded = 0;
 
-            std::string task = "extracting project information (NPM projects only)";
+            std::string task = "extracting project information (interesting projects only)";
             helpers::StartTask(task, timer);
 
             std::unordered_set<unsigned> insertedProjects;
             new ProjectLoader([&](unsigned id, std::string const & user,
                                   std::string const & repo, uint64_t createdAt){
-                if (npm_project_ids.find(id) == npm_project_ids.end()) {
+                if (interesting_projects.find(id) == interesting_projects.end()) {
                     ++discarded;
                     return;
                 }
 
-                npm_projects.insert(new NPMProject(id, user, repo));
+                interesting_projects_info[id] = new NPMProject(id, user, repo);
             });
 
-            std::cerr << "Loaded " << npm_projects.size() << " NPM projects" << std::endl;
+            std::cerr << "Loaded " << interesting_projects_info.size() << " interesting projects" << std::endl;
             std::cerr << "Discarded " << discarded << " projects" << std::endl;
 
             helpers::FinishTask(task, timer);
         }
 
-        void LoadInterestingNPMProjectIDs(std::unordered_set<unsigned> &npm_project_ids) {
+        void LoadInterestingProjectsAndPaths(std::unordered_set<unsigned> &interesting_projects,
+                                             std::unordered_set<std::string> &paths_to_interesting_package_json,
+                                             std::unordered_map<unsigned, std::unordered_set<std::string>> &interesting_projects_and_paths_to_package_json) {
             clock_t timer = clock();
-            unsigned discarded = 0;
 
-            std::string task = "extracting project IDs of interesting projects (numManualChanges > 0)";
-            helpers::StartTask(task, timer);
+            size_t discarded = 0;
             size_t added = 0;
+
+            std::string task = "extracting interesting projects and paths to modified package.json within them (numManualChanges > 0)";
+            helpers::StartTask(task, timer);
+
             new NPMSummaryDetailLoader([&](unsigned projectId, 
                                            std::string const &path, 
                                            std::string const &name,
@@ -88,101 +99,107 @@ namespace dejavu {
                                            unsigned numChangingCommitsOriginal,
                                            unsigned numDeletingCommits, 
                                            unsigned numActiveFiles){
+
                 if (numManualChanges > 0) {
-                    npm_project_ids.insert(projectId);
+                    interesting_projects.insert(projectId);
+                    paths_to_interesting_package_json.insert(path);
+                    interesting_projects_and_paths_to_package_json[projectId].insert(path);
                     ++added;
                 } else {
                     ++discarded;
                 }
             });
 
-            std::cerr << "Loaded " << npm_project_ids.size() << " NPM projects" << std::endl;
-            std::cerr << " Added: " << added << std::endl;
-            std::cerr << "Discarded " << discarded << " projects" << std::endl;
+            std::cerr << "Loaded " << interesting_projects.size() << " projects" << std::endl;
+            std::cerr << "Loaded " << paths_to_interesting_package_json.size() << " paths" << std::endl;
+            std::cerr << "Loaded " << added << " items" << std::endl;
+            std::cerr << "Discarded " << discarded << " items" << std::endl;
 
             helpers::FinishTask(task, timer);
         }
 
-//        class PackageDotJSONLoader : public BaseLoader {
-//
-//
-//        };
-
-        void LoadPackageDotJSONIds(std::unordered_map<unsigned, std::string> &package_dot_json_ids) {
+        void LoadIDsOfInterestingPaths(std::unordered_set<std::string> const &paths_to_interesting_package_json,
+                                       std::unordered_map<unsigned, std::string> &ids_of_paths_to_interesting_package_json) {
 
             clock_t timer = clock();
             unsigned discarded = 0;
 
-            std::string task = "finding IDs of paths that fit 'package.json'";
+            std::string task = "finding IDs of interesting paths to 'package.json' files";
             helpers::StartTask(task, timer);
             std::string ending = "package.json";
 
             new PathLoader([&](unsigned id, std::string const & path) {
-                if (IsNPMPath(path) && helpers::endsWith(path, "package.json"))
-                    package_dot_json_ids[id] = path;
-                else
-                    ++discarded;
-                /*
-                if (path == ending) {
-                    package_dot_json_ids[id] = path;
-                } else if (ending.size() > path.size()) {
-                    ++ discarded;
-                } else if (std::equal(ending.rbegin(), ending.rend(), path.rbegin())) {
-                    package_dot_json_ids[id] = path;
+                if (paths_to_interesting_package_json.find(path) != paths_to_interesting_package_json.end()) {
+                    ids_of_paths_to_interesting_package_json[id] = path;
                 } else {
                     ++discarded;
-                    }*/
+                }
             });
 
-            std::cerr << "Selected " << package_dot_json_ids.size() << " path IDs" << std::endl;
+            std::cerr << "Selected " << ids_of_paths_to_interesting_package_json.size() << " path IDs" << std::endl;
             std::cerr << "Discarded " << discarded << " path IDs" << std::endl;
 
             helpers::FinishTask(task, timer);
         }
 
-        void SavePackageDotJSONIds(std::unordered_map<unsigned, std::string> const &package_dot_json_ids) {
+//        void SavePackageDotJSONIds(std::unordered_map<unsigned, std::string> const &package_dot_json_ids) {
+//            clock_t timer = clock();
+//            unsigned discarded = 0;
+//
+//            std::string task = "saving IDs of paths that fit 'package.json'";
+//            helpers::StartTask(task, timer);
+//
+//            for (auto &it : package_dot_json_ids) {
+//
+//            }
+//
+//            helpers::FinishTask(task, timer);
+//        }
+
+          void LoadCommitsThatChangeProjectJSONPathsInInterestingProjects(
+                  std::unordered_set<unsigned> const &interesting_projects,
+                  std::unordered_map<unsigned, std::unordered_set<std::string>> const &interesting_projects_and_paths_to_package_json,
+                  std::unordered_map<unsigned, std::string> const &ids_of_paths_to_interesting_package_json,
+                  std::vector<CommitInfo> &interesting_commits) {
+
             clock_t timer = clock();
-            unsigned discarded = 0;
+            size_t discarded = 0;
+            size_t kept = 0;
 
-            std::string task = "saving IDs of paths that fit 'package.json'";
-            helpers::StartTask(task, timer);
-
-            for (auto &it : package_dot_json_ids) {
-
-            }
-
-            helpers::FinishTask(task, timer);
-        }
-
-        typedef struct {
-            unsigned commitId;
-            unsigned contentsId;
-            unsigned pathId;
-            std::string path;
-        } CommitInfo;
-
-        void LoadCommitsThatChangeToProjectDotJSON(std::unordered_set<unsigned> const &npm_project_ids,
-                                                   std::unordered_map<unsigned, std::string> const &package_dot_json_ids,
-                                                   std::unordered_map<unsigned, std::vector<CommitInfo>> &package_dot_json_commit_ids) {
-            clock_t timer;
-            unsigned discarded = 0;
-            unsigned kept = 0;
-
-            std::string task = "loading file changes relevant for interesting NPM projects and their project.json files";
+            std::string task = "loading file changes for interesting projects that change interesting 'project.json' files";
             helpers::StartTask(task, timer);
 
             new FileChangeLoader([&](unsigned projectId, unsigned commitId,
                                      unsigned pathId, unsigned contentsId){
 
-                if (package_dot_json_ids.find(pathId) == package_dot_json_ids.end()) {
+                if (ids_of_paths_to_interesting_package_json.find(pathId) ==
+                    ids_of_paths_to_interesting_package_json.end()) {
                     ++discarded;
                     return;
                 }
 
-                if (npm_project_ids.find(projectId) == npm_project_ids.end()) {
+                if(interesting_projects_and_paths_to_package_json.find(projectId) ==
+                        interesting_projects_and_paths_to_package_json.end()) {
                     ++discarded;
                     return;
                 }
+
+                std::unordered_set<std::string> const &paths =
+                        interesting_projects_and_paths_to_package_json.at(projectId);
+                std::string const &path =
+                        ids_of_paths_to_interesting_package_json.at(pathId);
+
+                if(paths.find(path) == paths.end()) {
+                    ++discarded;
+                    return;
+                }
+
+                // redundant wrt interesting_projects_and_paths_to_package_json
+//                if (interesting_projects.find(projectId) ==
+//                        interesting_projects.end()) {
+//                    ++discarded;
+//                    return;
+//                }
 
                 if (contentsId == FILE_DELETED) {
                     ++discarded;
@@ -192,17 +209,17 @@ namespace dejavu {
                 ++kept;
 
                 CommitInfo commitInfo;
+                commitInfo.projectId = projectId;
                 commitInfo.commitId = commitId;
                 commitInfo.contentsId = contentsId;
                 commitInfo.pathId = pathId;
-                commitInfo.path = package_dot_json_ids.at(pathId);
+                commitInfo.path = path;
 
-                package_dot_json_commit_ids[projectId].push_back(commitInfo);
+                interesting_commits.push_back(commitInfo);
             });
 
-            // these are not commit ids!!!!
-            std::cerr << "Kept " << kept << " commit IDs" << std::endl;
-            std::cerr << "Discarded " << discarded << " commit IDs" << std::endl;
+            std::cerr << "Kept " << kept << " commits" << std::endl;
+            std::cerr << "Discarded " << discarded << " commits" << std::endl;
 
             helpers::FinishTask(task, timer);
         }
@@ -212,7 +229,7 @@ namespace dejavu {
             std::string task = "loading (all) hashes";
             helpers::StartTask(task, timer);
 
-            new HashToIdLoader([&](unsigned id, std::string const & hash){
+            new HashToIdLoader([&](unsigned id, std::string const &hash){
                 assert(hashes.find(id) == hashes.end());
                 hashes[id] = hash;
             });
@@ -220,147 +237,126 @@ namespace dejavu {
             helpers::FinishTask(task, timer);
         }
 
-        class Download {
-        public:
-            Download(std::string url, std::string dir, std::string file):
-                    url(url), dir(dir), file(file), path(dir + "/" + file) {}
-            std::string url;
-            std::string dir;
-            std::string file;
-            std::string path;
-
-            std::string toCSV() {
-                return url + "," + dir + "," + file;
-            }
-        };
-
-        void PrepareForDownload(std::unordered_set<NPMProject *> const &npm_projects,
+        void PrepareForDownload(std::unordered_map<unsigned, NPMProject *> const &projects,
                                 std::unordered_map<unsigned, std::string> const &hashes,
-                                std::unordered_map<unsigned, std::vector<CommitInfo>> const &package_dot_json_commit_id,
-                                std::vector<Download *> &downloads) {
+                                std::vector<CommitInfo> const &interesting_commits,
+                                std::vector<Download> &downloads) {
 
             clock_t timer = clock();
-            size_t inspected_projects = 0;
             size_t inspected_commits = 0;
-            size_t skipped_projects = 0;
-            size_t skipped_commits = 0;
+
             std::string task = "preparing list of files to download";
             helpers::StartTask(task, timer);
 
-            for (NPMProject *project : npm_projects) {
-                if (package_dot_json_commit_id.find(project->id)
-                    == package_dot_json_commit_id.end()) {
-                    ++skipped_projects;
-                    continue;
-                }
-                ++inspected_projects;
-                auto &commits = package_dot_json_commit_id.at(project->id);
-                for (CommitInfo const &commit : commits) {
+            for (CommitInfo commit : interesting_commits) {
+                NPMProject *project = projects.at(commit.projectId);
+                std::string hash = hashes.at(commit.commitId);
 
-                    if (hashes.find(commit.commitId) == hashes.end()) {
-                        std::cerr << std::endl
-                                  << "Cannot find hash for commit " << commit.commitId
-                                  << std::endl;
-                        ++skipped_projects;
-                        continue;
-                    }
+                std::stringstream url;
+                url << "https://raw.githubusercontent.com/"
+                    << project->user << "/" << project->repo << "/"
+                    << hash << "/" << commit.path;
 
-                    std::string commit_hash = hashes.at(commit.commitId);
-                    std::string url = project->get_file(commit_hash, commit.path);
-                    std::stringstream file;
-                    file << commit.contentsId;
+                std::stringstream dir;
+                dir << "/package.json/" << project->id << "/"
+                    << commit.pathId << "/";
 
-                    std::stringstream dir;
-                    dir << "/package.json/" << project->id << "/"
-                     // << commit.path << "/";
-                        << commit.pathId << "/";
+                std::stringstream file;
+                file << commit.contentsId;
 
-                    Download *download = new Download(url, dir.str(), file.str());
-                    downloads.push_back(download);
+                Download download(url.str(), dir.str(), file.str());
+                downloads.push_back(download);
 
-                    helpers::Count(inspected_commits);
-                }
+                helpers::Count(inspected_commits);
             }
 
-            std::cerr << "Projects (skipped):" << inspected_projects
-                      << "(" << skipped_projects << ")" << std::endl;
-            std::cerr << "Commits (skipped):" << inspected_commits
-                      << "(" << skipped_commits << ")" << std::endl;
-
+            std::cerr << "Files to download:" << inspected_commits << std::endl;
             helpers::FinishTask(task, timer);
         }
+//
+//        void SaveDownload(std::vector<Download *> const &downloads) {
+//            std::string filename = DataDir.value() + "/package.json/__all.csv";
+//
+//            clock_t timer = clock();
+//            std::string task = "saving list of stuff to download";
+//            size_t items = 0;
+//            helpers::StartCounting(items);
+//            helpers::StartTask(task, timer);
+//
+//            std::ofstream s(filename);
+//            if (! s.good()) {
+//                ERROR("Unable to open file " << filename << " for writing");
+//            }
+//
+//            s << "url,filename" << std::endl;
+//            for (Download *download : downloads) {
+//                s << DataDir.value() << "/" << download->path << ","
+//                  << download->url << std::endl;
+//                helpers::Count(items);
+//            }
+//
+//            s.close();
+//
+//            helpers::FinishCounting(items);
+//            helpers::FinishTask(task, timer);
+//        }
 
-        void SaveDownload(std::vector<Download *> const &downloads) {
-            std::string filename = DataDir.value() + "/package.json/__all.csv";
+        void DownloadAll(std::vector<Download> const &downloads) {
+            std::string filename_failed = DataDir.value() + "/package.json/__failed.csv";
+            std::string filename_downloaded = DataDir.value() + "/package.json/__downloaded.csv";
 
             clock_t timer = clock();
-            std::string task = "saving list of stuff to download";
-            size_t items = 0;
-            helpers::StartCounting(items);
-            helpers::StartTask(task, timer);
-
-            std::ofstream s(filename);
-            if (! s.good()) {
-                ERROR("Unable to open file " << filename << " for writing");
-            }
-
-            s << "url,filename" << std::endl;
-            for (Download *download : downloads) {
-                s << DataDir.value() << "/" << download->path << ","
-                  << download->url << std::endl;
-                helpers::Count(items);
-            }
-
-            s.close();
-
-            helpers::FinishCounting(items);
-            helpers::FinishTask(task, timer);
-        }
-
-        void DownloadAll(std::vector<Download *> const &downloads) {
-            std::string filename = DataDir.value() + "/package.json/__failed.csv";
-
-            clock_t timer = clock();
-            std::string task = "download stuff";
+            std::string task = "downloading stuff";
             size_t downloaded = 0;
             size_t failed = 0;
             size_t attempted = 0;
             helpers::StartTask(task, timer);
 
-            std::ofstream s(filename);
-            if (! s.good()) {
-                ERROR("Unable to open file " << filename << " for writing");
+            std::ofstream sf(filename_failed);
+            if (! sf.good()) {
+                ERROR("Unable to open file " << filename_failed
+                                             << " for writing");
             }
+            sf << "url,dir,file" <<std::endl;
 
-            for (Download *download : downloads) {
-                std::stringstream mkdirPath;
-                mkdirPath << DataDir.value() + "/" + download->dir;
+            std::ofstream sd(filename_downloaded);
+            if (! sd.good()) {
+                ERROR("Unable to open file " << filename_downloaded
+                                             << " for writing");
+            }
+            sd << "url,dir,file" <<std::endl;
+
+            for (Download const &download : downloads) {
+                std::stringstream mkdirCmd;
+                mkdirCmd << "mkdir -p " << DataDir.value() + "/" + download.dir;
 
                 std::stringstream wgetCmd;
-                wgetCmd << "wget -nv "
-                        << "-O " << DataDir.value() << "/" << download->path
-                        << " " << download->url;
+                wgetCmd << "wget -nv -q "
+                        << "-O " << DataDir.value() << "/" << download.path
+                        << " " << download.url;
 
-                int status = mkdir(mkdirPath.str().c_str(),
-                                   S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+                int status =  system(mkdirCmd.str().c_str());
                 assert(status == 0);
 
                 status = system(wgetCmd.str().c_str());
                 if (status != 0) {
-                    s << download->toCSV() << std::endl;
+                    sf << download.url << "," << download.dir << ","
+                       << download.file << std::endl;
                     ++failed;
                 } else {
+                    sd << download.url << "," << download.dir << ","
+                       << download.file << std::endl;
                     ++downloaded;
                 }
 
-                ++attempted;
-                std::cerr << "Downloaded " << attempted << " out of "
-                          << downloads.size() << std::endl;
+                helpers::Count(attempted);
             }
 
-            s.close();
+            sd.close();
+            sf.close();
 
             helpers::FinishCounting(attempted);
+            std::cerr << "Attempted: " << attempted << std::endl;
             std::cerr << "Downloaded: " << downloaded << std::endl;
             std::cerr << "Failed to download: " << failed << std::endl;
 
@@ -374,30 +370,37 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
-        std::unordered_set<unsigned> npm_project_ids;
-        LoadInterestingNPMProjectIDs(npm_project_ids);
+        std::unordered_set<unsigned> interesting_projects;
+        std::unordered_set<std::string> paths_to_interesting_package_json;
+        std::unordered_map<unsigned, std::unordered_set<std::string>> interesting_projects_and_paths_to_package_json;
+        LoadInterestingProjectsAndPaths(interesting_projects,
+                                        paths_to_interesting_package_json,
+                                        interesting_projects_and_paths_to_package_json);
 
-        std::unordered_set<NPMProject *> npm_projects;
-        LoadNPMProjects(npm_project_ids, npm_projects);
+        std::unordered_map<unsigned, std::string> ids_of_paths_to_interesting_package_json;
+        LoadIDsOfInterestingPaths(paths_to_interesting_package_json,
+                                  ids_of_paths_to_interesting_package_json);
 
-        std::unordered_map<unsigned, std::string> package_dot_json_ids;
-        LoadPackageDotJSONIds(package_dot_json_ids);
-
-        std::unordered_map<unsigned, std::vector<CommitInfo>> package_dot_json_commit_ids;
-        LoadCommitsThatChangeToProjectDotJSON(npm_project_ids,
-                                              package_dot_json_ids,
-                                              package_dot_json_commit_ids);
+        std::unordered_map<unsigned, NPMProject *> interesting_projects_info;
+        LoadInfoForInterestingProjects(interesting_projects,
+                                       interesting_projects_info);
 
         std::unordered_map<unsigned, std::string> hashes;
         LoadHashes(hashes);
 
-        std::vector<Download *> downloads;
-        PrepareForDownload(npm_projects,
+        std::vector<CommitInfo> interesting_commits;
+        LoadCommitsThatChangeProjectJSONPathsInInterestingProjects(interesting_projects,
+                                                                   interesting_projects_and_paths_to_package_json,
+                                                                   ids_of_paths_to_interesting_package_json,
+                                                                   interesting_commits);
+
+        std::vector<Download> downloads;
+        PrepareForDownload(interesting_projects_info,
                            hashes,
-                           package_dot_json_commit_ids,
+                           interesting_commits,
                            downloads);
 
-        SaveDownload(downloads);
+//        SaveDownload(downloads);
 
         DownloadAll(downloads);
     }
