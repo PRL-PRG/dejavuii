@@ -12,6 +12,8 @@ source("helpers.R")
 
 This notebook shows the analysis of npm modules created by the `npm-summary` command and its friends. 
 
+> Note that some of the analysis is done manually so reruning the notebook on different data will give you different results, but won't change the manual analysis.  
+
 ## NPM Packages Summary
 
 The summary table contains info about unique paths from all projects and splits them into npm and non-npm paths. 
@@ -45,27 +47,108 @@ We can have a look at the package frequencies now:
 x = pds %>% group_by(name) %>% summarize(count = n())
 h = hist(x$count, breaks = 100, plot = F)
 h$counts =log10(h$counts + 1)
-plot(h, ylab="log10(Frequency)")
-DT::datatable(x %>% arrange(desc(count)) %>% top_n(100) %>% mutate(url = A(name, npmPackageUrl(name))) %>% select(url,count), escape = F)
+plot(h, ylab="log10(# of packages)", xlab = "# of times the package is included", main = "How often is a package included")
+DT::datatable(x %>% arrange(desc(count)) %>% head(100) %>% mutate(url = A(name, npmPackageUrl(name))) %>% select(url,count), escape = F)
 ```
 
-Ok, next step is to remove data that are not interesting:
+Ok, next step is to remove data that make sense:)  
+
+First we remove those records, where we haven't seen any package.json. This means that it is not a proper NPM package, therefore any changes to it are ok, since we are interested in changes to NPM packages alone. 
 
 ```{r}
 x = pds %>% filter(numVersions != 0)
 LOG("No package.json present", d = nrow(pds) - nrow(x), pct = nrow(pds))
-x = x %>% filter(numManualChanges > 0)
+```
+
+Second, it might be interesting to see what happens to the files in the remaining packages. For this we exclude two groups of packages. Those that were *never* touched in any way after they were included and those that were actually completely deleted. 
+
+```{r}
+x = pds %>% filter(numVersions == 1 & numManualChanges == 0 & numDeletions == 0)
+LOG("No changes at all", d = nrow(x), pct = nrow(pds))
+x = pds %>% filter(numActiveFiles == 0 & numVersions > 0)
+LOG("Entirely removed", d = nrow(x), pct = nrow(pds))
+```
+
+Now the entirely removed number of packages is not that informative on its own, but we can look at this from the point of projects, i.e. how many unique projects store their npm files and how many of these delete *all* their npm_modules, since these have most likely included them by mistake anyways... (?)
+
+```{r}
+# get all projects
+projsAll = pds %>% filter(numVersions != 0) %>% group_by(projectId) %>% summarise(packages = n())
+# get all projects that delete at least one package
+projsDeleted = pds %>% filter(numVersions != 0 & numActiveFiles == 0) %>% group_by(projectId) %>% summarise(deleted = n())
+# join them
+projs = merge(projsAll, projsDeleted, by="projectId", all = T)
+projs$deleted[is.na(projs$deleted)] = 0
+projs$survived = projs$packages - projs$deleted
+projs$projectName = projectName(projs$projectId)
+projs$projectUrl = projectUrl(projs$projectId)
+LOG("Projects which delete all packages", d = nrow(projs %>% filter(survived == 0)), pct = nrow(projs))
+```
+
+We can also look at the projects that deleted the most, but not all packages:
+
+```{r}
+DT::datatable(projs %>% filter(survived > 0, deleted > 0) %>% arrange(desc(deleted / packages)) %>% head(100) %>% mutate(url = A(projectName, projectUrl), pctDeleted = deleted * 100 / packages ) %>% select(url,packages, deleted, survived, pctDeleted), escape = F)
+```
+
+Ok. I've looked at some randomly, the one surviving package was not in node_modules folder, but elsewhere. This makes sense.
+
+Now let's look at the number of versions of the packages we see, counting only those with no manual changes - here it is basically an update to the node package stored in the repo:
+
+```{r}
+x = pds %>% filter(numVersions > 0 & numManualChanges == 0 & numDeletions == 0)
+LOG("No manual changes", d = nrow(x), pct = nrow(pds))
+summary(x$numVersions)
+h = hist(x$numVersions, breaks = max(x$numVersions), plot = F)
+h$counts =log10(h$counts + 1)
+plot(h, ylab="log10(# of packages)", xlab = "# of versions", main = "How many versions packages have?")
+```
+
+Let's see the packages with most version changes now:
+
+```{r}
+DT::datatable(x %>% arrange(desc(numVersions)) %>% head(100) %>% mutate(url = A(projectName(projectId), projectUrl(projectId))) %>% select(projectId, url,path,name, numVersions), escape = F)
+```
+
+the vforge-atom, which is almost all of the table is someone's private configuration for atom, where he archives the packages his atom uses apparently. 
+
+The first one is a repo that includes node_modules folder my mistake I assume, that was reasonably actively developed over the time. A few other packages were also updated there, which seems reasonable:
+
+```{r}
+DT::datatable(x %>% filter(projectId == 816834) %>% arrange(desc(numVersions)) %>% head(100) %>% mutate(url = A(projectName(projectId), projectUrl(projectId))) %>% select(url,path,name, numVersions), escape = F)
+```
+
+Now that we know most of the packages are never touched, let's actually see those that are touched manually:
+
+```{r}
+x = pds %>% filter(numVersions > 0 & numDeletions > 0)
+LOG("Manual deletions", d = nrow(x), pct = nrow(pds))
+x = pds %>% filter(numVersions > 0 & numManualChanges > 0)
 LOG("Manual changes", d = nrow(x), pct = nrow(pds))
 ```
 
+Ok, only tiny tiny part of the dataset ever gets manually changed, the next section looks into more details in these alone: 
+
 ## Manual analysis of manual changes
 
-Now, we load the manual changes, randomly select a few and then analyze them:
+Now, we load the manual changes, randomly select a few and then analyze them. 
 
 ```{r}
 manualChanges = readDataset("npm-summary-manualChanges.csv")
-manualChangesSample = manualChanges %>% sample_n(50)
+manualChangesSample = manualChanges %>% sample_n(20)
 ```
+
+Since we analyze these manually in the later stage, we must freeze them in time, which was done by running:
+
+    cat(paste0(deparse(manualChangesSample), collapse = ""))
+    
+And we now overwrite the manualChangesSample with the frozed values:
+
+```{r}
+manualChangesSample = structure(list(projectId = c(534843, 100530, 194040, 63301, 999740, 1442666, 1375196, 2163150, 1084459, 2236645, 383922, 1093779, 2219509, 1375196, 2132233, 424899, 63301, 1289792, 1375196, 1339568), commitId = c(54248950, 12287640, 21689997, 8354893, 94571253, 129032653, 123895794, 183584648, 101238459, 188580207, 39197460, 101881879, 187372597, 123895831, 181216405, 42745968, 8354815, 117808242, 123895451, 121348581), pathId = c(6844, 15406567, 18245997, 10307395, 15616766, 144612527, 138472513, 56722, 46126919, 206877063, 46730642, 98917, 205088652, 138472490, 377934, 51027504, 10307427, 10307864, 138472487, 8939783), contentsId = c(54248239, 12285900, 21689931, 8353181, 94571078, 129032459, 123892740, 183584618, 101237635, 188579798, 39197378, 101881834, 187370854, 123892430, 181216377, 42745932, 8352393, 117808103, 123892316, 121348106)), class = c("spec_tbl_df", "tbl_df", "tbl", "data.frame"), row.names = c(NA, -20L), spec = structure(list(cols = list(    projectId = structure(list(), class = c("collector_double",     "collector")), commitId = structure(list(), class = c("collector_double",     "collector")), pathId = structure(list(), class = c("collector_double",     "collector")), contentsId = structure(list(), class = c("collector_double",     "collector"))), default = structure(list(), class = c("collector_guess", "collector")), skip = 1), class = "col_spec"))
+```
+
+Add columns with extra information that allows us to link to github directly:
 
 ```{r}
 manualChangesSample$projectName = projectName(manualChangesSample$projectId)
@@ -74,201 +157,44 @@ manualChangesSample$commitHash = objectHashes(manualChangesSample$commitId)
 manualChangesSample$path = filePaths(manualChangesSample$pathId)
 ```
 
+And actually look at what we have produced:
 ```{r}
 x = data.frame(
-    project = A(manualChangesSample$projecName, manualChangesSample$projectUrl),
+    project = A(manualChangesSample$projectName, manualChangesSample$projectUrl),
     file = A(manualChangesSample$path,commitUrl(manualChangesSample$projectUrl, manualChangesSample$commitHash))
 )
 DT::datatable(x, escape = F)
 ```
 
+Here is the table of manual findigs:
 
+row|project|file|Comments
+---|-------|----|--------
+1  |hopeatina/hiw              |node_modules/express/node_modules/connect/lib/proto.js                                   |~5000 changed files, likely not by hand
+2  |greebowarrior/nessa        |server/node_modules/nodetv-movies/index.js                                               |private package
+3  |noneedsystem/testing       |node_modules/locomotive/bin/lcm.js                                                       |~800 changes, looks like code formatting only
+4  |mercmobily/hotplate        |node_modules/hotDojoStores/client/AppStoreNotify.js                                      |likely private
+5  |karenpeng/myvoxel          |node_modules/voxel-engine/node_modules/voxel-control/index.js                            |manual change, did introduce debugging comments before, this removes them
+6  |lauren/open-in-spotify     |node_modules/mocha/node_modules/growl/test.min.js                                        |95 changes, extra commit to add mocha files, seems to follow growl repo
+7  |zhangmhao/life-time-tracker|node_modules/tracker/search/Routine.js                                                   |looks like private package, but a large one, in chinese so I don't properly understand the context
+8  |taro-m/scripting-server    |node_modules/uglify-js/lib/parse.js                                                      |copies change from original package
+9  |perjansson/yabt            |node_modules/angular2/ts/src/core/application_common_providers.js                        |~1100 changes, likely not by hand
+10 |thiq/scripts               |node_modules/economy/index.js                                                            |private
+11 |geon/progres               |node_modules/progres/index.js                                                            |private
+12 |icefox0801/jquery-plugin   |node_modules/grunt/node_modules/findup-sync/node_modules/lodash/dist/lodash.underscore.js|copies change from original package (likely, its really old)
+13 |synchrolabs/synchroserver  |SynchroServer/node_modules/synchro-web/client/controls/web-gridview-wrapper.js           |private
+14 |zhangmhao/life-time-tracker|node_modules/tracker/server/AchieveGoal.js                                               |the same chinese guy as above, looks private
+15 |sawbones/gameencode        |node_modules/socket.io/node_modules/socket.io-client/lib/io.js                           |likely mirrors changes from package
+16 |artoale/karma-brackets     |node/node_modules/karma/lib/server.js                                                    |removed possibly local debug output
+17 |mercmobily/hotplate        |node_modules/hotDojoDgridWidgets/lib/hotDojoDgridWidgets.js                              |likely private
+18 |mercmobily/bookingdojo     |node_modules/bd/lib/bd.js                                                                |likely private
+19 |zhangmhao/life-time-tracker|node_modules/tracker/conf/defaultSettings.json                                           |the chinese guy again, private
+20 |duknic/regex-detective     |node_modules/express-stormpath/node_modules/stormpath/docs/karma.conf.js                 |~3100 files, likely not manual
 
+To summarize the table above:
 
-```{r}
-npmSummary = dRead("npm-summary.csv")
-p = dRead("projects.csv")
-p$url = paste0("http://github.com/", p$user, "/", p$repo)
-#npm = dRead("npmModulesCounts.csv")
-npmSummary = merge(p, npmSummary, by.x = "#projectId", by.y = "projectId")
+- 10 (50%) are private packages, or suspected private (i.e. not in NPM)
+- 4 (20%) are extensive changes to many many files which are likely not manual 
+- 4 (20%) are mirroring changes from the original package
+- 2 (10%) addition or removal of debug prints
 
-```
-
-```{r}
-withNPM = npmSummary %>% filter(numNPMPaths > 0)
-withNPMChanges = withNPM %>% filter(npmChanges > 0)
-withNPMDeletions = withNPM %>% filter(npmDeletions > 0)
-withPossiblyAllDeleted = withNPM %>% filter(npmDeletions >= numNPMPaths)
-```
-
-```{r}
-summary(withNPMChanges$npmChanges)
-```
-
-Package Details
-
-```{r}
-pds = dRead("npm-summary-details.csv")
-pdsBackup = pds
-packageRecords = nrow(pds)
-packageRecords
-```
-
-Ok, so we have `43804991` entries. First separate those with 0 versions, because they are likely not created via `npm` automatically (0 versions means we have not seen their `package.json` files).
-
-```{r}
-nopjsons = pds %>% filter(numVersions == 0)
-pds = pds %>% filter(numVersions > 0)
-cat(paste("Missing packahe.json ",nrow(nopjsons), ", %:", nrow(nopjsons)/packageRecords))
-```
-
-Ok, these out of the way, we can start calculating interesting stuff, starting with looking at how many of the node modules do not survive till today (i.e. they were completely deleted at some point and not introduced again):
-
-```{r}
-deletedNPMs = pds %>% filter(numActiveFiles == 0)
-cat(paste("Deleted NPMs ",nrow(deletedNPMs), ", %:", nrow(deletedNPMs)/packageRecords))
-pds = pds %>% filter(numActiveFiles != 0)
-```
-
-Ok, that's interesting. How many projects is that? 
-
-```{r}
-x = deletedNPMs %>% group_by(projectId) %>% summarize(count=n())
-nrow(x)
-```
-
-That's not tiny number. Good. Are there any projects that have deleted *some* node_modules, but not all? 
-
-```{r}
-y = pds %>% group_by(projectId) %>% summarize(count=n())
-z = inner_join(x, y, by = c("projectId"))
-nrow(z)
-```
-
-Interesting... We'll get back to these soon. Now back to the packages. Now let's see their versions
-
-```{r}
-summary(pds$numVersions)
-summary(pds$numManualChanges)
-summary(pds$numDeletions)
-```
-
-So very few updated and deletions indeed, with some really weird outliers. Similar stuff goes for version updates. Let's get the boring ones out of the way, i.e. no version changes, no manual updates, no manual deletions:
-
-```{r}
-boring = pds %>% filter(numVersions == 1 & numManualChanges == 0 & numDeletions == 0)
-cat(paste("1 version, no changes, no deletions ",nrow(boring), ", %:", nrow(boring)/packageRecords), "\n")
-pds = pds %>% filter(numVersions > 1 | numManualChanges > 0 | numDeletions > 0)
-cat(paste("more versions, changes or deletions ",nrow(pds), ", %:", nrow(pds)/packageRecords), "\n")
-```
-
-Yeah... Kinda as expected. Vast majority is not interesting, to sum up so far:
-
-- 32% of the packages ever included are deleted at some point
-- 63% of the packages are never updated, never deleted, never nothing
-- 3% of the packages are updated, or manually changed
-
-So these 3%. How many are actually not manually touched at all:
-
-```{r}
-noManual = pds %>% filter(numManualChanges == 0 & numDeletions == 0)
-cat(paste("more versions, no manual changes ",nrow(noManual), ", %:", nrow(noManual)/packageRecords), "\n")
-pds = pds %>% filter(numManualChanges > 0 | numDeletions > 0)
-cat(paste("manual changes ",nrow(pds), ", %:", nrow(pds)/packageRecords), "\n")
-```
-
-Let's look at the stats again:
-
-```{r}
-summary(noManual$numVersions)
-summary(pds$numVersions)
-summary(pds$numManualChanges)
-summary(pds$numDeletions)
-hist(noManual$numVersions, breaks = 31)
-```
-
-And now, let's look at project numbers again:
-
-```{r}
-ip = pds %>% group_by(projectId) %>% summarize(count=n())
-nrow(ip)
-```
-
-Ok, that's not that many projects. What we can do now is calculate a dataset that will have *all* entries from the interesting projects
-
-```{r}
-ipAll = pdsBackup %>% filter(projectId %in% ip$projectId)
-cat(paste("packages in interesting projects ",nrow(ipAll), ", %:", nrow(ipAll)/packageRecords), "\n")
-```
-
-So that's about 13% of package records... Ok. 
-
-
-
-```{r}
-ipx = pdsBackup %>% group_by(projectId) %>% summarize(count=n())
-nrow(ipx)
-
-```
-
-# -------------------------------------------------------------------------------------------------
-
-```{r}
-summary(pds$numManualChanges)
-summary(pds$numManualChangesOriginal)
-```
-
-```{r}
-summary(pds$numChangedFiles)
-summary(pds$numChangedFilesOriginal)
-summary(pds$numDeletedFiles)
-```
-
-```{r}
-summary(pds$numChangingCommits)
-summary(pds$numChangingCommitsOriginal)
-```
-
-Let's now look only at those that have some manual changes in them, not just deletions. 
-
-```{r}
-manualChanges = pds %>% filter(numManualChanges > 0)
-cat(paste("Packages with manual changes ",nrow(manualChanges), ", %:", nrow(manualChanges)/packageRecords), "\n")
-manualDeletions = pds %>% filter(numDeletions > 0)
-cat(paste("Packages with manual deletions ",nrow(manualDeletions), ", %:", nrow(manualDeletions)/packageRecords), "\n")
-```
-
-Ok, so we have 10times more deletions than we have changes. Let's look at the changes alone:
-
-```{r}
-summary(manualChanges$numManualChanges)
-summary(manualChanges$numManualChangesOriginal)
-summary(manualChanges$numChangedFiles)
-summary(manualChanges$numChangedFilesOriginal)
-summary(manualChanges$numChangingCommits)
-summary(manualChanges$numChangingCommitsOriginal)
-```
-
-Out of curiosity what is the percentage of packages that have changes to unique contents? 
-
-```{r}
-manualOriginalChanges = manualChanges %>% filter(numManualChangesOriginal > 0)
-cat(paste("Packages with unique manual changes ",nrow(manualOriginalChanges), ", %:", nrow(manualOriginalChanges) /packageRecords), "\n")
-```
-
-
-
-
-
-```{r}
-summary(pds$numManualChanges)
-x = pds %>% filter(numManualChanges > 1)
-
-```
-
-
-```{r}
-summary(x$numManualChanges)
-nrow(x)
-
-```
