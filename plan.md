@@ -8,7 +8,7 @@ The paper's main theme is harmful effects of cloning and ways these can be mitig
 
 1) data acquisition
 
-- have our original sources and ghtorrent non-forks **(95%)**
+- have our original sources and ghtorrent non-forks **(99%)**
 - make sure we have npm-packages if they come from github repos **(0%)**
 - over time summary (**75%**) - mostly done, but we might want different things, which is why 75% only
 - implicit forks detection & dataset cleaning wrt this (**0%**)
@@ -32,7 +32,7 @@ The paper's main theme is harmful effects of cloning and ways these can be mitig
 
 4) determine clones and their originals
 
-- files (Konrad) - (**100%**)
+- files (Konrad) - (**90%**) -- need to prepare a summary, generate some dtat for basic stats
 - folders (Peta) - (**90%**) folders of 1 file must be added as well (their check is simple though)
 - folder clone originals analysis (subfolders, also file original, etc.) - (**30%**)
 
@@ -40,7 +40,7 @@ The paper's main theme is harmful effects of cloning and ways these can be mitig
 
 5) for clones, determine how they change over time, if at all
 
-- partial work on files 
+- partial work on files (30% - we have datat whether they change or not)
 - partial work on folders (i'd say **10%**)
 
 This should be planned and discussed how to report same and interesting things, such as: attempts to stay in sync with original (and how successful), divergent code, unchanged code, etc.
