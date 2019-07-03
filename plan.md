@@ -59,7 +59,7 @@ This should be planned and discussed how to report same and interesting things, 
 
 > How often diffent transitions happen,if at all. 
 
-8) originality and cloning in different projects
+8) originality and cloning in different projects (**0%**)
 
 - node using projects
 - non-node using projects
@@ -69,7 +69,7 @@ This should be planned and discussed how to report same and interesting things, 
 
 9) Uptodate clones
 
-- report how clones are kept update in the same categories as above
+- report how clones are kept update in the same categories as above (**0%**)
 
 > The update status of different clone types (files, folders, partial folders) and their extremes
 
