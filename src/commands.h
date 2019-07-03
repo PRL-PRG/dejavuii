@@ -86,4 +86,8 @@ namespace dejavu {
     /** Downloads project.json files from NPM packages.
      */
     void NPMDownload(int argc, char * argv[]);
+
+    /** Prepares a list of GitHub URLs for NPM packages from their package.json files.
+     */
+    void ExtractRepositoriesFromNPMProjects(int argc, char * argv[]);
 } // namespace dejavu

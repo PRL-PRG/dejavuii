@@ -51,6 +51,8 @@ void InitializeCommands() {
     new helpers::Command("extract-js-projects", ExtractJSProjects, "Extracts JS projects from a GHTorrent projects.csv file which are not deleted and splits them into forked and non-forked.");
     new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
     new helpers::Command("npm-download", NPMDownload, "Downloads project.json files from NPM packages");
+    new helpers::Command("npm-github-urls", ExtractRepositoriesFromNPMProjects, "Prepares a list of GitHub URLs for NPM packages from their package.json files");
+
 }
 
 

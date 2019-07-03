@@ -183,6 +183,42 @@ namespace helpers {
         std::cerr << "Iterated over " << counter << " " << items_name
                   << std::endl;
     }
+
+    inline std::vector<std::string> ReadDirectoryRecursive(std::string root, bool include_directories=false) {
+        std::vector<std::string> paths;
+        std::vector<std::string> result;
+        paths.push_back(root);
+
+        while (!paths.empty()) {
+            std::string path = paths.back();
+            paths.pop_back();
+
+            DIR *dir = opendir(path.c_str());
+            if (dir != NULL) {
+                struct dirent *dp;
+                while ((dp = readdir(dir)) != NULL) {
+                    std::string const file = dp->d_name;
+
+                    if (dp->d_type == DT_DIR) {
+                        if ("." == file || ".." == file) {
+                            continue;
+                        }
+                        paths.push_back(path + "/" + file);
+                        if (include_directories) {
+                            result.push_back(path + "/" + file);
+                        }
+                    } else {
+                        result.push_back(path + "/" + file);
+                    }
+                }
+                closedir(dir);
+            } else {
+                //std::cerr << std::endl << "    I IGNOREZ " << path << std::endl;
+            }
+        }
+
+        return result;
+    }
     
 } // namespace helpers
 

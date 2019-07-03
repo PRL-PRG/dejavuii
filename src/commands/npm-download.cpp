@@ -80,7 +80,7 @@ namespace dejavu {
             size_t discarded = 0;
             size_t added = 0;
 
-            std::string task = "extracting interesting projects and paths to modified package.json within them (numManualChanges > 0)";
+            std::string task = "extracting interesting projects and paths to modified package.json within them (numManualChanges > 0 and numVersions > 0)";
             helpers::StartTask(task, timer);
 
             new NPMSummaryDetailLoader([&](unsigned projectId, 
@@ -100,7 +100,7 @@ namespace dejavu {
                                            unsigned numDeletingCommits, 
                                            unsigned numActiveFiles){
 
-                if (numManualChanges > 0) {
+                if (numManualChanges > 0 && numVersions) {
                     interesting_projects.insert(projectId);
                     paths_to_interesting_package_json.insert(path + "/package.json");
                     interesting_projects_and_paths_to_package_json[projectId].insert(path + "/package.json");
@@ -369,6 +369,10 @@ namespace dejavu {
         Settings.addOption(NumThreads);
         Settings.parse(argc, argv);
         Settings.check();
+
+        std::string mkdir = "mkdir -p " + DataDir.value() + "/project.json/";
+        int status =  system(mkdir.c_str());
+        assert(status == 0);
 
         std::unordered_set<unsigned> interesting_projects;
         std::unordered_set<std::string> paths_to_interesting_package_json;
