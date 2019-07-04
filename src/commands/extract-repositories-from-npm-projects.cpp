@@ -79,7 +79,7 @@ namespace dejavu {
         if (url.find("github:") != std::string::npos) {
             return true;
         }
-        return true;
+        return false;
     }
 
     std::string URLToRepository(std::string const & url) {
@@ -220,6 +220,8 @@ namespace dejavu {
 
         size_t packages_with_project_ids = 0;
         size_t packages_without_project_ids = 0;
+        size_t packages_with_project_ids_github = 0;
+        size_t packages_without_project_ids_github = 0;
 
         std::ofstream csv_file(csv_output_path);
         if (!csv_file.good()) {
@@ -239,6 +241,9 @@ namespace dejavu {
             auto it = project_ids.find(package.repo);
             if (it != project_ids.end()) {
                 ++packages_with_project_ids;
+                if(package.github) {
+                    ++packages_with_project_ids_github;
+                }
                 unsigned project_id = it->second;
                 csv_file << "\"" << package.repo << "\","
                          << project_id << ","
@@ -247,6 +252,9 @@ namespace dejavu {
                          << std::endl;
             } else {
                 ++packages_without_project_ids;
+                if(package.github) {
+                    ++packages_without_project_ids_github;
+                }
                 csv_file << "\"" << package.repo << "\","
                          << /* NA */ ","
                          << "\"" << package.url << "\","
@@ -258,10 +266,16 @@ namespace dejavu {
         }
 
         std::cerr << "Packages with project IDs: "
-                  << packages_with_project_ids << std::endl;
+                  << packages_with_project_ids
+                  << " including confirmed GitHub projects: "
+                  << packages_with_project_ids_github
+                  << std::endl;
 
         std::cerr << "Packages without project IDs: "
-                  << packages_without_project_ids << std::endl;
+                  << packages_without_project_ids
+                  << " including confirmed GitHub projects: "
+                  << packages_without_project_ids_github
+                  << std::endl;
 
         helpers::FinishCounting(counter, "NPM packages");
         helpers::FinishTask(task, timer);
