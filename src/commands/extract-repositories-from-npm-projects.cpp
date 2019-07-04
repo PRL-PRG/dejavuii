@@ -26,6 +26,7 @@ namespace dejavu {
     struct NPMPackage {
         std::string repo;
         std::string url;
+        bool github;
     };
 
     void LoadProjects(std::unordered_map<unsigned, Project> &projects,
@@ -71,17 +72,27 @@ namespace dejavu {
         helpers::FinishTask(task, timer);
     }
 
+    bool IsURLAGitHubRepo(std::string const & url) {
+        if (url.find("github.com") != std::string::npos) {
+            return true;
+        }
+        if (url.find("github:") != std::string::npos) {
+            return true;
+        }
+        return true;
+    }
+
     std::string URLToRepository(std::string const & url) {
         std::vector<std::string> segments = helpers::Split(url, '/');
         size_t size = segments.size();
 
-        if (url.find("github.com") == std::string::npos) {
-            std::cerr << "apparently not a github url: " << url << std::endl;
-            return "";
-        }
+//        if (url.find("github.com") == std::string::npos) {
+//            errors.push_back("not a github url: " + url);
+//            return "";
+//        }
 
         if (size < 2) {
-            std::cerr << "invalid credentials for url: " << std::endl;
+            std::cerr << "invalid credentials for url: " << url << std::endl;
             return "";
         }
 
@@ -109,7 +120,7 @@ namespace dejavu {
     }
 
     void ExtractDataFromRepository(nlohmann::json json,
-                                   std::vector<NPMPackage> & repos) {
+                                   std::vector<NPMPackage> &repos) {
         if (json.is_string()) {
             std::string url = json.get<std::string>();
             std::string repo_info = URLToRepository(url);
@@ -117,6 +128,7 @@ namespace dejavu {
                 NPMPackage package;
                 package.repo = repo_info;
                 package.url = url;
+                package.github = IsURLAGitHubRepo(url);
                 repos.push_back(package);
             }
         }
@@ -131,6 +143,7 @@ namespace dejavu {
                             NPMPackage package;
                             package.repo = repo_info;
                             package.url = url;
+                            package.github = IsURLAGitHubRepo(url);
                             repos.push_back(package);
                         }
                     }
@@ -220,19 +233,25 @@ namespace dejavu {
             return;
         }
 
-        csv_file << "\"repository\",\"project_id\",\"url\"" << std::endl;
+        csv_file << "\"repository\",\"project_id\",\"url\",\"github_repo\"" << std::endl;
 
         for (NPMPackage package : npm_packages) {
             auto it = project_ids.find(package.repo);
             if (it != project_ids.end()) {
                 ++packages_with_project_ids;
                 unsigned project_id = it->second;
-                csv_file << "\"" << package.repo << "\"," << project_id
-                         << ",\"" << package.url << "\"" << std::endl;
+                csv_file << "\"" << package.repo << "\","
+                         << project_id << ","
+                         << "\"" << package.url << "\","
+                         << "\"" << (package.github ? "T" : "F") << "\""
+                         << std::endl;
             } else {
                 ++packages_without_project_ids;
-                csv_file << "\"" << package.repo << "\"," /* NA */
-                         << ",\"" << package.url << "\"" << std::endl;
+                csv_file << "\"" << package.repo << "\","
+                         << /* NA */ ","
+                         << "\"" << package.url << "\","
+                         << "\"" << (package.github ? "T" : "F") << "\""
+                         << std::endl;
                 todo_file << package.repo << std::endl;
             }
             helpers::Count(counter);
