@@ -752,6 +752,34 @@ namespace dejavu {
         RowHandler f_;
     };
 
+    class RepositoryListLoader : public helpers::CSVReader {
+    public:
+        typedef std::function<void(std::string const &, std::string const &)> RowHandler;
 
+        RepositoryListLoader(std::string const & filename, RowHandler f):
+                helpers::CSVReader('"', '/'), f_(f) {
+
+            readFile(filename);
+        }
+
+        void readFile(std::string const & filename) {
+            // we always have headers
+            parse(filename, true);
+            onDone(numRows());
+        }
+
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 2);
+            f_(row[0], row[1]);
+        }
+
+        virtual void onDone(size_t n) {
+            //std::cerr << n << " records loaded" << std::endl;
+        }
+
+    private:
+        RowHandler f_;
+    };
     
 } // namespace dejavuii

@@ -52,6 +52,7 @@ void InitializeCommands() {
     new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
     new helpers::Command("npm-download", NPMDownload, "Downloads project.json files from NPM packages");
     new helpers::Command("npm-github-urls", ExtractRepositoriesFromNPMProjects, "Prepares a list of GitHub URLs for NPM packages from their package.json files");
+    new helpers::Command("download-repository-info", DownloadRepositoryInfo, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
 
 }
 
