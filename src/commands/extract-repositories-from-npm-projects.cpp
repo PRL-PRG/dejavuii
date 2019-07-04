@@ -17,6 +17,71 @@ namespace dejavu {
         helpers::Option<std::string> NPMDir("NPMDir", "/data/dejavuii/npm-packages", false);
     };
 
+    class Stats {
+    public:
+        static size_t parsed_correctly;
+        static size_t parsed_incorrectly;
+
+        static size_t urls_recognized_as_github_repo;
+        static size_t urls_unrecognized_as_github_repo;
+
+        static size_t packages_already_in_dataset;
+        static size_t packages_not_in_dataset_yet;
+        static size_t packages_loaded;
+
+        static size_t urls_examined;
+        static size_t urls_empty;
+        static size_t urls_no_user_or_project;
+        static size_t urls_correctly_splitting;
+
+        static void PrintOut() {
+            std::cerr << "Parsed correctly: " << parsed_correctly
+                      << " out of " << (parsed_correctly + parsed_incorrectly)
+                      << std::endl;
+            std::cerr << "Parsed incorrectly: " << parsed_incorrectly
+                      << " out of " << (parsed_correctly + parsed_incorrectly)
+                      << std::endl;
+            std::cerr << "Packages already in datatset: "
+                      << packages_already_in_dataset
+                      << " out of " << packages_loaded
+                      << std::endl;
+            std::cerr << "Packages not in datatset yet: "
+                      << packages_not_in_dataset_yet
+                      << " out of " << packages_loaded
+                      << std::endl;
+            std::cerr << "URLs recognized as GitHub repo: "
+                      << urls_recognized_as_github_repo
+                      << " out of " << urls_examined
+                      << std::endl;
+            std::cerr << "URLs unrecognized as GitHub repo: "
+                      << urls_unrecognized_as_github_repo
+                      << " out of " << urls_examined
+                      << std::endl;
+            std::cerr << "Empty URLs: " << urls_empty
+                      << " out of " << urls_examined
+                      << std::endl;
+            std::cerr << "Weird URLs (no user or project): "
+                      << urls_no_user_or_project
+                      << " out of " << urls_examined
+                      << std::endl;
+            std::cerr << "Good URLs: " << urls_correctly_splitting
+                      << " out of " << urls_examined
+                      << std::endl;
+        }
+    };
+
+    size_t Stats::parsed_correctly = 0;
+    size_t Stats::parsed_incorrectly = 0;
+    size_t Stats::urls_recognized_as_github_repo = 0;
+    size_t Stats::urls_unrecognized_as_github_repo = 0;
+    size_t Stats::packages_already_in_dataset = 0;
+    size_t Stats::packages_not_in_dataset_yet = 0;
+    size_t Stats::packages_loaded = 0;
+    size_t Stats::urls_examined = 0;
+    size_t Stats::urls_empty = 0;
+    size_t Stats::urls_no_user_or_project = 0;
+    size_t Stats::urls_correctly_splitting = 0;
+
     struct Project {
         unsigned id;
         std::string user;
@@ -74,11 +139,14 @@ namespace dejavu {
 
     bool IsURLAGitHubRepo(std::string const & url) {
         if (url.find("github.com") != std::string::npos) {
+            ++Stats::urls_recognized_as_github_repo;
             return true;
         }
         if (url.find("github:") != std::string::npos) {
+            ++Stats::urls_recognized_as_github_repo;
             return true;
         }
+        ++Stats::urls_unrecognized_as_github_repo;
         return false;
     }
 
@@ -86,16 +154,20 @@ namespace dejavu {
         std::vector<std::string> segments = helpers::Split(url, '/');
         size_t size = segments.size();
 
+        ++Stats::urls_examined;
+
 //        if (url.find("github.com") == std::string::npos) {
 //            errors.push_back("not a github url: " + url);
 //            return "";
 //        }
 
-        if (url == "") {
+        if (url == "" || url == " ") {
+            ++Stats::urls_empty;
             return "";
         }
 
         if (size < 2) {
+            ++Stats::urls_no_user_or_project;
             std::cerr << "invalid credentials for url: " << url << std::endl;
             return "";
         }
@@ -119,6 +191,8 @@ namespace dejavu {
             }
         }
 
+        Stats::urls_correctly_splitting++;
+
         //std::cerr << "::: " << url << " => " << user << "/" << project << std::endl;
         return user + "/" + project;
     }
@@ -133,6 +207,12 @@ namespace dejavu {
                 package.repo = repo_info;
                 package.url = url;
                 package.github = IsURLAGitHubRepo(url);
+                if (package.github) {
+                    ++Stats::packages_not_in_dataset_yet;
+                } else {
+                    ++Stats::packages_already_in_dataset;
+                }
+                ++Stats::packages_loaded;
                 repos.push_back(package);
             }
         }
@@ -148,6 +228,12 @@ namespace dejavu {
                             package.repo = repo_info;
                             package.url = url;
                             package.github = IsURLAGitHubRepo(url);
+                            if (package.github) {
+                                ++Stats::packages_not_in_dataset_yet;
+                            } else {
+                                ++Stats::packages_already_in_dataset;
+                            }
+                            ++Stats::packages_loaded;
                             repos.push_back(package);
                         }
                     }
@@ -180,9 +266,11 @@ namespace dejavu {
 
                 ExtractDataFromRepository(repository, repos);
             }
+            ++Stats::parsed_correctly;
             return repos;
 
         } catch (nlohmann::json::parse_error& e) {
+            ++Stats::parsed_incorrectly;
             std::cerr << "could not parse: " << file
                       << " ("<< e.what() << ")" << std::endl;
             return repos;
@@ -306,6 +394,8 @@ namespace dejavu {
         CompilePackageList(json_files, npm_packages);
 
         SaveRepositoryAndURLInfo(project_ids, npm_packages);
+
+        Stats::PrintOut();
     }
 
 };
