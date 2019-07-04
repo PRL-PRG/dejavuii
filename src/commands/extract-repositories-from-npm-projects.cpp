@@ -91,6 +91,10 @@ namespace dejavu {
 //            return "";
 //        }
 
+        if (url == "") {
+            return "";
+        }
+
         if (size < 2) {
             std::cerr << "invalid credentials for url: " << url << std::endl;
             return "";
@@ -260,7 +264,9 @@ namespace dejavu {
                          << "\"" << package.url << "\","
                          << "\"" << (package.github ? "T" : "F") << "\""
                          << std::endl;
-                todo_file << package.repo << std::endl;
+                if (package.repo != "") {
+                    todo_file << package.repo << std::endl;
+                }
             }
             helpers::Count(counter);
         }
