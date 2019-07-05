@@ -19,68 +19,88 @@ namespace dejavu {
 
     class Stats {
     public:
+        static size_t parsed;
         static size_t parsed_correctly;
         static size_t parsed_incorrectly;
 
         static size_t urls_recognized_as_github_repo;
         static size_t urls_unrecognized_as_github_repo;
 
-        static size_t packages_already_in_dataset;
-        static size_t packages_not_in_dataset_yet;
-        static size_t packages_loaded;
+//        static size_t packages_already_in_dataset;
+//        static size_t packages_not_in_dataset_yet;
+//        static size_t packages_loaded;
 
         static size_t urls_examined;
         static size_t urls_empty;
         static size_t urls_no_user_or_project;
         static size_t urls_correctly_splitting;
 
+        static size_t unique_urls_recognized_as_github_repo;
+        static size_t unique_urls_recognized_as_github_repo_missing_from_data;
+
         static void PrintOut() {
             std::cerr << "Parsed correctly: " << parsed_correctly
-                      << " out of " << (parsed_correctly + parsed_incorrectly)
+                      << " out of " << parsed << " package.json files"
                       << std::endl;
             std::cerr << "Parsed incorrectly: " << parsed_incorrectly
-                      << " out of " << (parsed_correctly + parsed_incorrectly)
+                      << " out of " << parsed << " packag.json files"
                       << std::endl;
-            std::cerr << "Packages already in datatset: "
-                      << packages_already_in_dataset
-                      << " out of " << packages_loaded
+
+            std::cerr << std::endl;
+
+            std::cerr << "Within these package.json files we found "
+                      << urls_examined << " strings that may be GitHub URLs"
                       << std::endl;
-            std::cerr << "Packages not in datatset yet: "
-                      << packages_not_in_dataset_yet
-                      << " out of " << packages_loaded
+            std::cerr << "Out of these: " << std::endl;
+            std::cerr << "    " << urls_empty
+                      << " were empty strings"
                       << std::endl;
-            std::cerr << "URLs recognized as GitHub repo: "
+            std::cerr << "    " << urls_no_user_or_project
+                      << " could not be split to retrieve 'user/project'"
+                      << std::endl;
+            std::cerr << "    " << urls_unrecognized_as_github_repo
+                      << " did not contain clues that they are GitHub URLs "
+                      << std::endl
+                      << "    (did not contain 'github.com' or 'github:')"
+                      << std::endl;
+            std::cerr << "    " << urls_recognized_as_github_repo
+                      << " look like genuine GitHub URLs"
+                      << std::endl;
+
+            std::cerr << std::endl;
+
+            std::cerr << "Out of the "
                       << urls_recognized_as_github_repo
-                      << " out of " << urls_examined
+                      << " possible GitHub URLs: "
+                      << unique_urls_recognized_as_github_repo
+                      << " are unique."
                       << std::endl;
-            std::cerr << "URLs unrecognized as GitHub repo: "
-                      << urls_unrecognized_as_github_repo
-                      << " out of " << urls_examined
-                      << std::endl;
-            std::cerr << "Empty URLs: " << urls_empty
-                      << " out of " << urls_examined
-                      << std::endl;
-            std::cerr << "Weird URLs (no user or project): "
-                      << urls_no_user_or_project
-                      << " out of " << urls_examined
-                      << std::endl;
-            std::cerr << "Good URLs: " << urls_correctly_splitting
-                      << " out of " << urls_examined
+
+            std::cerr << std::endl;
+
+            std::cerr << "Out of the "
+                      << unique_urls_recognized_as_github_repo
+                      << " unique GitHub URLs: "
+                      << unique_urls_recognized_as_github_repo_missing_from_data
+                      << " are not accounted for in our current dataset."
                       << std::endl;
         }
     };
 
+    size_t Stats::parsed = 0;
     size_t Stats::parsed_correctly = 0;
     size_t Stats::parsed_incorrectly = 0;
     size_t Stats::urls_recognized_as_github_repo = 0;
     size_t Stats::urls_unrecognized_as_github_repo = 0;
-    size_t Stats::packages_already_in_dataset = 0;
-    size_t Stats::packages_not_in_dataset_yet = 0;
-    size_t Stats::packages_loaded = 0;
+//    size_t Stats::packages_already_in_dataset = 0;
+//    size_t Stats::packages_not_in_dataset_yet = 0;
+//    size_t Stats::packages_loaded = 0;
     size_t Stats::urls_examined = 0;
     size_t Stats::urls_empty = 0;
     size_t Stats::urls_no_user_or_project = 0;
     size_t Stats::urls_correctly_splitting = 0;
+    size_t Stats::unique_urls_recognized_as_github_repo = 0;
+    size_t Stats::unique_urls_recognized_as_github_repo_missing_from_data = 0;
 
     struct Project {
         unsigned id;
@@ -92,6 +112,8 @@ namespace dejavu {
         std::string repo;
         std::string url;
         bool github;
+        bool identified;
+        unsigned project_id;
     };
 
     struct NPMPackageHash {
@@ -105,7 +127,9 @@ namespace dejavu {
         bool operator()(const NPMPackage &r1, const NPMPackage &r2) const noexcept {
             return r1.repo == r2.repo
                    && r1.url == r2.url
-                    && r1.github == r2.github;
+                    && r1.github == r2.github
+                    && r1.identified == r2.identified
+                    && r1.project_id == r2.project_id;
         }
     };
 
@@ -206,7 +230,7 @@ namespace dejavu {
             }
         }
 
-        Stats::urls_correctly_splitting++;
+        ++Stats::urls_correctly_splitting;
 
         //std::cerr << "::: " << url << " => " << user << "/" << project << std::endl;
         return user + "/" + project;
@@ -222,12 +246,6 @@ namespace dejavu {
                 package.repo = repo_info;
                 package.url = url;
                 package.github = IsURLAGitHubRepo(url);
-                if (package.github) {
-                    ++Stats::packages_not_in_dataset_yet;
-                } else {
-                    ++Stats::packages_already_in_dataset;
-                }
-                ++Stats::packages_loaded;
                 repos.push_back(package);
             }
         }
@@ -243,12 +261,6 @@ namespace dejavu {
                             package.repo = repo_info;
                             package.url = url;
                             package.github = IsURLAGitHubRepo(url);
-                            if (package.github) {
-                                ++Stats::packages_not_in_dataset_yet;
-                            } else {
-                                ++Stats::packages_already_in_dataset;
-                            }
-                            ++Stats::packages_loaded;
                             repos.push_back(package);
                         }
                     }
@@ -293,6 +305,7 @@ namespace dejavu {
     }
 
     void CompilePackageList(std::vector<std::string> const &json_files,
+                            std::unordered_map<std::string, unsigned> const &project_ids,
                             std::unordered_set<NPMPackage, NPMPackageHash, NPMPackageComp> &npm_packages) {
         clock_t timer = clock();
         std::string task = "compiling package list form JSON files";
@@ -305,6 +318,15 @@ namespace dejavu {
             std::vector<NPMPackage> repos = ExtractFromJSONFile(file);
             //npm_packages.insert(npm_packages.end(), repos.begin(), repos.end());
             for (NPMPackage r : repos) {
+
+                if (project_ids.find(r.repo) == project_ids.end()) {
+                    r.identified = false;
+                    r.project_id = 0;
+                } else {
+                    r.identified  = true;
+                    r.project_id = project_ids.at(r.repo);
+                }
+
                 npm_packages.insert(r);
             }
 
@@ -315,14 +337,75 @@ namespace dejavu {
         helpers::FinishTask(task, timer);
     }
 
-    void SaveRepositoryAndURLInfo(std::unordered_map<std::string, unsigned> const &project_ids,
-                                  std::unordered_set<NPMPackage, NPMPackageHash, NPMPackageComp> const &npm_packages) {
+    void CompileMissingRepositoryList(std::unordered_set<NPMPackage, NPMPackageHash, NPMPackageComp> const &npm_packages,
+                                      std::unordered_set<std::string> &missing_repos) {
+
 
         std::string csv_output_path(DataDir.value() + OutputDir.value() + "/npm-packages-urls.csv");
+
+        clock_t timer = clock();
+        std::string task = "compiling list of missing repositories";
+        helpers::StartTask(task, timer);
+
+        size_t counter = 0;
+        size_t missing = 0;
+        helpers::StartCounting(counter);
+
+        std::unordered_set<std::string> all_repos; /*just for counting*/
+        for (NPMPackage package : npm_packages) {
+            if (!package.identified) {
+                missing_repos.insert(package.repo);
+                ++missing;
+            }
+            all_repos.insert(package.repo);
+            helpers::Count(counter);
+        }
+
+        Stats::unique_urls_recognized_as_github_repo = all_repos.size();
+        Stats::unique_urls_recognized_as_github_repo_missing_from_data = missing_repos.size();
+
+        helpers::FinishCounting(counter, "npm packages");
+
+        std::cerr << "Found we did not assign an ID to " << missing << " npm packages. "
+                  << "These packages are missing from our dataset." << std::endl;
+        std::cerr << "Among these we found " << missing_repos.size()
+                  << " unique repos defined as user/project "
+                  << "that we can attempt downloading" << std::endl;
+
+        helpers::FinishTask(task, timer);
+    }
+
+    void SaveMissingRepositoryList(std::unordered_set<std::string> const &missing_repos) {
         std::string todo_output_path(DataDir.value() + OutputDir.value() + "/npm-packages-missing.list");
 
         clock_t timer = clock();
-        std::string task = "compiling output and saving to disk";
+        std::string task = "saving list of missing repositories to '" + todo_output_path = "'";
+        helpers::StartTask(task, timer);
+
+        size_t counter = 0;
+        helpers::StartCounting(counter);
+
+        std::ofstream todo_file(todo_output_path);
+        if (!todo_file.good()) {
+            ERROR("Unable to open file " << todo_output_path << " for writing");
+        }
+
+        for (std::string const &repo : missing_repos) {
+            todo_file << repo << std::endl;
+            helpers::Count(counter);
+        }
+
+        helpers::FinishCounting(counter, "missing repositories");
+        helpers::FinishTask(task, timer);
+    }
+
+    void SaveRepositoryAndURLInfo(std::unordered_set<NPMPackage, NPMPackageHash, NPMPackageComp> const &npm_packages) {
+
+        std::string csv_output_path(DataDir.value() + OutputDir.value() + "/npm-packages-urls.csv");
+
+
+        clock_t timer = clock();
+        std::string task = "saving package/repository information to disk at '" + csv_output_path + "'";
         helpers::StartTask(task, timer);
 
         size_t counter = 0;
@@ -336,27 +419,18 @@ namespace dejavu {
         std::ofstream csv_file(csv_output_path);
         if (!csv_file.good()) {
             ERROR("Unable to open file " << csv_output_path << " for writing");
-            return;
-        }
-
-        std::ofstream todo_file(todo_output_path);
-        if (!todo_file.good()) {
-            ERROR("Unable to open file " << todo_output_path << " for writing");
-            return;
         }
 
         csv_file << "\"repository\",\"project_id\",\"url\",\"github_repo\"" << std::endl;
 
         for (NPMPackage package : npm_packages) {
-            auto it = project_ids.find(package.repo);
-            if (it != project_ids.end()) {
+            if (package.identified) {
                 ++packages_with_project_ids;
                 if(package.github) {
                     ++packages_with_project_ids_github;
                 }
-                unsigned project_id = it->second;
                 csv_file << "\"" << package.repo << "\","
-                         << project_id << ","
+                         << package.project_id << ","
                          << "\"" << package.url << "\","
                          << "\"" << (package.github ? "T" : "F") << "\""
                          << std::endl;
@@ -370,9 +444,6 @@ namespace dejavu {
                          << "\"" << package.url << "\","
                          << "\"" << (package.github ? "T" : "F") << "\""
                          << std::endl;
-                if (package.repo != "") {
-                    todo_file << package.repo << std::endl;
-                }
             }
             helpers::Count(counter);
         }
@@ -409,9 +480,14 @@ namespace dejavu {
         LoadAllJSONFiles(json_files);
 
         std::unordered_set<NPMPackage, NPMPackageHash, NPMPackageComp> npm_packages;
-        CompilePackageList(json_files, npm_packages);
+        CompilePackageList(json_files, project_ids, npm_packages);
 
-        SaveRepositoryAndURLInfo(project_ids, npm_packages);
+        SaveRepositoryAndURLInfo(npm_packages);
+
+        std::unordered_set<std::string> missing_repos;
+        CompileMissingRepositoryList(npm_packages, missing_repos);
+
+        SaveMissingRepositoryList(missing_repos);
 
         Stats::PrintOut();
     }
