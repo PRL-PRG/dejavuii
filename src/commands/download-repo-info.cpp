@@ -59,8 +59,9 @@ namespace dejavu {
             repositories.insert(repo);
         };
 
-        RepositoryListLoader(RepositoryList.value(), f);
+        RepositoryListLoader loader = RepositoryListLoader(RepositoryList.value(), f);
 
+        std::cerr << "Lines skipped: " << loader.getSkipped() << std::endl;
         std::cerr << "Repositories loaded: " << total_repositories << std::endl;
         std::cerr << "Unique repositories loaded: " << repositories.size() << std::endl;
 
@@ -78,9 +79,9 @@ namespace dejavu {
         std::unordered_set<Repository, RepositoryHash, RepositoryComp> repositories;
         LoadRepositories(repositories);
 
-        for (const Repository &r : repositories) {
-            std::cerr << r.user << " -> " << r.project;
-        }
+        //for (const Repository &r : repositories) {
+        std::cerr << repositories.size() << std::endl;
+        //}
     }
 };
 

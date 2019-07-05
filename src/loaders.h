@@ -765,18 +765,24 @@ namespace dejavu {
 
     protected:
         void row(std::vector<std::string> & row) {
-            assert(row.size() == 2);
+            assert(row.size() <= 2);
+            if (row.size() != 2) {
+                ++skipped_;
+            }
+
             f_(row[0], row[1]);
         }
 
     private:
         RowHandler f_;
         size_t lineNum_;
+        size_t skipped_;
 
 
         void readFile(std::string const & filename) {
             std::ifstream file = std::ifstream(filename, std::ios::in);
             lineNum_ = 0;
+            skipped_ = 0;
 
             if (!file.good()){
                 ERROR("Unable to openfile " << filename);
@@ -788,6 +794,15 @@ namespace dejavu {
             }
 
             file.close();
+        }
+
+    public:
+        size_t getLines() {
+            return lineNum_;
+        }
+
+        size_t getSkipped() {
+            return skipped_;
         }
     };
     
