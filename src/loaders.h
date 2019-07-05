@@ -9,6 +9,9 @@
 #include "objects.h"
 #include "settings.h"
 
+#include <iostream>
+#include <fstream>
+
 namespace dejavu {
 
 
@@ -752,34 +755,40 @@ namespace dejavu {
         RowHandler f_;
     };
 
-    class RepositoryListLoader : public helpers::CSVReader {
+    class RepositoryListLoader {
     public:
         typedef std::function<void(std::string const &, std::string const &)> RowHandler;
 
-        RepositoryListLoader(std::string const & filename, RowHandler f):
-                helpers::CSVReader('"', '/'), f_(f) {
-
+        RepositoryListLoader(std::string const & filename, RowHandler f): f_(f) {
             readFile(filename);
         }
 
-        void readFile(std::string const & filename) {
-            // we always have headers
-            parse(filename, true);
-            onDone(numRows());
-        }
-
     protected:
-        void row(std::vector<std::string> & row) override {
+        void row(std::vector<std::string> & row) {
             assert(row.size() == 2);
             f_(row[0], row[1]);
         }
 
-        virtual void onDone(size_t n) {
-            //std::cerr << n << " records loaded" << std::endl;
-        }
-
     private:
         RowHandler f_;
+        size_t lineNum_;
+
+
+        void readFile(std::string const & filename) {
+            std::ifstream file = std::ifstream(filename, std::ios::in);
+            lineNum_ = 0;
+
+            if (!file.good()){
+                ERROR("Unable to openfile " << filename);
+            }
+
+            for(std::string line; std::getline(file, line); ++lineNum_) {
+                std::vector<std::string> elements = helpers::Split(line, '/');
+                row(elements);
+            }
+
+            file.close();
+        }
     };
     
 } // namespace dejavuii

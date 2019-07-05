@@ -94,6 +94,21 @@ namespace dejavu {
         bool github;
     };
 
+    struct NPMPackageHash {
+        size_t operator ()(const NPMPackage &r) const noexcept {
+            return std::hash<std::string>()(r.repo) << 32
+                   | std::hash<std::string>()(r.url);
+        }
+    };
+
+    struct NPMPackageComp {
+        bool operator()(const NPMPackage &r1, const NPMPackage &r2) const noexcept {
+            return r1.repo == r2.repo
+                   && r1.url == r2.url
+                    && r1.github == r2.github;
+        }
+    };
+
     void LoadProjects(std::unordered_map<unsigned, Project> &projects,
                       std::unordered_map<std::string, unsigned> &project_ids) {
         clock_t timer = clock();
@@ -278,7 +293,7 @@ namespace dejavu {
     }
 
     void CompilePackageList(std::vector<std::string> const &json_files,
-                            std::vector<NPMPackage> &npm_packages) {
+                            std::unordered_set<NPMPackage, NPMPackageHash, NPMPackageComp> &npm_packages) {
         clock_t timer = clock();
         std::string task = "compiling package list form JSON files";
         helpers::StartTask(task, timer);
@@ -288,7 +303,10 @@ namespace dejavu {
 
         for(std::string file : json_files) {
             std::vector<NPMPackage> repos = ExtractFromJSONFile(file);
-            npm_packages.insert(npm_packages.end(), repos.begin(), repos.end());
+            //npm_packages.insert(npm_packages.end(), repos.begin(), repos.end());
+            for (NPMPackage r : repos) {
+                npm_packages.insert(r);
+            }
 
             helpers::Count(inspected);
         }
@@ -298,7 +316,7 @@ namespace dejavu {
     }
 
     void SaveRepositoryAndURLInfo(std::unordered_map<std::string, unsigned> const &project_ids,
-                                  std::vector<NPMPackage> const &npm_packages) {
+                                  std::unordered_set<NPMPackage, NPMPackageHash, NPMPackageComp> const &npm_packages) {
 
         std::string csv_output_path(DataDir.value() + OutputDir.value() + "/npm-packages-urls.csv");
         std::string todo_output_path(DataDir.value() + OutputDir.value() + "/npm-packages-missing.list");
@@ -390,7 +408,7 @@ namespace dejavu {
         std::vector<std::string> json_files;
         LoadAllJSONFiles(json_files);
 
-        std::vector<NPMPackage> npm_packages;
+        std::unordered_set<NPMPackage, NPMPackageHash, NPMPackageComp> npm_packages;
         CompilePackageList(json_files, npm_packages);
 
         SaveRepositoryAndURLInfo(project_ids, npm_packages);
