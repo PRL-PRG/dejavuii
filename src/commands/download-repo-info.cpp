@@ -18,7 +18,7 @@ namespace dejavu {
 
     namespace {
         helpers::Option <std::string> RepositoryList("RepositoryList",
-                                                     "/data/dejavuii/verified/npm-packages-missing.list",
+                                                     "/data/dejavuii/verified/npm-packages-missing.list:/home/kondziu/workspace/ghgrabber/repos/repos.list:/home/kondziu/workspace/ghgrabber/repos/repos.list.N",
                                                      false);
     };
 
@@ -59,11 +59,37 @@ namespace dejavu {
             repositories.insert(repo);
         };
 
-        RepositoryListLoader loader = RepositoryListLoader(RepositoryList.value(), f);
+        std::vector<std::string> paths = helpers::Split(RepositoryList.value(), ':');
 
-        std::cerr << "Lines skipped: " << loader.getSkipped() << std::endl;
-        std::cerr << "Repositories loaded: " << total_repositories << std::endl;
-        std::cerr << "Unique repositories loaded: " << repositories.size() << std::endl;
+        std::cerr << "Given " << paths.size()
+                  << " file paths to read repositories from"
+                  << std::endl;
+
+        for (std::string const &path : paths) {
+            std::cerr << "Loading repositories from " << path << std::endl;
+
+            RepositoryListLoader loader = RepositoryListLoader(path, f);
+
+            std::cerr << "Lines skipped: "
+                      << loader.getSkipped()
+                      << std::endl;
+            std::cerr << "Repositories loaded: "
+                      << total_repositories
+                      << std::endl;
+            std::cerr << "Unique repositories loaded: "
+                      << repositories.size()
+                      << std::endl;
+        }
+
+        helpers::FinishTask(task, timer);
+    }
+
+    void Download(std::unordered_set<Repository, RepositoryHash, RepositoryComp> &repositories) {
+        clock_t timer = clock();
+        std::string task = "downloading repository info to json files at ";
+        helpers::StartTask(task, timer);
+
+        // TODO downloader
 
         helpers::FinishTask(task, timer);
     }
@@ -79,9 +105,7 @@ namespace dejavu {
         std::unordered_set<Repository, RepositoryHash, RepositoryComp> repositories;
         LoadRepositories(repositories);
 
-        //for (const Repository &r : repositories) {
-        std::cerr << repositories.size() << std::endl;
-        //}
+        Download(repositories);
     }
 };
 
