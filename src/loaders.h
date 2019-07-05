@@ -768,6 +768,7 @@ namespace dejavu {
             assert(row.size() <= 2);
             if (row.size() != 2) {
                 ++skipped_;
+                return;
             }
 
             f_(row[0], row[1]);
