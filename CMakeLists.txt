@@ -22,8 +22,12 @@ include_directories(".")
 
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.h")
 
+set(CURL_LIBRARY "curl")
+find_package(CURL REQUIRED)
+
 add_executable(dejavu ${SRC})
 target_link_libraries(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
 #target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES} rt)
 target_link_libraries(${PROJECT_NAME} OpenSSL::Crypto)
+target_link_libraries(${PROJECT_NAME} ${CURL_LIBRARIES})
 #target_link_libraries(${PROJECT_NAME} libcurl)
