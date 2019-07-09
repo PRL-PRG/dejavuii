@@ -4,7 +4,7 @@
 
 > TODO - note that we use ssl for hashes and depend on them
 
-    sudo apt install g++ cmake
+    sudo apt install g++ cmake libcurl4-openssl-dev
     mkdir build
     cd build
     cmake ..

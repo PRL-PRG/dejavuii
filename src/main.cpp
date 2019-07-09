@@ -40,6 +40,7 @@ void InitializeCommands() {
     // TODO add command to run the downloader Konrad has implemented as a shell script
     new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
