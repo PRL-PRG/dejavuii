@@ -20,6 +20,10 @@ namespace dejavu {
      */
     extern helpers::Option<std::string> OutputDir;
 
+    /** File containing the appropriate filter.
+     */
+    extern helpers::Option<std::string> Filter;
+    
     /** Directory where the downloader script dumped its results.
      */
     extern helpers::Option<std::string> DownloaderDir;

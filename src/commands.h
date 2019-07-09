@@ -18,6 +18,9 @@ namespace dejavu {
     void DetectForks(int argc, char * argv[]);
 
 
+    /** Filters given projects and their contents out of the dataset.
+     */
+    void FilterProjects(int argc, char * argv[]);
     
     /** The creation time join puts on projects is wrong (it is the oldest commit, which for forks is useless). This pass attempts to fix this by getting the proper (?) creation time from the ghtorrent database.
      */
