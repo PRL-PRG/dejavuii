@@ -99,4 +99,9 @@ namespace dejavu {
     /** Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project
      */
     void DownloadRepositoryInfo(int argc, char * argv[]);
+
+    /**
+     *
+     */
+    void ExtractRepositoriesSansCreationTime(int argc, char * argv[]);
 } // namespace dejavu
