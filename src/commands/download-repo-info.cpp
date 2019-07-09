@@ -19,13 +19,6 @@
 
 namespace dejavu {
 
-    namespace {
-        helpers::Option <std::string> RepositoryList("RepositoryList",
-                                                     "/data/dejavuii/verified/npm-packages-missing.list",
-                                                     //"/data/dejavuii/verified/npm-packages-missing.list:/home/kondziu/workspace/ghgrabber/repos/repos.list:/home/kondziu/workspace/ghgrabber/repos/repos.list.N",
-                                                     false);
-    };
-
     struct Repository {
         std::string user;
         std::string project;
@@ -152,6 +145,11 @@ namespace dejavu {
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
         curl_easy_setopt(curl, CURLOPT_HEADERDATA, &metadata);
 
+        if (GitHubPersonalAccessToken.value() != "") {
+            curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+            curl_easy_setopt(curl, CURLOPT_USERPWD, GitHubPersonalAccessToken.value().c_str());
+        }
+
         CURLcode res = curl_easy_perform(curl);
         curl_easy_cleanup(curl);
 
@@ -211,11 +209,11 @@ namespace dejavu {
                             + repository.project,
                             metadata, data);
 
-//                std::cerr << metadata.status << std::endl
-//                          << metadata.status_message << std::endl
-//                          << metadata.rate_limit << std::endl
-//                          << metadata.rate_limit_remaining << std::endl
-//                          << metadata.rate_limit_reset << std::endl << std::endl;
+                std::cerr << metadata.status << std::endl
+                          << metadata.status_message << std::endl
+                          << metadata.rate_limit << std::endl
+                          << metadata.rate_limit_remaining << std::endl
+                          << metadata.rate_limit_reset << std::endl << std::endl;
 
                 //std::cerr << data.out.str() << std::endl;
 
@@ -306,6 +304,7 @@ namespace dejavu {
         Settings.addOption(RepositoryList);
         Settings.addOption(DataDir);
         Settings.addOption(NumThreads);
+        Settings.addOption(GitHubPersonalAccessToken);
         Settings.parse(argc, argv);
         Settings.check();
 
@@ -315,5 +314,3 @@ namespace dejavu {
         Download(repositories);
     }
 };
-
-
