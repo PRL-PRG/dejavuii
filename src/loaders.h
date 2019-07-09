@@ -40,6 +40,26 @@ namespace dejavu {
     }; // dejavuii::BaseLoader
 
 
+    class StringRowLoader : public BaseLoader {
+    public:
+        typedef std::function<void(std::vector<std::string> const &)> RowHandler;
+
+        StringRowLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+    protected:
+
+        void row(std::vector<std::string> & row) override {
+            f_(row);
+        }
+
+    private:
+        RowHandler f_;
+        
+    }; // dejavu::StringRowLoader
+    
+
     /** Loads projects from the GHTorrent dump.
      */
     class GHTorrentProjectsLoader : public BaseLoader {
