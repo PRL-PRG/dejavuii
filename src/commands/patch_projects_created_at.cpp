@@ -94,6 +94,7 @@ namespace dejavu {
                             p->createdAt = createdAt;
                             ++updatedProjects;
                             ghtProjects_[id] = p;
+                            p->updated = true;
                         }
                         // check whether the project is a fork (we have github id as a fork then)
                         if (forkedFrom != NO_FORK) {
@@ -130,11 +131,27 @@ namespace dejavu {
             }
 
             void output() {
-                std::cerr << "Writing projects..." << std::endl;
-                std::ofstream f(DataDir.value() + "/projectsFixed.csv");
-                f << "#projectId,user,repo,createdAt" << std::endl;
-                for (auto i : projects_)
-                    f << *(i.second) << std::endl;
+                {
+                    std::cerr << "Writing projects..." << std::endl;
+                    std::ofstream f(DataDir.value() + "/projectsFixed.csv");
+                    f << "#projectId,user,repo,createdAt" << std::endl;
+                    for (auto i : projects_)
+                        f << *(i.second) << std::endl;
+                }
+                {
+                    std::cerr << "Writing projects not found in ghtorrent..." << std::endl;
+                    size_t notFound = 0;
+                    std::ofstream f(DataDir.value() + "/projectsNotFoundInGHT.csv");
+                    f << "projectId,user,repo" << std::endl;
+                    for (auto i : projects_) {
+                        Project * p = i.second;
+                        if (! p->updated) {
+                            ++notFound;
+                            f << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << std::endl;
+                        }
+                    }
+                    std::cout << "    " << notFound << " projects not found in GHT" << std::endl;
+                }
                 std::cerr << "Done." << std::endl;
             }
 
