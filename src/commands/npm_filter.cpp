@@ -36,7 +36,7 @@ namespace dejavu {
 
         
 
-        class Filter {
+        class NPMFilterer {
         public:
             void filter() {
                 {
@@ -257,7 +257,7 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
-        Filter f;
+        NPMFilterer f;
         f.filter();
         f.removeEmptyCommits();
         f.output();
