@@ -235,14 +235,12 @@ namespace dejavu {
             size_t attempts = 0;
             helpers::StartTask(task, timer);
 
-            std::ofstream good_file(
-                    DataDir.value() + "/repository_details/__downloaded.csv");
+            std::ofstream good_file(DataDir.value() + "/repository_details/__downloaded.csv");
             if (!good_file.good()) {
                 ERROR("Unable to open file /repository_details/__downloaded.csv for writing");
             }
 
-            std::ofstream bad_file(
-                    DataDir.value() + "/repository_details/__failed.csv");
+            std::ofstream bad_file(DataDir.value() + "/repository_details/__failed.csv");
             if (!bad_file.good()) {
                 ERROR("Unable to open file /repository_details/__failed.csv for writing");
             }
@@ -291,7 +289,7 @@ namespace dejavu {
                             break;
                         }
 
-                        Repository repository = repositories.back();
+                        repository = repositories.back();
                         repositories.pop_back();
 
                     } else if (metadata.status == 403
@@ -330,7 +328,7 @@ namespace dejavu {
                             break;
                         }
 
-                        Repository repository = repositories.back();
+                        repository = repositories.back();
                         repositories.pop_back();
                     }
 
