@@ -263,12 +263,12 @@ namespace dejavu {
                                 + repository.project,
                                 metadata, data);
 
-                    std::cerr << metadata.status << std::endl
-                              << metadata.status_message << std::endl
-                              << metadata.rate_limit << std::endl
-                              << metadata.rate_limit_remaining << std::endl
-                              << metadata.rate_limit_reset << std::endl
-                              << std::endl;
+//                    std::cerr << metadata.status << std::endl
+//                              << metadata.status_message << std::endl
+//                              << metadata.rate_limit << std::endl
+//                              << metadata.rate_limit_remaining << std::endl
+//                              << metadata.rate_limit_reset << std::endl
+//                              << std::endl;
 
                     //std::cerr << data.out.str() << std::endl;
 
