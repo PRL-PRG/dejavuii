@@ -45,6 +45,27 @@ namespace dejavu {
             }
         };
 
+        /** Loads the projects basic information.
+ */
+        class ShortProjectLoader : public BaseLoader {
+        public:
+            // id, user, repo, createdAt (oldest commit)
+            typedef std::function<void(unsigned, std::string const &, std::string const &)> RowHandler;
+            ShortProjectLoader(std::string const & filename, RowHandler f):
+                    f_(f) {
+                readFile(filename);
+            }
+        protected:
+            void row(std::vector<std::string> & row) override {
+                assert(row.size() == 3);
+                unsigned id = std::stoul(row[0]);
+                f_(id, row[1], row[2]);
+            }
+
+        private:
+            RowHandler f_;
+        };
+
         void LoadRepositories(
                 std::unordered_set<Repository, RepositoryHash, RepositoryComp> &repositories) {
             clock_t timer = clock();
@@ -52,7 +73,15 @@ namespace dejavu {
             std::string task = "loading repository user and project names";
             helpers::StartTask(task, timer);
 
-            auto f = [&](std::string const &user, std::string const &project) {
+            auto f_list = [&](std::string const &user, std::string const &project) {
+                ++total_repositories;
+                Repository repo;
+                repo.user = user;
+                repo.project = project;
+                repositories.insert(repo);
+            };
+
+            auto f_csv = [&](unsigned id, std::string const &user, std::string const &project) {
                 ++total_repositories;
                 Repository repo;
                 repo.user = user;
@@ -70,17 +99,27 @@ namespace dejavu {
             for (std::string const &path : paths) {
                 std::cerr << "Loading repositories from " << path << std::endl;
 
-                RepositoryListLoader loader = RepositoryListLoader(path, f);
+                if (helpers::endsWith(path, ".list")) {
+                    RepositoryListLoader loader = RepositoryListLoader(path, f_list);
+                    std::cerr << "Lines skipped: "
+                              << loader.getSkipped()
+                              << std::endl;
+                    std::cerr << "Repositories loaded: "
+                              << total_repositories
+                              << std::endl;
+                    std::cerr << "Unique repositories loaded: "
+                              << repositories.size()
+                              << std::endl;
 
-                std::cerr << "Lines skipped: "
-                          << loader.getSkipped()
-                          << std::endl;
-                std::cerr << "Repositories loaded: "
-                          << total_repositories
-                          << std::endl;
-                std::cerr << "Unique repositories loaded: "
-                          << repositories.size()
-                          << std::endl;
+                } else if (helpers::endsWith(path, ".csv")) {
+                    ShortProjectLoader loader = ShortProjectLoader(path, f_csv);
+                    std::cerr << "Repositories loaded: "
+                              << total_repositories
+                              << std::endl;
+                    std::cerr << "Unique repositories loaded: "
+                              << repositories.size()
+                              << std::endl;
+                }
             }
 
             helpers::FinishTask(task, timer);
