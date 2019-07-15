@@ -105,7 +105,7 @@ namespace dejavu {
         Settings.check();
 
         //std::unordered_set<Repository, RepositoryHash, RepositoryComp> repositories;
-        LoadRepositoriesFromJSON(repositories);
+        //LoadRepositoriesFromJSON(repositories);
 //        SaveRepositories(repositories);
     }
 

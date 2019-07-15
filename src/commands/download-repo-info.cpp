@@ -245,6 +245,16 @@ namespace dejavu {
                 ERROR("Unable to open file /repository_details/__failed.csv for writing");
             }
 
+            std::ofstream attempt_file(DataDir.value() + "/repository_details/__attempted.csv");
+            if (!attempt_file.good()) {
+                ERROR("Unable to open file /repository_details/__attempted.csv for writing");
+            }
+
+            std::ofstream log_file(DataDir.value() + "/repository_details/__log.csv");
+            if (!log_file.good()) {
+                ERROR("Unable to open file /repository_details/__log.csv for writing");
+            }
+
             std::vector<Repository> repositories(repository_set.begin(),
                                                  repository_set.end());
 
@@ -256,10 +266,23 @@ namespace dejavu {
                     CurlMetaData metadata;
                     DownloadData data;
 
+                    attempt_file << repository.user << "/"
+                                 << repository.project
+                                 << std::endl;
+
                     DownloadOne("https://api.github.com/repos/"
                                 + repository.user + "/"
                                 + repository.project,
                                 metadata, data);
+
+                    log_file << repository.user << "/"
+                             << repository.project << ","
+                             << metadata.status << ","
+                             << metadata.status_message << ","
+                             << metadata.rate_limit << ","
+                             << metadata.rate_limit_remaining << ","
+                             << metadata.rate_limit_reset
+                             << std::endl;
 
 //                    std::cerr << metadata.status << std::endl
 //                              << metadata.status_message << std::endl
