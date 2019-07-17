@@ -8,12 +8,12 @@ The paper's main theme is harmful effects of cloning and ways these can be mitig
 
 1) data acquisition
 
-- have our original sources and ghtorrent non-forks **(99%)** [Konrad, 0 days]
+- have our original sources and ghtorrent non-forks **(100%)** [Konrad, 0 days]
 - make sure we have npm-packages if they come from github repos **(50%)** [Konrad, 4 days] -- implemented in 1.5 days, now downloading the repos, it'll probably take a week?
 - joining projects, check that the projects actually differ in the join phase [Peta, 1 day] 
 - over time summary (**75%**) - mostly done, but we might want different things, which is why 75% only [Peta, 3 days]
 - implicit forks detection & dataset cleaning wrt this (**0%**) [Peta, 2 days]
-- proper createdAt times (**30%**) (we have those from GHT, those not in GH should be acquired from GH) [Konrad, 2 days]
+- proper createdAt times (**50%**) (we have those from GHT, those not in GH should be acquired from GH) [Konrad, 2 days] -- implemented downloader, need to implement json parsing after the jsons are downloaded
 
 > How many projects, files, unique hashes, paths, filenames, lifespans, their increase over time, project commits, project timespan, etc.
 > implicit forks (i.e. fork, but not marked as fork)

@@ -142,7 +142,7 @@ namespace dejavu {
         pf.filterFileChanges();
         pf.filterCommits();
         pf.createSymlinks();
-        
+
     }
 
 } // namespace dejavu
