@@ -376,7 +376,7 @@ namespace dejavu {
                             ++emptyProjects;
                             return;
                         }
-                        std::cerr << "Loading project " << user << "/" << repo << std::endl;
+                        //std::cerr << "Loading project " << user << "/" << repo << std::endl;
                         Project * p = CreateProject(user, repo);
                         if (p == nullptr) {
                             ++existingProjects;
@@ -395,9 +395,11 @@ namespace dejavu {
                                 ++emptyProjects;
                             }
                         } catch (char const * e) {
+                            std::cerr << "Error in " << user << "/" << repo << ": " << e << std::endl;
                             std::cout << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << "," << helpers::escapeQuotes(e) << std::endl;
                             ++errorProjects;
                         } catch (std::exception const & e) {
+                            std::cerr << "Error in " << user << "/" << repo << ": " << e.what() << std::endl;
                             std::cout << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << "," << helpers::escapeQuotes(e.what()) << std::endl;
                             ++errorProjects;
                         }
@@ -609,7 +611,9 @@ namespace dejavu {
             Commit * masterCommit = getMasterHead("origin/HEAD");
             if (masterCommit == nullptr)
                 masterCommit = getMasterHead("HEAD -> HEAD");
-            assert(masterCommit != nullptr);
+            // 
+            if (masterCommit == nullptr)
+                throw "No master commit available - likely no branches in the project";
             // now we have master commit, tag all commits visible from master
             std::unordered_set<Commit *> masterCommits;
             std::vector<Commit *> q;
