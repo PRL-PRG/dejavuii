@@ -38,9 +38,15 @@ using namespace dejavu;
  */
 void InitializeCommands() {
     new helpers::Command("help", helpers::Command::PrintHelp, "Displays help information");
+    // these are the commands that make it to our pipeline v2. Each of these commands must be in src/commands as a separate cpp file of the same name as the command and there should be an extended description of the command at the top of the file. 
     // TODO add command to run the downloader Konrad has implemented as a shell script
-    new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    
+    
+
+
+    // These are other commands, legacy stuff, sandboxes, etc. 
+    new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
     new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
