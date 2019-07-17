@@ -402,6 +402,12 @@ namespace dejavu {
                 size_t validProjects = 0;
                 size_t errorProjects = 0;
                 DownloaderTimingsLoader(timings, [&](std::string const & user, std::string const & repo, unsigned commits) {
+                        if (user.empty() || repo.empty()) {
+                            std::cerr << "Error in " << user << "/" << repo << ": Empty user or repo" << std::endl;
+                            std::cout << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << ",\"Empty user or repo\"" << std::endl;
+                            ++errorProjects;
+                            return;
+                        }
                         if (commits == 0) {
                             ++emptyProjects;
                             return;
@@ -548,7 +554,7 @@ namespace dejavu {
         }
 
         inline void Project::loadCommits(std::string const & path) {
-            //std::cerr << "    commits ... ";
+            //std::cerr << "    commits ... " << std::endl;
             std::string filename = getPath(path + "/commit_metadata") + ".csv";
             DownloaderCommitMetadataLoader{filename, [this](std::string const & hash, std::string const & authorEmail, uint64_t authorTime, std::string const & committerEmail, uint64_t committerTime, std::string const & tag) {
                     Commit * c = new Commit(hash, authorEmail, authorTime, committerEmail, committerTime, tag);
@@ -568,6 +574,7 @@ namespace dejavu {
                     c->parents.insert(p);
                     p->children.insert(c);
                 }};
+            //std::cerr << "commit parents... " << std::endl;
             /*            
             std::cerr << "    commit messages ... ";
             filename = getPath(path + "/commit_comments") + ".csv";
@@ -577,7 +584,7 @@ namespace dejavu {
                     c->message = message;
                 }};
             */
-            //std::cerr << "    file changes ... ";
+            //std::cerr << "    file changes ... " << std::endl;
             unsigned validChanges = 0;
             filename = getPath(path + "/commit_file_hashes") + ".csv";
             DownloaderCommitChangesLoader{filename, [& validChanges, this](std::string const & commitHash, std::string const & fileHash, char changeType, std::string const & path, std::string const & path2) {

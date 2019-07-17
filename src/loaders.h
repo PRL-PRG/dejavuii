@@ -445,7 +445,10 @@ namespace dejavu {
     protected:
 
         void row(std::vector<std::string> & row) override {
-            f_(row[1], row[2], std::stoul(row[6]));
+            if (row[1].empty() || row[2].empty())
+                f_(row[1],row[2],0);
+            else
+                f_(row[1], row[2], std::stoul(row[6]));
         }
 
     private:
