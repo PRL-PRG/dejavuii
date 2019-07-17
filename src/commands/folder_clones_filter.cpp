@@ -68,7 +68,7 @@ namespace dejavu {
             }
         }; // Clone Occurence
 
-        class Filter {
+        class FolderClonesFilterer {
         public:
 
             void loadData() {
@@ -189,7 +189,7 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
-        Filter f;
+        FolderClonesFilterer f;
         f.loadData();
         f.mergeIdenticalOriginals();
         f.reindexAndOutput();

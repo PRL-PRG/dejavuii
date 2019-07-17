@@ -20,6 +20,10 @@ namespace dejavu {
      */
     extern helpers::Option<std::string> OutputDir;
 
+    /** File containing the appropriate filter.
+     */
+    extern helpers::Option<std::string> Filter;
+    
     /** Directory where the downloader script dumped its results.
      */
     extern helpers::Option<std::string> DownloaderDir;
@@ -51,5 +55,13 @@ namespace dejavu {
     /** When true, folder clones are considered clones even if they are their own originals, which allows measurement of all clone candidates.
      */
     extern helpers::Option<unsigned> IgnoreFolderOriginals;
+
+    /** Set credentials for basic authentication for anything using the GitHub API.
+     */
+    extern helpers::Option<std::string> GitHubPersonalAccessToken;
+
+    /** A colon-separated list of paths to files containing repository credentials in the form: user/project.
+     */
+    extern helpers::Option<std::string> RepositoryList;
     
 } // dejavu

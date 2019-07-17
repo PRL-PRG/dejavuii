@@ -15,6 +15,7 @@ namespace dejavu {
     helpers::Settings Settings;
     helpers::Option<std::string> DataDir("data", "/data/dejavuii/joined", {"-d"}, false);
     helpers::Option<std::string> OutputDir("outputDir", "", {"-o"}, true);
+    helpers::Option<std::string> Filter("filter","",{"-filter"}, true);
     helpers::Option<std::string> DownloaderDir("downloader", "/array/dejavu/ghgrabber_distributed_take_4", false);
     helpers::Option<std::string> TempDir("tmp", "/tmp", false);
     helpers::Option<unsigned> NumThreads("numThreads", 8, {"-n"}, false);
@@ -23,6 +24,10 @@ namespace dejavu {
     helpers::Option<unsigned> Pct("pct", 5, {"-pct"}, false);
     helpers::Option<std::string> GhtDir("ghtorrent", "", {"-ght"}, true);
     helpers::Option<unsigned> IgnoreFolderOriginals("ignoreFolderOriginals", 0, false);
+    helpers::Option<std::string> GitHubPersonalAccessToken("GitHubPersonalAccessToken", "", {"-auth"}, false);
+    helpers::Option<std::string> RepositoryList("RepositoryList",
+                                                "/data/dejavuii/verified/npm-packages-missing.list",
+                                                {"-repos"}, false);
     
 } // namespace dejavu
 
@@ -37,7 +42,9 @@ void InitializeCommands() {
     new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
     new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
+    new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
+    new helpers::Command("npm-using-projects", NPMUsingProjects, "Determine which projects use node.js");
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes.");
@@ -54,7 +61,7 @@ void InitializeCommands() {
     new helpers::Command("npm-download", NPMDownload, "Downloads project.json files from NPM packages");
     new helpers::Command("npm-github-urls", ExtractRepositoriesFromNPMProjects, "Prepares a list of GitHub URLs for NPM packages from their package.json files");
     new helpers::Command("download-repository-info", DownloadRepositoryInfo, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
-
+    new helpers::Command("extract-repositories-sans-creation-time", ExtractRepositoriesSansCreationTime, "Extracts a list of repositories for which we are missing the createdAt attribute");
 }
 
 
