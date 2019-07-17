@@ -89,7 +89,7 @@ namespace dejavu {
 
 
     
-    void NodeUsingProjects(int argc, char * argv[]) {
+    void NPMUsingProjects(int argc, char * argv[]) {
         Settings.addOption(DataDir);
         Settings.parse(argc, argv);
         Settings.check();
