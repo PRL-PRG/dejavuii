@@ -174,7 +174,7 @@ namespace dejavu {
                 i->second.files.insert(fileId);
             }
 
-            void registerFileChange(Commit * c, std::string const & packageName, std::string const & packageRoot, unsigned fileId, bool original) {
+            bool registerFileChange(Commit * c, std::string const & packageName, std::string const & packageRoot, unsigned fileId, bool original) {
                 auto i = packages_.find(packageRoot);
                 if (i == packages_.end()) {
                     // packageJson id will be 0 for packages created this way
@@ -190,7 +190,12 @@ namespace dejavu {
                     i->second.manualChangesOriginal.insert(Join2Unsigned(c->id, fileId));
                     i->second.changedFilesOriginal.insert(fileId);
                     i->second.changingCommitsOriginal.insert(c->id);
-                } 
+                }
+                //we are interested not in merely original, but in original changes to packages where package.json is present....
+                if (!i->second.versions.empty())
+                    return original;
+                else
+                    return false;
             }
 
             void mergeEmptyPackages(Commit * c, std::unordered_map<std::string, NPMPackage> & into) {
@@ -436,9 +441,8 @@ namespace dejavu {
                                     state.registerFile(pi.root, i.first);
                                 } else {
                                     bool orig = isOriginal(i.second);
-                                    if (orig)
+                                    if (state.registerFileChange(c, pi.name, pi.root, i.first, orig))
                                         manualChanges_ << p->id << "," << c->id << "," << i.first << "," << i.second << std::endl;
-                                    state.registerFileChange(c, pi.name, pi.root, i.first, orig);
                                 }
                             }
                         }
