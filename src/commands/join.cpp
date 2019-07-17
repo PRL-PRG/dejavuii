@@ -10,6 +10,36 @@
 #include "../commit_iterator.h"
 
 
+/** Joins the dataset as obtained from the downloader.
+
+    The downloader parses the git output on a per project basis and creates a few tables for each project, such as its commits, commit parents, file changes, etc. The job of the join stage is to load all this data, perform further cleaning on it, aggregate it in a few files each containing only the unique items of given category and do simple compaction of replacing all often repeating longer strings such as paths or hashes with unique ids.
+
+    An example usage of the script is here:
+
+    ./dejavu join -d=/data/dejavuii/data downloader=/array/dejavu/raw_input_data_never_delete
+
+    The `downloader` argument specifies the folder in which the data from the downloader are located, while the `-d` argument specfies the directory in which the aggregated files will be put. Another argument can specify where to put temporary files, defaults to `/tmp`.
+
+    The downloader produces the downloaded project information in compressed chunks. The `downloader` folder for the join stage can either contain an uncompressed single chunk, or it can contain multiple compressed chunks. In the latter case, the chunks will be one by one extracted to the temp directory and then joined.
+
+    The downloader performs the following cleanup:
+
+    - commits to other than main branch are discarded
+    - submodules are removed from the dataset
+    - only changes to Javascript and package.json files are kept
+    - empty commits (after the above data is discarded) are removed
+
+    The following files are created in the data dir:
+
+    `projects.csv` - contains for each project id its user, repository, and at this time the time of the oldest commit in that repo
+    `commits.csv` - for each commit contains its id, author and committer times
+    `commitParents.csv` - contains pairs of commit and its parent ids (if the commit has multiple parents, multiple rows for the same commit will be present)
+    `commitAuthors.csv` - for each commit, contains the author and committer ids
+    `fileChanges.csv` - for each change recorded, contains a tuple of projectId, commitId, pathId and contentsId
+    `hashes.csv` - maps commit and contents ids to their SHA1 hashes
+    `users.csv` - maps user ids (commit author and committers) to their emails
+    `paths.csv` - maps path ids to the actual paths in the repository
+ */
 
 namespace dejavu {
 
@@ -278,7 +308,7 @@ namespace dejavu {
                     hashes_.open(hashes, std::ios_base::app);
                 } else {
                     hashes_.open(hashes);
-                    hashes_ << "#id, hash" << std::endl;
+                    hashes_ << "hashId, hash" << std::endl;
                     GetOrCreateHashId("0000000000000000000000000000000000000000");
                 }
                 assert(GetOrCreateHashId("0000000000000000000000000000000000000000") == FILE_DELETED);
@@ -290,7 +320,7 @@ namespace dejavu {
                     paths_.open(paths, std::ios_base::app);
                 } else {
                     paths_.open(paths);
-                    paths_ << "#id, path" << std::endl;
+                    paths_ << "pathId, path" << std::endl;
                 }
                 // load previously seen users
                 std::cerr << "Loading translated users..." << std::endl;
@@ -302,7 +332,7 @@ namespace dejavu {
                     users_.open(users, std::ios_base::app);
                 } else {
                     users_.open(users);
-                    users_ << "#id, email" << std::endl;
+                    users_ << "userId, email" << std::endl;
                 }
                 // see if there are any previously completed projects and load the set of these as well
                 std::cerr << "Loading already completed projects..." << std::endl;
@@ -313,23 +343,23 @@ namespace dejavu {
                         }};
                 } else {
                     std::ofstream p(projects);
-                    p << "#id, user, repo, createdAt" << std::endl;
+                    p << "projectId,user,repo,createdAt" << std::endl;
                 }
                 // prepare the fileChanges, commits, commitAuthors and commitMessages file headers if these do not exist
                 std::string filename = DataDir.value() + "/fileChanges.csv";
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
-                    f << "#project id, commit id, path id, contents id" << std::endl;
+                    f << "projectId,commitId,pathId,contentsId" << std::endl;
                 }
                 filename = DataDir.value() + "/commits.csv";
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
-                    f << "#commit id, author time, committer time" << std::endl;
+                    f << "commitId,authorTime,committerTime" << std::endl;
                 }
                 filename = DataDir.value() + "/commitAuthors.csv";
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
-                    f << "#commit id, author id, committer id" << std::endl;
+                    f << "commitId,authorId,committerId" << std::endl;
                 }
                 /*
                 filename = DataDir.value() + "/commitMessages.csv";
@@ -341,7 +371,7 @@ namespace dejavu {
                 filename = DataDir.value() +"/commitParents.csv";
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
-                    f << "#commit id, parent id" << std::endl;
+                    f << "commitId, parentId" << std::endl;
                 }
                 
             }
