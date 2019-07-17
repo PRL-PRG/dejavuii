@@ -308,7 +308,7 @@ namespace dejavu {
                     hashes_.open(hashes, std::ios_base::app);
                 } else {
                     hashes_.open(hashes);
-                    hashes_ << "hashId, hash" << std::endl;
+                    hashes_ << "hashId,hash" << std::endl;
                     GetOrCreateHashId("0000000000000000000000000000000000000000");
                 }
                 assert(GetOrCreateHashId("0000000000000000000000000000000000000000") == FILE_DELETED);
@@ -320,7 +320,7 @@ namespace dejavu {
                     paths_.open(paths, std::ios_base::app);
                 } else {
                     paths_.open(paths);
-                    paths_ << "pathId, path" << std::endl;
+                    paths_ << "pathId,path" << std::endl;
                 }
                 // load previously seen users
                 std::cerr << "Loading translated users..." << std::endl;
@@ -371,7 +371,7 @@ namespace dejavu {
                 filename = DataDir.value() +"/commitParents.csv";
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
-                    f << "commitId, parentId" << std::endl;
+                    f << "commitId,parentId" << std::endl;
                 }
                 
             }
