@@ -516,7 +516,7 @@ namespace dejavu {
         }
 
         inline void Project::loadCommits(std::string const & path) {
-            std::cerr << "    commits ... ";
+            //std::cerr << "    commits ... ";
             std::string filename = getPath(path + "/commit_metadata") + ".csv";
             DownloaderCommitMetadataLoader{filename, [this](std::string const & hash, std::string const & authorEmail, uint64_t authorTime, std::string const & committerEmail, uint64_t committerTime, std::string const & tag) {
                     Commit * c = new Commit(hash, authorEmail, authorTime, committerEmail, committerTime, tag);
@@ -525,8 +525,8 @@ namespace dejavu {
                     if (c->authorTime < this->createdAt)
                         this->createdAt = c->authorTime;
                 }};
-            std::cerr << std::flush;
-            std::cerr << "    commit parents ... ";
+            //std::cerr << std::flush;
+            //std::cerr << "    commit parents ... ";
             filename = getPath(path + "/commit_parents") + ".csv";
             DownloaderCommitParentsLoader{filename, [this](std::string const & commitHash, std::string const & parentHash){
                     assert(commits.find(commitHash) != commits.end());
@@ -545,7 +545,7 @@ namespace dejavu {
                     c->message = message;
                 }};
             */
-            std::cerr << "    file changes ... ";
+            //std::cerr << "    file changes ... ";
             unsigned validChanges = 0;
             filename = getPath(path + "/commit_file_hashes") + ".csv";
             DownloaderCommitChangesLoader{filename, [& validChanges, this](std::string const & commitHash, std::string const & fileHash, char changeType, std::string const & path, std::string const & path2) {
@@ -567,7 +567,7 @@ namespace dejavu {
                         ++validChanges;
                     }
                 }};
-            std::cerr << "    " << validChanges << " of these are changes to valid files" << std::endl;
+            //std::cerr << "    " << validChanges << " of these are changes to valid files" << std::endl;
 
         }
 
@@ -589,22 +589,22 @@ namespace dejavu {
             std::string spath = getPath(path + "/submodule_museum") + "/";
             if (! containsSubmodules_)
                 return;
-            std::cerr << "Removing submodule changes..." << std::flush;
+            //std::cerr << "Removing submodule changes..." << std::flush;
             CommitForwardIterator<Project,Commit,SubmoduleInfo> it(this, [this, spath](Commit * c, SubmoduleInfo & submodules) {
                     submodules.updateWith(c, spath);
                     return true;
                 });
-            std::cerr << "Total commits: " << commits.size() << std::endl;
+            //std::cerr << "Total commits: " << commits.size() << std::endl;
             /*
             for (auto i : commits)
                 if (i.second->numParentCommits() == 0)
                     it.addInitialCommit(i.second);
             */
-            it.process();
+             it.process();
         }
         
         void Project::filterMasterBranch() {
-            std::cerr << "    filtering master branch only ... ";
+            //std::cerr << "    filtering master branch only ... ";
             unsigned gitmodulesId = ProjectAnalyzer::GetOrCreatePathId(".gitmodules");
             Commit * masterCommit = getMasterHead("origin/HEAD");
             if (masterCommit == nullptr)
@@ -635,6 +635,7 @@ namespace dejavu {
             for (auto i = commits.begin(), e = commits.end(); i != e; ) {
                 Commit * c = i->second;
                 if (masterCommits.find(c) == masterCommits.end()) {
+                    commits_.erase(c);
                     c->detachFromHierarchy();
                     delete c;
                     i = commits.erase(i);
@@ -642,11 +643,11 @@ namespace dejavu {
                     ++i;
                 }
             }
-            std::cerr << commits.size() << " commits left" << std::endl;
+            //std::cerr << commits.size() << " commits left" << std::endl;
         }
 
         void Project::removeEmptyCommits() {
-            std::cerr << "    removing empty commits ... ";
+            //std::cerr << "    removing empty commits ... ";
             std::vector<std::string> toBeDeleted;
             for (auto i : commits) {
                 Commit * c = i.second;
@@ -656,11 +657,11 @@ namespace dejavu {
                     delete c;
                 }
             }
-            std::cerr << toBeDeleted.size() << " empty commits found, ";
+            //std::cerr << toBeDeleted.size() << " empty commits found, ";
             for (std::string const & c : toBeDeleted) {
                 commits.erase(c);
             }
-            std::cerr << commits.size() << " commits left" << std::endl;
+            //std::cerr << commits.size() << " commits left" << std::endl;
         }
 
         /** Writes the project to the output files.
