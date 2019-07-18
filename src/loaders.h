@@ -445,10 +445,17 @@ namespace dejavu {
     protected:
 
         void row(std::vector<std::string> & row) override {
-            if (row[1].empty() || row[2].empty())
+            if (row.size() < 7) {
+                f_("", STR(row[0] << " : not enough columns"), 0);
+            } else if (row[1].empty() || row[2].empty()) {
                 f_(row[1],row[2],0);
-            else
-                f_(row[1], row[2], std::stoul(row[6]));
+            } else {
+                try {
+                    f_(row[1], row[2], std::stoul(row[6]));
+                } catch (...) {
+                    f_("", STR(row[0] << " : error when parsing inputs"), 0);
+                }
+            }
         }
 
     private:
