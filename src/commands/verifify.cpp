@@ -199,7 +199,7 @@ namespace dejavu {
                 {
                     std::cerr << "Writing projects..." << std::endl;
                     std::ofstream f(OutputDir.value() + "/projects.csv");
-                    f << "#projectId,user,repo,createdAt" << std::endl;
+                    f << "projectId,user,repo,createdAt" << std::endl;
                     for (auto i : projects_) {
                         if (i == nullptr)
                             continue;
@@ -209,7 +209,7 @@ namespace dejavu {
                 {
                     std::cerr << "Writing commits..." << std::endl;
                     std::ofstream f(OutputDir.value() + "/commits.csv");
-                    f << "#commitId,authorTime,committerTime" << std::endl;
+                    f << "commitId,authorTime,committerTime" << std::endl;
                     for (auto i : commits_) {
                         if (i == nullptr)
                             continue;
@@ -221,7 +221,7 @@ namespace dejavu {
                 {
                     std::cerr << "Writing commit parents..." << std::endl;
                     std::ofstream f(OutputDir.value() + "/commitParents.csv");
-                    f << "#commitId,parentId" << std::endl;
+                    f << "commitId,parentId" << std::endl;
                     for (Commit * c : commits_) {
                         if (c == nullptr)
                             continue;
@@ -234,7 +234,7 @@ namespace dejavu {
                 {
                     std::cerr << "Writing file changes..." << std::endl;
                     std::ofstream f(OutputDir.value() + "/fileChanges.csv");
-                    f << "#projectId,commitId,pathId,contentsId" << std::endl;
+                    f << "projectId,commitId,pathId,contentsId" << std::endl;
                     for (Project * p : projects_) {
                         if (p == nullptr)
                             continue;
@@ -252,20 +252,20 @@ namespace dejavu {
                 std::cerr << "Writing project structure errors..." << std::endl;
                 {
                     std::ofstream f(DataDir.value() + "/projects_structureErrors.csv");
-                    f << "#projecdId" << std::endl;
+                    f << "projecdId" << std::endl;
                     for (Project * p : failedStructure_)
                         f << p->id << std::endl;
                 }
                 std::cerr << "Writing commit timings errors..." << std::endl;
                 {
                     std::ofstream f(DataDir.value() + "/projects_timingsErrors.csv");
-                    f << "#projecdId" << std::endl;
+                    f << "projecdId" << std::endl;
                     for (Project * p : failedTimings_)
                         f << p->id << std::endl;
                 }
                 {
                     std::ofstream f(DataDir.value() + "/commits_timingsErrors.csv");
-                    f << "#commitId" << std::endl;
+                    f << "commitId" << std::endl;
                     for (Commit * c : commits_) {
                         if (c == nullptr || c->valid)
                             continue;
