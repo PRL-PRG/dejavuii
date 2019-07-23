@@ -112,4 +112,10 @@ namespace dejavu {
      *
      */
     void ExtractRepositoriesSansCreationTime(int argc, char * argv[]);
+
+
+
+    /** Downloads contents of actual files.
+     */
+    void DownloadContents(int argc, char * argv[]);
 } // namespace dejavu

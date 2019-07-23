@@ -14,6 +14,7 @@ namespace dejavu {
 
     helpers::Settings Settings;
     helpers::Option<std::string> DataDir("data", "/data/dejavuii/joined", {"-d"}, false);
+    helpers::Option<std::string> Input("input", "", {"-i"}, true);
     helpers::Option<std::string> OutputDir("outputDir", "", {"-o"}, true);
     helpers::Option<std::string> Filter("filter","",{"-filter"}, true);
     helpers::Option<std::string> DownloaderDir("downloader", "/array/dejavu/ghgrabber_distributed_take_4", false);
@@ -46,6 +47,10 @@ void InitializeCommands() {
     new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
     new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");
     new helpers::Command("npm-using-projects", NPMUsingProjects, "Determine which projects use node.js");
+    new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
+    new helpers::Command("download-contents", DownloadContents, "Downloads contents of selected files.");
+
+
     
 
     // These are other commands, legacy stuff, sandboxes, etc.
@@ -53,7 +58,6 @@ void InitializeCommands() {
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes."); // TODO should be deleted[<0;160;44M]
     new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
-    new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");

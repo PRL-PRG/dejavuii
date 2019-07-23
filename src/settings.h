@@ -16,6 +16,10 @@ namespace dejavu {
      */
     extern helpers::Option<std::string> DataDir;
 
+    /** Generic argument for inputs.
+     */
+    extern helpers::Option<std::string> Input;
+
     /** Generic directory for outputs.
      */
     extern helpers::Option<std::string> OutputDir;
