@@ -1,0 +1,46 @@
+---
+title: "Dejavu II - npm filter"
+output: html_notebook
+---
+
+Previous : npm-summary
+Next: 
+
+Executed at revision `30bca23ae16aa6c504ec1b0997b2f2b762f0c826`:
+
+```
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu npm-filter -d=/data/dejavuii/data-verified -o=/data/dejavuii/data-nonpm
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Filtering paths...
+    303285295 total paths read
+    118507844 retained paths
+Loading projects ...
+    3424545 total projects read
+Loading commits ...
+    44829020 total commits read
+Loading commit parents ...
+    45484340 parent records.
+Loading file changes ...
+    1749740633 total changes read
+    391656630 changes retained
+Removing empty commits...
+    93550 removed commits
+Writing projects...
+    3405455 projects written.
+Writing commits and commit parents...
+    44735470 commits written
+    45387383 parent records writtem
+Writing file changes
+    391656630 records written
+Filtering paths...
+    303285295 paths read
+    118507844 paths retained
+Creating symlinks...
+KTHXBYE!
+
+real    77m23.970s
+user    48m31.428s
+sys     28m49.825s
+```
+
+This is a reasonable reduction, we have `23GB` of data left as opposed to `82GB` original data (+ `13GB` hashes file which was not minified)

@@ -10,7 +10,7 @@ source("helpers.R")
 
 
 Previous step: Downloader
-Next step: npm-summary
+Next step: verify
 
 The join on all chunks (original Shabbir's projects redownloaded, missing projects from ghtorrent and all NPM packages with github repos), i.e. total of `86` files and `198GB` of compressed data was joined using the following command (at commit `8c71537d4bacfccc801b2ff565009506858865f4`):
 
