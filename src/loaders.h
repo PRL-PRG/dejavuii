@@ -159,7 +159,7 @@ namespace dejavu {
         }
         ProjectLoader(RowHandler f):
             f_(f) {
-            readFile(DataDir.value() + "/projectsFixed.csv");
+            readFile(DataDir.value() + "/projects.csv");
         }
     protected:
         void row(std::vector<std::string> & row) override {

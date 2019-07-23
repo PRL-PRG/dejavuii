@@ -41,11 +41,14 @@ void InitializeCommands() {
     // these are the commands that make it to our pipeline v2. Each of these commands must be in src/commands as a separate cpp file of the same name as the command and there should be an extended description of the command at the top of the file. 
     // TODO add command to run the downloader Konrad has implemented as a shell script
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
     
     
 
 
-    // These are other commands, legacy stuff, sandboxes, etc. 
+    // These are other commands, legacy stuff, sandboxes, etc.
+    
+    new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes."); // TODO should be deleted[<0;160;44M]
     new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
     new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
@@ -53,7 +56,6 @@ void InitializeCommands() {
     new helpers::Command("npm-using-projects", NPMUsingProjects, "Determine which projects use node.js");
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
-    new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes.");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
     new helpers::Command("find-folder-originals", FindFolderOriginals, "Finds folder originals for previously detected clone candidates");
     new helpers::Command("filter-folder-clones", FolderClonesFilter, "Filters folder clones so that different subsets of same original use same clone id");
@@ -63,7 +65,6 @@ void InitializeCommands() {
     new helpers::Command("stats", Stats, "Calculates interesting stats");
     new helpers::Command("detect-file-clones", DetectFileClones, "Detects file clones across all projects and find their originals");
     new helpers::Command("extract-js-projects", ExtractJSProjects, "Extracts JS projects from a GHTorrent projects.csv file which are not deleted and splits them into forked and non-forked.");
-    new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
     new helpers::Command("npm-download", NPMDownload, "Downloads project.json files from NPM packages");
     new helpers::Command("npm-github-urls", ExtractRepositoriesFromNPMProjects, "Prepares a list of GitHub URLs for NPM packages from their package.json files");
     new helpers::Command("download-repository-info", DownloadRepositoryInfo, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
