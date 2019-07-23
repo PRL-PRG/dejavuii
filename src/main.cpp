@@ -41,10 +41,12 @@ void InitializeCommands() {
     // these are the commands that make it to our pipeline v2. Each of these commands must be in src/commands as a separate cpp file of the same name as the command and there should be an extended description of the command at the top of the file. 
     // TODO add command to run the downloader Konrad has implemented as a shell script
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
+    // TODO Here we should patch the project's createdAt times, but we do not have the data yet, so we are working on later steps for now
     new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
+    new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");
+    new helpers::Command("npm-using-projects", NPMUsingProjects, "Determine which projects use node.js");
     
-    
-
 
     // These are other commands, legacy stuff, sandboxes, etc.
     
@@ -53,15 +55,12 @@ void InitializeCommands() {
     new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
     new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
-    new helpers::Command("npm-using-projects", NPMUsingProjects, "Determine which projects use node.js");
-    new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
     new helpers::Command("find-folder-originals", FindFolderOriginals, "Finds folder originals for previously detected clone candidates");
     new helpers::Command("filter-folder-clones", FolderClonesFilter, "Filters folder clones so that different subsets of same original use same clone id");
     new helpers::Command("folder-clones-history", FolderCloneHistoryAnalysis, "Detects folder clones across all projects and find their originals");
     new helpers::Command("clones-over-time", ClonesOverTime, "Aggregates clone stats over time");
-    new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");
     new helpers::Command("stats", Stats, "Calculates interesting stats");
     new helpers::Command("detect-file-clones", DetectFileClones, "Detects file clones across all projects and find their originals");
     new helpers::Command("extract-js-projects", ExtractJSProjects, "Extracts JS projects from a GHTorrent projects.csv file which are not deleted and splits them into forked and non-forked.");
