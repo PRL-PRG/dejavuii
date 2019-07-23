@@ -5,9 +5,37 @@ output:
     df_print: kable
 ---
 
+Previous step: verify
+Next step: npm-filter
+
 ```{r,echo=F}
-DROOT = "/data/dejavuii/full-verified"
+DROOT = "/data/dejavuii/data-verified"
 source("helpers.R")
+```
+
+At git commit `30bca23ae16aa6c504ec1b0997b2f2b762f0c826`:
+
+```
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu npm-summary -d=/data/dejavuii/data-verified            
+OH HAI CAN I HAZ DEJAVU AGAINZ?                                                                         
+Loading paths...                                                                                        
+    303285295 total paths read                                                                          
+    184777451 retained paths                                                                            
+Loading projects ...                                                                                    
+    3424545 total projects read                                                                         
+Loading commits ...                                                                                     
+    44829020 total commits read                                                                         
+Loading commit parents ...                                                                              
+Loading file changes ...                                                                                
+    1749740633 total changes read                                                                       
+    118437459 unique files                                                                              
+Calculating project summaries...                                                                        
+Calculating project NPM details                                                                         
+KTHXBYE!00                                                                                              
+                                                                                                        
+real    241m19.192s                                                                                     
+user    224m10.276s                                                                                     
+sys     17m7.413s           
 ```
 
 This notebook shows the analysis of npm modules created by the `npm-summary` command and its friends. 
@@ -112,10 +140,11 @@ DT::datatable(x %>% arrange(desc(numVersions)) %>% head(100) %>% mutate(url = A(
 
 the vforge-atom, which is almost all of the table is someone's private configuration for atom, where he archives the packages his atom uses apparently. 
 
-The first one is a repo that includes node_modules folder my mistake I assume, that was reasonably actively developed over the time. A few other packages were also updated there, which seems reasonable:
+The second one is a repo that includes node_modules folder my mistake I assume, that was reasonably actively developed over the time. A few other packages were also updated there, which seems reasonable:
 
 ```{r}
-DT::datatable(x %>% filter(projectId == 816834) %>% arrange(desc(numVersions)) %>% head(100) %>% mutate(url = A(projectName(projectId), projectUrl(projectId))) %>% select(url,path,name, numVersions), escape = F)
+DT::datatable(x %>% filter(projectId == 1097718) %>% arrange(desc(numVersions)) %>% head(100) %>% mutate(url = A(projectName(projectId), projectUrl(projectId))) %>% select(url,path,name, numVersions), escape = F) 
+DT::datatable(x %>% filter(projectId == 2768321) %>% arrange(desc(numVersions)) %>% head(100) %>% mutate(url = A(projectName(projectId), projectUrl(projectId))) %>% select(url,path,name, numVersions), escape = F) 
 ```
 
 Now that we know most of the packages are never touched, let's actually see those that are touched manually:
@@ -138,35 +167,7 @@ manualChanges = readDataset("npm-summary-manualChanges.csv")
 manualChangesSample = manualChanges %>% sample_n(20)
 ```
 
-Since we analyze these manually in the later stage, we must freeze them in time, which was done by running:
-
-    cat(paste0(deparse(manualChangesSample), collapse = ""))
-    
-And we now overwrite the manualChangesSample with the frozed values:
-
-```{r}
-manualChangesSample = structure(list(projectId = c(534843, 100530, 194040, 63301, 999740, 1442666, 1375196, 2163150, 1084459, 2236645, 383922, 1093779, 2219509, 1375196, 2132233, 424899, 63301, 1289792, 1375196, 1339568), commitId = c(54248950, 12287640, 21689997, 8354893, 94571253, 129032653, 123895794, 183584648, 101238459, 188580207, 39197460, 101881879, 187372597, 123895831, 181216405, 42745968, 8354815, 117808242, 123895451, 121348581), pathId = c(6844, 15406567, 18245997, 10307395, 15616766, 144612527, 138472513, 56722, 46126919, 206877063, 46730642, 98917, 205088652, 138472490, 377934, 51027504, 10307427, 10307864, 138472487, 8939783), contentsId = c(54248239, 12285900, 21689931, 8353181, 94571078, 129032459, 123892740, 183584618, 101237635, 188579798, 39197378, 101881834, 187370854, 123892430, 181216377, 42745932, 8352393, 117808103, 123892316, 121348106)), class = c("spec_tbl_df", "tbl_df", "tbl", "data.frame"), row.names = c(NA, -20L), spec = structure(list(cols = list(    projectId = structure(list(), class = c("collector_double",     "collector")), commitId = structure(list(), class = c("collector_double",     "collector")), pathId = structure(list(), class = c("collector_double",     "collector")), contentsId = structure(list(), class = c("collector_double",     "collector"))), default = structure(list(), class = c("collector_guess", "collector")), skip = 1), class = "col_spec"))
-```
-
-Add columns with extra information that allows us to link to github directly:
-
-```{r}
-manualChangesSample$projectName = projectName(manualChangesSample$projectId)
-manualChangesSample$projectUrl = projectUrl(manualChangesSample$projectId)
-manualChangesSample$commitHash = objectHashes(manualChangesSample$commitId)
-manualChangesSample$path = filePaths(manualChangesSample$pathId)
-```
-
-And actually look at what we have produced:
-```{r}
-x = data.frame(
-    project = A(manualChangesSample$projectName, manualChangesSample$projectUrl),
-    file = A(manualChangesSample$path,commitUrl(manualChangesSample$projectUrl, manualChangesSample$commitHash))
-)
-DT::datatable(x, escape = F)
-```
-
-Here is the table of manual findigs:
+Here is the table of manual findigs (this was manually done on randomly selected projects and therefore cannot be reproduced automatically):
 
 row|project|file|Comments
 ---|-------|----|--------
