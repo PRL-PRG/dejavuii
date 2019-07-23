@@ -64,6 +64,14 @@ echo "Number of threads      : $NUM_THREADS"
 echo "Delete intermediates   : $DELETE_INTERMEDIATES"
 echo "Force completed stages : $FORCE_STAGES"
 echo "Dejavu II executable   : $DEJAVU"
+echo "Commit                 : $(git rev-parse HEAD)"
+
+if [ "$(git status --short)" == "" ] ; then 
+    echo "Pending changes        : none"
+else
+    echo "Pending changes        : detected !!!"
+fi
+
 echo ""
 
 # A simple function that checks whether given stage should be executed or not,
