@@ -15,13 +15,14 @@ namespace helpers {
     class BaseOption {
     public:
         std::string const name;
-        bool const required;
+        bool required;
 
         /** Returns true if the option was supplied by the user.
          */
         bool isSpecified() const {
             return specified_;
         }
+
         
         virtual void print(std::ostream & s) {
             s << name << (required ? "*" : "") << (specified_ ? "[specified]" : "") << " = ";

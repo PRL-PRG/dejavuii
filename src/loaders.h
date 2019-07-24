@@ -39,6 +39,25 @@ namespace dejavu {
         
     }; // dejavuii::BaseLoader
 
+    class IdLoader : public BaseLoader {
+    public:
+        typedef std::function<void(unsigned)> RowHandler;
+
+        IdLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+    protected:
+
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 1);
+            f_(std::stoul(row[0]));
+        }
+
+    private:
+        RowHandler f_;
+        
+    }; 
 
     class StringRowLoader : public BaseLoader {
     public:

@@ -3,6 +3,91 @@
 
 #include "../loaders.h"
 
+namespace dejavu {
+
+    namespace {
+
+        class Project {
+        public:
+            unsigned id;
+            std::string user;
+            std::string repo;
+            uint64_t createdAt;
+            bool patched;
+        };
+
+        class Patcher {
+        public:
+            
+            void loadData() {
+                std::cerr << "Loading projects ... " << std::endl;
+                ProjectLoader{[this](unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt){
+                        Project * p = new Project{id, user, repo, createdAt, false};
+                        projects_.insert(std::make_pair(id, p));
+                        projectsByName_.insert(std::make_pair(user + "/" + repo, p));
+                    }};
+                std::cerr << "    " << projects_.size() << " projects loaded" << std::endl;
+                {
+                    size_t patched = 0;
+                    std::cerr << "Loading patch status..." << std::endl;
+                    std::string filename = DataDir.value() + "/patchedProjects.csv";
+                    if (helpers::FileExists(filename)) {
+                        IdLoader{filename, [&, this](unsigned projectId) {
+                                auto i = projects_.find(projectId);
+                                assert(i != projects_.end());
+                                assert(i->second->patched == false);
+                                i->second->patched = true;
+                                ++patched;
+                            }};
+                    }
+                    std::cerr << "    " << patched << " already patched projects" << std::endl;
+                }
+            }
+
+            void patchFromGhTorrent() {
+
+                
+            }
+
+            void patchFromGithubMetadata() {
+                
+            }
+
+        private:
+            std::unordered_map<unsigned, Project *> projects_;
+            std::unordered_map<std::string, Project *> projectsByName_;
+
+
+            
+        }; 
+
+    } // anonymous namespace
+
+
+    void PatchProjectsCreatedAt(int argc, char * argv[]) {
+        GhtDir.required = false;
+        Input.required = false;
+        Settings.addOption(DataDir);
+        Settings.addOption(Input);
+        Settings.addOption(GhtDir);
+        Settings.parse(argc, argv);
+        Settings.check();
+
+        Patcher p;
+        p.loadData();
+        
+    }
+    
+} // namespace dejavu
+
+#ifdef HAHA
+
+
+#include "../loaders.h"
+#include "../commands.h"
+
+#include "../loaders.h"
+
 
 namespace dejavu {
 
@@ -179,3 +264,4 @@ namespace dejavu {
 } // namespace dejavu
 
 
+#endif

@@ -45,7 +45,7 @@ void InitializeCommands() {
     // TODO add command to run the downloader Konrad has implemented as a shell script
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
 
-    // TODO change this so that instead of removing the projects with untimely commits, we actually update the commit times to be nice
+    new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
     
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     // TODO Here we should patch the project's createdAt times, but we do not have the data yet, so we are working on later steps for now
@@ -63,7 +63,6 @@ void InitializeCommands() {
     
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes."); // TODO should be deleted[<0;160;44M]
     new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
-    new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
     new helpers::Command("find-folder-originals", FindFolderOriginals, "Finds folder originals for previously detected clone candidates");

@@ -26,7 +26,6 @@ namespace dejavu {
      */
     void PatchProjectsCreatedAt(int argc, char * argv[]);
 
-
     /** Finds which projects are using node.js by looking whether they have package.json file. 
      */
     void NPMUsingProjects(int argc, char * argv[]);
