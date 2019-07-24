@@ -33,6 +33,8 @@ namespace dejavu {
 } // namespace dejavu
 
 
+// TODO how much data we need to answer and with what accuracy
+
 using namespace dejavu;
 
 /** Initializes the commands available in the tool.
@@ -42,22 +44,25 @@ void InitializeCommands() {
     // these are the commands that make it to our pipeline v2. Each of these commands must be in src/commands as a separate cpp file of the same name as the command and there should be an extended description of the command at the top of the file. 
     // TODO add command to run the downloader Konrad has implemented as a shell script
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+
+    // TODO change this so that instead of removing the projects with untimely commits, we actually update the commit times to be nice
+    
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     // TODO Here we should patch the project's createdAt times, but we do not have the data yet, so we are working on later steps for now
     new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
     new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");
     new helpers::Command("npm-using-projects", NPMUsingProjects, "Determine which projects use node.js");
+    // TODO check that there is a prefix of commits that is shared, not just a commit
+    new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
     new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
     new helpers::Command("download-contents", DownloadContents, "Downloads contents of selected files.");
 
 
     
-
     // These are other commands, legacy stuff, sandboxes, etc.
     
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes."); // TODO should be deleted[<0;160;44M]
     new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
-    new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
