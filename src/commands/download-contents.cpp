@@ -186,13 +186,8 @@ namespace dejavu {
             std::mutex m_;
             
         }; // ContentsDownloader
-
-
-
         
     } // anonymous namespace
-    
-
 
     void DownloadContents(int argc, char * argv[]) {
         Settings.addOption(DataDir);
@@ -202,14 +197,10 @@ namespace dejavu {
         Settings.parse(argc, argv);
         Settings.check();
 
-
         helpers::EnsurePath(OutputDir.value());
         ContentsDownloader cd;
         cd.loadData();
         cd.download();
-
-
-        
     }
     
 } // namespace dejavu

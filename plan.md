@@ -10,9 +10,9 @@ The paper's main theme is harmful effects of cloning and ways these can be mitig
 
 - have our original sources and ghtorrent non-forks **(100%)** [Konrad, 0 days]
 - make sure we have npm-packages if they come from github repos **(50%)** [Konrad, 4 days] -- implemented in 1.5 days, now downloading the repos, it'll probably take a week?
-- joining projects, check that the projects actually differ in the join phase [Peta, 1 day] 
+- joining projects, check that the projects actually differ in the join phase **100%** [Peta, 1 day] 
 - over time summary (**75%**) - mostly done, but we might want different things, which is why 75% only [Peta, 3 days]
-- implicit forks detection & dataset cleaning wrt this (**0%**) [Peta, 2 days]
+- implicit forks detection & dataset cleaning wrt this (**100%**) [Peta, 2 days]
 - proper createdAt times (**50%**) (we have those from GHT, those not in GH should be acquired from GH) [Konrad, 2 days] -- implemented downloader, need to implement json parsing after the jsons are downloaded
 
 > How many projects, files, unique hashes, paths, filenames, lifespans, their increase over time, project commits, project timespan, etc.
@@ -27,7 +27,7 @@ The paper's main theme is harmful effects of cloning and ways these can be mitig
 3) determine project categories (since different categories can have different usage & cloning patterns)
 
 - cluster projects by some metrics (such as simple % of clones), or linear model  (**0%**) [Konrad, Jan, ????]
-- node using projects, non-node using projects, npm packages [Peta, pending NPM packages download, 0.5 days, pending npm packages download]
+- node using projects, non-node using projects, **50%** npm packages [Peta, pending NPM packages download, 0.5 days, pending npm packages download]
 - determine dimensions for this: prepare data for project % stats (**90%**) [Peta, 1 day, pending the above] 
 
 > summaries of the categories and visualization of the split
