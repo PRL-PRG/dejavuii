@@ -7,10 +7,19 @@
 #include "../loaders.h"
 #include "../commands.h"
 
+/** Downloads specified files and stores them in the output directory.
+
+    The files are downloaded directly off github's website where the raw form of the files is available. This does scale, but not superbly well. As a result, this is probably not the fastest stage:)
+
+    Files to be downloaded are specified in the same way a file change record is, i.e. a tuple of project, commit, path and contents id. This allows the downloader to determine the URL as well as to determine whether the requested file has already been downloaded or not, based on the contents hash.
+
+    Downloaded files are stored in the output folder based on their contents id in folders that are the contents id modulo 1000 so that we do not have everything in a single folder which makes some fs tools rather slow. 
+
+ */
+
 namespace dejavu {
 
     namespace {
-
 
         class FileSpec {
         public:
@@ -19,7 +28,6 @@ namespace dejavu {
             unsigned pathId;
             unsigned contentsId;
         };
-
         
         class ContentsDownloader {
         public:

@@ -160,3 +160,12 @@ update_stage_input "no-npm"
 
 execute_stage "npm-using-projects" "npm-using-projects -d=$STAGE_INPUT"
 
+# Downloads the contents of the package.json files used by the npm using
+# projects calculated in the previous step.
+#
+# Note that this stage takes a long, a very long time if the files have to be
+# really downloaded (i.e. they have not been downloaded previously)
+
+# TODO remove the touch to enable the step
+touch "download-project-package-jsons.out"
+execute_stage "download-project-package-jsons" "download-contents -d=$STAGE_INPUT -o=$WORKING_DIR/contents -i=$STAGE_INPUT/projectPackageJsons.csv -n=$NUM_THREADS"
