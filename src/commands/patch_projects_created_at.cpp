@@ -3,6 +3,8 @@
 
 #include "../loaders.h"
 
+#include "helpers/json.hpp"
+
 namespace dejavu {
 
     namespace {
@@ -93,6 +95,16 @@ namespace dejavu {
             }
 
             void patchFromGithubMetadata() {
+                for (auto i : projects_) {
+                    Project * p = i.second;
+                    std::string path = STR(Input.value() << "/" << (p->id % 1000) << "/" << p->id);
+                    if (helpers::FileExists(path)) {
+                        nlohmann::json json;
+                        std::ifstream (path) >> json;
+                        std:: cout << json["created-at"] << std::endl;
+                        exit(-1);
+                    } 
+                }
                 
             }
 
@@ -320,6 +332,7 @@ namespace dejavu {
     }
 
     void PatchProjectsCreatedAt(int argc, char * argv []) {
+        Settings.addOption(DataDir);
         Settings.addOption(DataDir);
         Settings.addOption(GhtDir);
         Settings.parse(argc, argv);
