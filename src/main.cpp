@@ -58,6 +58,9 @@ void InitializeCommands() {
     new helpers::Command("download-contents", DownloadContents, "Downloads contents of selected files.");
 
 
+
+    // temp stuff
+    new helpers::Command("translate-metadata", tmp_TranslateDownloadedMetadata, "Translates downloaded metadata into a more pleasing format");
     
     // These are other commands, legacy stuff, sandboxes, etc.
     

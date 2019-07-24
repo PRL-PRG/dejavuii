@@ -45,11 +45,78 @@ namespace dejavu {
             }
 
             void patchFromGhTorrent() {
-
+                if (!GhtDir.isSpecified())
+                    return;
+                std::cerr << "Patching from ghtorrent data..." << std::endl;
+                size_t total = 0;
+                size_t patched = 0;
+                GHTorrentProjectsLoader(GhtDir.value() + "/projects.csv", [&,this](unsigned id,
+                                                 std::string const & url,
+                                                 unsigned ownerId,
+                                                 std::string const & name,
+                                                 std::string const & description,
+                                                 std::string const & language,
+                                                 uint64_t createdAt,
+                                                 unsigned forkedFrom,
+                                                 uint64_t deleted,
+                                                 uint64_t updatedAt){
+                        // first get the user and repo strings from the url and check if we have the project in our database
+                        ++total;
+                        std::string index;
+                        if (url.find("https://api.github.com/repos/") == 0) {
+                            index = url.substr(29);
+                        } else if (url.find("https://api./repos/") == 0) {
+                            index = url.substr(19);
+                        } else if (url == "\\N") {
+                            return; // skip projects w/o urls
+                        } else {
+                            std::cerr << "Invalid url format: " << url << std::endl;
+                            return;
+                        }
+                        auto i = projectsByName_.find(index);
+                        if (i == projectsByName_.end())
+                            return;
+                        Project * p = i->second;
+                        // now update createdAt
+                        ++patched;
+                        if (p->patched) {
+                            if (p->createdAt < createdAt)
+                                p->createdAt = createdAt;
+                        } else {
+                            p->createdAt = createdAt;
+                            p->patched = true;
+                        }
+                    });
+                std::cerr << "    " << total << " projects in GHTorrent" << std::endl;
+                std::cerr << "    " << patched << " newly patched projects" << std::endl;
                 
             }
 
             void patchFromGithubMetadata() {
+                
+            }
+
+            void output() {
+                std::ofstream f(DataDir.value() + "/projects.csv");
+                std::ofstream pp(DataDir.value() + "/patchedProjects.csv");
+                std::ofstream up(DataDir.value() + "/unpatchedProjects.csv");
+                f << "projectId,user,repo,createdAt" << std::endl;
+                pp << "projectId" << std::endl;
+                up << "projectId" << std::endl;
+                size_t patched = 0;
+                for (auto i : projects_) {
+                    Project * p = i.second;
+                    f << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << "," << p->createdAt << std::endl;
+                    if (p->patched) {
+                        ++patched;
+                        pp << p->id << std::endl;
+                    } else {
+                        up << p->id << std::endl;
+                    }
+                }
+                std::cout << "    " << patched << " patched projects after the stage" << std::endl;
+
+
                 
             }
 
@@ -75,6 +142,9 @@ namespace dejavu {
 
         Patcher p;
         p.loadData();
+        p.patchFromGhTorrent();
+        p.patchFromGithubMetadata();
+        p.output();
         
     }
     

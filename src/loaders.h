@@ -23,9 +23,8 @@ namespace dejavu {
 
     class BaseLoader : public helpers::CSVReader {
     public:
-        void readFile(std::string const & filename) {
-            // we always have headers
-            parse(filename, true);
+        void readFile(std::string const & filename, bool headers = true) {
+            parse(filename, headers);
             onDone(numRows());
         }
 
@@ -63,9 +62,9 @@ namespace dejavu {
     public:
         typedef std::function<void(std::vector<std::string> const &)> RowHandler;
 
-        StringRowLoader(std::string const & filename, RowHandler f):
+        StringRowLoader(std::string const & filename, RowHandler f, bool headers = true):
             f_(f) {
-            readFile(filename);
+            readFile(filename, headers);
         }
     protected:
 

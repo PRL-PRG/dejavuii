@@ -117,4 +117,9 @@ namespace dejavu {
     /** Downloads contents of actual files.
      */
     void DownloadContents(int argc, char * argv[]);
+
+
+
+
+    void tmp_TranslateDownloadedMetadata(int argc, char * argv[]);
 } // namespace dejavu
