@@ -41,6 +41,30 @@ namespace dejavu {
                 }
                 return true;
             }
+
+            /** Checks all children of the commit, if we find a children that is older (i.e. lower time), then we change commit time accordingly.
+              */
+            unsigned fixTimes() {
+                unsigned result = 0;
+                uint64_t minTime1 = time;
+                uint64_t minTime2 = time2;
+                for (Commit * c : children) {
+                    if (c->time < minTime1)
+                        minTime1 = c->time;
+                    if (c->time2 < minTime2)
+                        minTime2 = c->time2;
+                }
+                if (minTime1 != time || minTime2 != time2) {
+                    result = 1;
+                    time = minTime1;
+                    time2 = minTime2;
+                    // and update all parents
+                    for (Commit * p : parents)
+                        result += p->fixTimes();
+                    result = 1;
+                }
+                return result;
+            }
             
         };
 
@@ -155,6 +179,21 @@ namespace dejavu {
                 std::cerr << "    TOTAL: " << failedStructure_.size() << " failed projects" << std::endl;
             }
 
+            /** Instead of verifying that commit times make sense, we now attempt to fix them.
+             */
+            void fixCommitTimings() {
+                std::cerr << "Fixing commit times..." << std::endl;
+                size_t updates = 0;
+                for (Commit * c : commits_) {
+                    if (c == nullptr)
+                        continue;
+                    updates += c->fixTimes();
+                    // taint all
+                    c->tainted = true;
+                }
+                std::cerr << "    "  << updates << " updates to commit times made" << std::endl;
+            }
+
             void verifyCommitTimings() {
                 size_t failed = 0;
                 std::cerr << "Verifying commit timings ..." << std::endl;
@@ -189,9 +228,7 @@ namespace dejavu {
                         assert(c->valid);
                         c->tainted = true;
                     }
-                        
                 }
-                    
             }
 
             void outputResults() {
@@ -332,6 +369,7 @@ namespace dejavu {
         Verifier v;
         v.loadData();
         v.verifyProjectStructure();
+        v.fixCommitTimings();
         v.verifyCommitTimings();
         v.outputResults();
         v.outputErrors();
