@@ -4,6 +4,11 @@
 #include "../loaders.h"
 
 /** Takes the downloaded github metadata as reported by Konrad's downloader v1 and outputs them in the v2 format.
+
+
+    // an error, this is not a valid project in our data it seems
+    Project sghosh79/rolodex not found
+
  */
 
 namespace dejavu {
@@ -29,7 +34,7 @@ namespace dejavu {
 
             void translate() {
                 std::cerr << "Translating downloaded metadata..." << std::endl;
-                size_t total = 0;
+                size_t translated = 0;
                 size_t errors = 0;
                 std::unordered_set<unsigned> createdPaths;
                 StringRowLoader(DataDir.value() + "/repository_details/__downloaded.csv",[&, this](std::vector<std::string> const & row) {
@@ -49,10 +54,10 @@ namespace dejavu {
                             createdPaths.insert(p->id % 1000);
                         }
                         system(STR("cp " << source << " " << target).c_str());
-                        ++total;
+                        ++translated;
                     }, false); // no headers
-                std::cout << "    " << " errors" << std::endl;
-                std::cout << "    " << " metadata files translated" << std::endl;
+                std::cout << "    " << errors <<  " errors" << std::endl;
+                std::cout << "    " << translated << " metadata files translated" << std::endl;
             }
 
         private:
