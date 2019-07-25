@@ -46,6 +46,7 @@ void InitializeCommands() {
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
 
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
+    new helpers::Command("download-github-metadata", DownloadGithubMetadata, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
     
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     // TODO Here we should patch the project's createdAt times, but we do not have the data yet, so we are working on later steps for now
@@ -77,7 +78,6 @@ void InitializeCommands() {
     new helpers::Command("extract-js-projects", ExtractJSProjects, "Extracts JS projects from a GHTorrent projects.csv file which are not deleted and splits them into forked and non-forked.");
     new helpers::Command("npm-download", NPMDownload, "Downloads project.json files from NPM packages");
     new helpers::Command("npm-github-urls", ExtractRepositoriesFromNPMProjects, "Prepares a list of GitHub URLs for NPM packages from their package.json files");
-    new helpers::Command("download-repository-info", DownloadRepositoryInfo, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
     new helpers::Command("extract-repositories-sans-creation-time", ExtractRepositoriesSansCreationTime, "Extracts a list of repositories for which we are missing the createdAt attribute");
 }
 
