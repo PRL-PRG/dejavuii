@@ -188,8 +188,6 @@ namespace dejavu {
                     if (c == nullptr)
                         continue;
                     updates += c->fixTimes();
-                    // taint all
-                    c->tainted = true;
                 }
                 std::cerr << "    "  << updates << " updates to commit times made" << std::endl;
             }

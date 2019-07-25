@@ -20,6 +20,22 @@ namespace dejavu {
         
         std::unordered_set<Project*> projects;
 
+        bool checkSharedPrefix(Project * p1, Project * p2) {
+            std::unordered_set<Commit *> visited;
+            std::vector<Commit *> q;
+            q.push_back(this);
+            while (!q.empty()) {
+                Commit * c = q.back();
+                assert(c != nullptr);
+                q.pop_back();
+                if (visited.insert(c).second != true)
+                    continue;
+                if (c->projects.find(p1) == c->projects.end() || c->projects.find(p2) == c->projects.end())
+                    return false;
+                q.insert(q.end(), c->parents.begin(), c->parents.end());
+            }
+            return true;
+        }
     };
     
 
@@ -34,6 +50,14 @@ namespace dejavu {
         void addCommit(Commit * c) {
             commits.insert(c);
             c->projects.insert(this);
+        }
+
+        void verifyForkOf(Project * p, Commit * c) {
+            if (forkOf == p)
+                return;
+            if (! c->checkSharedPrefix(this, p))
+                std::cerr << "FAILED prefix check " << std::endl;
+            forkOf = p;
         }
     };
 
@@ -98,13 +122,16 @@ namespace dejavu {
             return;
         // find the oldest project
         Project * original = * projects.begin();
-        for (Project * p : projects)
+        for (Project * p : projects) {
             if (p->createdAt < original->createdAt)
                 original = p;
+            if (p->createdAt == original->createdAt && original->id > p->id)
+                original = p;
+        }
         // mark all non-originals as forks
         for (Project * p : projects)
             if (p != original)
-                p->forkOf = original;
+                p->verifyForkOf(original, this);
     }
     
 
