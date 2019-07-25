@@ -111,8 +111,11 @@ namespace dejavu {
                 size_t patched = 0;
                 size_t paths = 0;
                 size_t repatched = 0;
+                size_t total = 0;
                 for (auto i : projects_) {
                     Project * p = i.second;
+                    if (total++ % 1000 == 0)
+                        std::cerr << "    " << (total/1000) << "k    \r" << std::flush;
                     std::string path = STR(Input.value() << "/" << (p->id % 1000) << "/" << p->id);
                     if (helpers::FileExists(path)) {
                         ++paths;
