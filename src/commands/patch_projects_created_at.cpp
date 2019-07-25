@@ -180,7 +180,7 @@ namespace dejavu {
                         ++patched;
                         pp << p->id << std::endl;
                     } else {
-                        up << p->id << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << "," << p->createdAt << std::endl;
+                        up << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << "," << p->createdAt << std::endl;
                     }
                 }
                 std::cout << "    " << patched << " patched projects after the stage" << std::endl;
