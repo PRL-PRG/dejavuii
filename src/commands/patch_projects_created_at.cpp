@@ -7,6 +7,26 @@
 
 #include "helpers/json.hpp"
 
+/* peta@prl1e:~/devel/dejavuii/build$ time ./dejavu patch-projects-createdAt -d=/data/dejavuii/data-projects -i=/data/dejavuii/projects-metadata
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading projects ...
+    3542600 projects loaded
+Loading patch status...
+    1805459 already patched projects
+Patching from downloaded metadata...
+    947766 downloaded metadata analyzed
+    947766 patched or repatched projects
+    100201 repatched projects 
+    0 errors
+    2653024 patched projects after the stage
+KTHXBYE!
+
+real    2m13.420s
+user    1m34.532s
+sys     0m34.712s             
+
+ */
+
 namespace dejavu {
 
     namespace {
