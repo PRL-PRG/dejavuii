@@ -210,6 +210,8 @@ namespace dejavu {
                 size_t renamedNew = 0;
                 size_t renamed = 0;
                 size_t total = 0;
+                std::ofstream tbd(DataDir.value() + "/oldProjects.csv");
+                tbd << "projectId,user,repo" << std::endl;
                 for (auto i : projects_) {
                     Project * p = i.second;
                     if (total++ % 1000 == 0)
@@ -230,7 +232,8 @@ namespace dejavu {
                         case RENAMED_EXISTING:
                         case RENAMED_EXISTING_NOT_DOWNLOADED:
                             ++renamed;
-                            // TODO output the project to be deleted
+                            // output the project to be deleted
+                            tbd << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << std::endl;
                             break;
                         }
                     } catch (...) {
