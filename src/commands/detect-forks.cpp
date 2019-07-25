@@ -60,11 +60,8 @@ namespace dejavu {
             forkOf = p;
         }
     };
-
     
     /** Detects projects that are forks.
-
-        
 
      */
     class ForkDetector {

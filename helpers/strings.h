@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 
 namespace helpers {
 
@@ -108,5 +109,11 @@ namespace helpers {
         s.erase(0, s.find_first_not_of("\t\n\v\f\r "));
         s.erase(s.find_last_not_of("\t\n\v\f\r ") + 1);
         return s;
+    }
+
+    inline std::string ToLower(std::string const & from) {
+        std::string result = from;
+        std::transform(result.begin(), result.end(), result.begin(),[](unsigned char c){ return std::tolower(c); });                            
+        return result;
     }
 }
