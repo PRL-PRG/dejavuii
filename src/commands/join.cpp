@@ -373,7 +373,8 @@ namespace dejavu {
                     std::ofstream f(filename);
                     f << "commitId,parentId" << std::endl;
                 }
-                
+                reports_.open(DataDir.value()+"/joinReport.csv");
+                reports_ << "path,errors,empty,existing,valid" << std::endl;
             }
 
             //            tar -zxf repos-10.tar.gz -C /home/peta/xxxxxx
@@ -446,6 +447,7 @@ namespace dejavu {
                 std::cerr << "    " << emptyProjects << " empty projects" << std::endl;
                 std::cerr << "    " << existingProjects << " existing projects" << std::endl;
                 std::cerr << "    " << validProjects << " valid projects" << std::endl;
+                reports_ << helpers::escapeQuotes(path) << "," << errorProjects << "," << emptyProjects << "," << existingProjects << "," << validProjects << std::endl;
             }
 
             static Project * CreateProject(std::string const & name, std::string const & repo) {
@@ -528,6 +530,8 @@ namespace dejavu {
             static std::unordered_set<std::string> completedProjects_;
 
             static std::unordered_set<unsigned> seenCommits_;
+
+            static std::ofstream reports_;
             
         }; // ProjectAnalyzer
 
@@ -541,6 +545,7 @@ namespace dejavu {
         std::ofstream ProjectAnalyzer::users_;
         std::unordered_set<std::string> ProjectAnalyzer::completedProjects_;
         std::unordered_set<unsigned> ProjectAnalyzer::seenCommits_;
+        std::ofstream ProjectAnalyzer::reports_;
         
         Commit::Commit(std::string const & hash, std::string const & authorEmail, uint64_t authorTime, std::string const & committerEmail, uint64_t committerTime, std::string const & tag):
             id(0),

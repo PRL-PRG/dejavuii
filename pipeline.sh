@@ -9,7 +9,7 @@
 #
 # The script assumes the following arguments:
 #
-# bash pipeline.sh DOWNLOADER_DIR WORKING_DIR NUM_THREADS DELETE_INTERMEDIATES FORCE_STAGES
+# bash pipeline.sh DOWNLOADER_DIR WORKING_DIR NUM_THREADS FORCE_STAGES
 #
 # where:
 #
@@ -22,11 +22,6 @@
 #
 # NUM_THREADS is the number of threads that the stages can use. Default value
 # is 8.
-#
-# DELETE_INTERMEDIATES - if specified, intermediate datasets will be deleted,
-# which can save signifficant ammount of disk space. This would only remove
-# the dataset contents (such as projects, files, paths, etc.), not any of the
-# computed values. Defaults to keeping the intermediate results.
 #
 # FORCE_STAGES - if specified, stages will be forced even if their execution
 # summaries exist.
@@ -43,11 +38,6 @@ else
         NUM_THREADS=$3
     fi
     if [ "$4" == "" ] ; then
-        DELETE_INTERMEDIATES=0
-    else
-        DELETE_INTERMEDIATES=$4
-    fi
-    if [ "$5" == "" ] ; then
         FORCE_STAGES=0
     else
         FORCE_STAGES=$5
@@ -61,7 +51,6 @@ echo ""
 echo "Downloader dir         : $DOWNLOADER_DIR"
 echo "Working dir            : $WORKING_DIR"
 echo "Number of threads      : $NUM_THREADS"
-echo "Delete intermediates   : $DELETE_INTERMEDIATES"
 echo "Force completed stages : $FORCE_STAGES"
 echo "Dejavu II executable   : $DEJAVU"
 echo "Commit                 : $(git rev-parse HEAD)"
@@ -103,9 +92,6 @@ execute_stage()
 # downloaded projects into a single dataset.
 # Filters out submodules and non-interesting files (non js basically), as well
 # as projects downloaded multiple times.
-
-# TODO keeps the first found project, not the latest to be captured, which can be more efficient
-# TODO does not output nice statistics
 
 execute_stage "join" "join -d=$WORKING_DIR/join downloader=$DOWNLOADER_DIR"
 update_stage_input "join"
