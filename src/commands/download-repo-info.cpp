@@ -145,7 +145,7 @@ namespace dejavu {
                     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
                     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &headersRaw);
                     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
-                    CURLcode result = curl_easy_perform(curl);
+                    /* CURLcode result = */ curl_easy_perform(curl);
                     curl_easy_cleanup(curl);
                     curl_slist_free_all(list);
                     CurlHeaders headers(headersRaw.str());

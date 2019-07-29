@@ -53,7 +53,8 @@ namespace dejavu {
                             helpers::EnsurePath(targetDir);
                             createdPaths.insert(p->id % 1000);
                         }
-                        system(STR("cp " << source << " " << target).c_str());
+                        auto ec = system(STR("cp " << source << " " << target).c_str());
+                        assert(ec = EXIT_SUCCESS);
                         ++translated;
                     }, false); // no headers
                 std::cout << "    " << errors <<  " errors" << std::endl;
