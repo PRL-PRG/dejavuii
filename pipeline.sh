@@ -110,9 +110,19 @@ update_stage_input "verified"
 # so that they actually show the time the project was created, not just the
 # first commit time of that projects.
 
-# TODO the stage should actually be implemented
+exectute_stage "patch-projects-createdAt" "patch-projects-createdAt -d=$STAGE_INPUT -i=$WORKING_DIR/projects-metadata -ght=$WORKING_DIR/ghtorrent"
 
-#exectute stage "patch-project-createdAt"
+# now we must remove the projects that should be deleted after the times have
+# been patched. These come in two files, first the unpatchedProjects.csv, which
+# contains projects for which there is no creation time available either from
+# ghtorrent, or from github itself and then from oldProjects.csv, which happens
+# when the project has been renamed and we have both the old and the new name in
+# our database, in which case the old ones will obviously be copies and should
+# therefore be removed.
+
+execute_stage "filter-unpatched_projects" "filter-projects -d=$STAGE_INPUT -filter=$STAGE_INPUT/unpatchedProjects.csv -o=$WORKING_DIR/tmp"
+execute_stage "filter-old_projects" "filter-projects -d=$WORKING_DIR/tmp -filter=$STAGE_INPUT/oldProjects.csv -o=$WORKING_DIR/patched"
+update_stage_input "patched"
 
 # Detects all forks. When two projects share at least one commit, the younger
 # of the two is a fork and will be identified by the stage. 

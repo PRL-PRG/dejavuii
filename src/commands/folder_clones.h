@@ -36,7 +36,7 @@ namespace dejavu {
 
         void save(std::string const & filename) {
             std::ofstream psegs(filename);
-            psegs << "#segmentId,str" << std::endl;
+            psegs << "segmentId,str" << std::endl;
             for (size_t i = 0, e = pathSegments_.size(); i < e; ++i)
                 psegs << i << "," << helpers::escapeQuotes(pathSegments_[i]) << std::endl;
         }

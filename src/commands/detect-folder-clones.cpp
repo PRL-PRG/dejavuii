@@ -76,7 +76,7 @@ namespace dejavu {
                     }};
                 std::cerr << "    " << pathSegments_.size() << " unique path segments" << std::endl;
                 std::cerr << "Storing path segments ..." << std::endl;
-                pathSegments_.save(DataDir.value() + "/path_segments.csv");
+                pathSegments_.save(DataDir.value() + "/pathSegments.csv");
                 pathSegments_.clearHelpers();
                 std::cerr << "Loading file changes ... " << std::endl;
                 FileChangeLoader{[this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
@@ -93,11 +93,11 @@ namespace dejavu {
              */
             void detectCloneCandidates() {
                 std::cerr << "Analyzing projects for clone candidates..." << std::endl;
-                clonesOut_ = std::ofstream(DataDir.value() + "/clone_candidates.csv");
-                clonesOut_ << "#cloneId,projectId,commitId,folder,files" << std::endl;
+                clonesOut_ = std::ofstream(DataDir.value() + "/cloneCandidates.csv");
+                clonesOut_ << "cloneId,projectId,commitId,folder,files" << std::endl;
 
-                cloneStrings_ = std::ofstream(DataDir.value() + "/clone_strings.csv");
-                cloneStrings_ << "#cloneId,string" << std::endl;
+                cloneStrings_ = std::ofstream(DataDir.value() + "/cloneStrings.csv");
+                cloneStrings_ << "cloneId,string" << std::endl;
                     
                 std::vector<std::thread> threads;
                 size_t completed = 0;
@@ -125,8 +125,8 @@ namespace dejavu {
 
                 std::cerr << "Writing results..." << std::endl;
 
-                std::ofstream clones(DataDir.value() + "/clone_originals_candidates.csv");
-                clones << "#cloneId,hash,occurences,files,projectId,commitId,path" << std::endl;
+                std::ofstream clones(DataDir.value() + "/cloneOriginalsCandidates.csv");
+                clones << "cloneId,hash,occurences,files,projectId,commitId,path" << std::endl;
                 for (auto i : clones_)
                     clones << *(i.second) << std::endl;
             }

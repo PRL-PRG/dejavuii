@@ -69,3 +69,12 @@ This should be planned and discussed how to report same and interesting things, 
 
 
 
+
+
+
+
+
+
+TODO
+
+- sizes of project distribution

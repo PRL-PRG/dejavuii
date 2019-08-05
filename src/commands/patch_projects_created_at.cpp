@@ -8,23 +8,209 @@
 
 #include "helpers/json.hpp"
 
-/* peta@prl1e:~/devel/dejavuii/build$ time ./dejavu patch-projects-createdAt -d=/data/dejavuii/data-projects -i=/data/dejavuii/projects-metadata
+/*
+
+## Verify
+
+
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu verify -d=/data/dejavu/join -o=/data/dejavu/verified
 OH HAI CAN I HAZ DEJAVU AGAINZ?
 Loading projects ...
-    3542600 projects loaded
-Loading patch status...
-    1805459 already patched projects
-Patching from downloaded metadata...
-    947766 downloaded metadata analyzed
-    947766 patched or repatched projects
-    100201 repatched projects 
-    0 errors
-    2653024 patched projects after the stage
+Loading commits ...
+Loading commit parents ...
+Loading file changes ...
+    failed project 275075: philpill/frostgiant
+    failed project 1900875: philpill/bloodbowlnation
+    TOTAL: 2 failed projects
+Fixing commit times...
+    333334 updates to commit times made
+Verifying commit timings ...
+    0 failed commits
+    0 affected projects
+Calculating surviving commits...
+Writing projects...
+Writing commits...
+Writing commit parents...
+Writing file changes...
+Writing project structure errors...
+Writing commit timings errors...
+Creating symlinks...
 KTHXBYE!
 
-real    2m13.420s
-user    1m34.532s
-sys     0m34.712s             
+real    95m53.553s
+user    60m47.047s
+sys     53m0.616s
+
+## Patch projects createdAt
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu patch-projects-createdAt -d=/data/dejavu/verified -i=/data/dejavu/projects-metadata -ght=/data/dejavu/ghtorrent > renamedDifferent.csv
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading projects ...
+    3542598 projects loaded
+
+Loading file changes for project commits ...                                                                                                        Loading patch status...                                                                                                                                 0 already patched projects
+
+Patching from ghtorrent data...                                                                                                                         110719661 projects in GHTorrent
+
+    1843153 newly patched projects
+
+Patching from downloaded metadata...                                                                                                                Expected gsrafael01/esgst, but rafael-gssa/esgst in project 2832395 (renamed from 750231)                                                               1566578 newly patched projects
+
+    100201 repatched projects 
+
+    82565 renamed
+
+    45922 renamed existing (to be deleted)
+
+    0 errors                                                                                                                                        KTHXBYE!                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            real    36m2.384s
+
+user    21m48.750s
+
+sys     11m24.359s         
+
+
+
+
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu patch-projects-createdAt -d=/data/dejavu/verified -i=/data/dejavu/projects-metadata -ght=/data/dejavu/ghtorrent > renamedDifferent.csv
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading projects ...
+    3542598 projects loaded
+Loading file changes for project commits ...
+Loading patch status...
+    0 already patched projects
+Patching from ghtorrent data...
+    110719661 projects in GHTorrent
+    1843153 newly patched projects
+Patching from downloaded metadata...
+Expected gsrafael01/esgst, but rafael-gssa/esgst in project 2832395 (renamed from 750231)
+    1566578 newly patched projects
+    103926 repatched projects
+    82565 renamed
+    45922 renamed existing (to be deleted)
+    0 errors
+KTHXBYE!
+
+real    634m15.958s
+user    32m25.346s
+sys     601m16.972s
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu filter-projects -d=/data/dejavu/verified -filter=/data/dejavu/verified/unpatchedProjects.csv -o=/data/dejavu/tmp
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading projects to be filtered out...
+    87741 projects loaded
+Filtering projects...
+    3454857 valid projects
+    87741 projects filtered out
+Filtering file changes...
+    2192450854 file changes observed
+    2094606918 file changes kept
+    65120069 valid commits detected
+Filtering commits...
+    65713337 commits observed
+    65120069 commits kept
+Filtering commit parents...
+    70894579 links observed
+    70259400 links kept
+Creating symlinks...
+KTHXBYE!
+
+real    78m3.210s
+user    33m30.115s
+sys     44m30.579s
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu detect-forks -d=/data/dejavu/patched
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading projects ...
+3454857 projects loaded
+Loading commits ...
+65120069 commits loaded
+Loading file changes ...
+Analyzing forks...
+Writing forked projects...
+249746 forks found.
+KTHXBYE!
+real    15m16.983s
+user    13m20.455s
+sys     1m56.500s      
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu filter-projects -d=/data/dejavu/patched -filter=/data/dejavu/patched/projectForks.csv -o=/data/dejavu/no-forks
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading projects to be filtered out...
+    249746 projects loaded
+Filtering projects...
+    3205111 valid projects
+    249746 projects filtered out
+Filtering file changes...
+    2094606918 file changes observed
+    1761919755 file changes kept
+    62014099 valid commits detected
+Filtering commits...
+    65120069 commits observed
+    62014099 commits kept
+Filtering commit parents...
+    70259400 links observed
+    66385473 links kept
+Creating symlinks...
+KTHXBYE!
+real    71m37.097s
+user    30m28.656s
+sys     41m6.781s
+
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu filter-projects -d=/data/dejavu/patched -filter=/data/dejavu/patched/projectForks.csv -o=/data/dejavu/no-forks
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading projects to be filtered out...
+    249746 projects loaded
+Filtering projects...
+    3205111 valid projects
+    249746 projects filtered out
+Filtering file changes...
+    2094606918 file changes observed
+    1761919755 file changes kept
+    62014099 valid commits detected
+    Filtering commits...
+    65120069 commits observed
+    62014099 commits kept
+Filtering commit parents...
+70259400 links observed
+    66385473 links kept
+Creating symlinks...
+KTHXBYE!
+real    71m37.097s
+user    30m28.656s
+sys     41m6.781s
+
+peta@prl1e:~/devel/dejavuii/build$ ./dejavu npm-filter -d=/data/dejavu/no-forks -o=data/dejavu/no-npm
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Filtering paths...
+    303285295 total paths read
+    118507844 retained paths
+Loading projects ...
+    3205111 total projects read
+Loading commits ...
+    62014099 total commits read
+Loading commit parents ...
+    66385473 parent records.
+Loading file changes ...
+    1761919755 total changes read
+    481390547 changes retained
+Removing empty commits...
+    116840 removed commits
+Writing projects...
+    3186352 projects written.
+Writing commits and commit parents...
+    61897259 commits written
+    66264068 parent records writtem
+Writing file changes
+    481390547 records written
+Filtering paths...
+    303285295 paths read
+    118507844 paths retained
+Creating symlinks...
+KTHXBYE!
+
 
  */
 
@@ -164,20 +350,27 @@ namespace dejavu {
                         p->repo = split[1];
                         result = RENAMED_NEW;
                         // remove the renamed suffix from the metadata
-                        //system(STR("mv " << path << ".renamed " << path));
+                        system(STR("mv " << path << ".renamed " << path).c_str());
                     // if the project exists,
                     } else {
                         Project * np = i->second;
-                        assert(fullName == np->user + "/" + np->repo);
+                        if (fullName != np->user + "/" + np->repo) {
+                            std::cerr << "Expected " << fullName << ", but " << np->user << "/" << np->repo << " in project " << np->id << " (renamed from "<< p->id << ")" << std::endl;
+                            return NOT_FOUND;
+                        }
+                        //assert(fullName == np->user + "/" + np->repo);
                         // check that the old project is clone of the new one
-                        assert(p->commonCommitsWith(np) != 0);
+                        if (p->commonCommitsWith(np) != 0)
+                            std::cout << p->id << ","<< helpers::escapeQuotes(p->user + "/" + p->repo) << "," << helpers::escapeQuotes(fullName) << std::endl;
+                                                                                                                                                //assert(p->commonCommitsWith(np) != 0);
                         // check if the metadata for the new project exists, if it does, there is nothing to do, but if it does
                         // not, copy the existing and then patch the project
                         std::string npath = STR(Input.value() << "/" << (np->id % 1000) << "/" << np->id);
                         if (helpers::FileExists(npath)) {
+                            system(STR("mv " << path << ".renamed " << path << ".deleted").c_str());
                             return RENAMED_EXISTING;
                         } else {
-                            //system(STR("mv " << path << ".renamed " << npath));
+                            system(STR("mv " << path << ".renamed " << npath).c_str());
                             patchProjectFromMetadata(np);
                             return RENAMED_EXISTING_NOT_DOWNLOADED;
                         }
@@ -295,7 +488,7 @@ namespace dejavu {
         p.loadData();
         p.patchFromGhTorrent();
         p.patchFromGithubMetadata();
-        //        p.output();
+        p.output();
         
     }
     
