@@ -16,6 +16,38 @@
 
 #include "folder_clones.h"
 
+/**
+peta@prl1e:~/devel/dejavuii/build$ ./dejavu npm-filter -d=/data/dejavu/no-forks -o=data/dejavu/no-npm
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Filtering paths...
+    303285295 total paths read
+    118507844 retained paths
+Loading projects ...
+    3205111 total projects read
+Loading commits ...
+    62014099 total commits read
+Loading commit parents ...
+    66385473 parent records.
+Loading file changes ...
+    1761919755 total changes read
+    481390547 changes retained
+Removing empty commits...
+    116840 removed commits
+Writing projects...
+    3186352 projects written.
+Writing commits and commit parents...
+    61897259 commits written
+    66264068 parent records writtem
+Writing file changes
+    481390547 records written
+Filtering paths...
+    303285295 paths read
+    118507844 paths retained
+Creating symlinks...
+KTHXBYE!
+
+ */
+
 namespace dejavu {
 
     namespace {

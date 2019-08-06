@@ -4,6 +4,33 @@
 #include "../loaders.h"
 #include "../commands.h"
 
+
+/*
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu filter-folder-clones -d=/data/dejavu/no-npm
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading original candidates...
+    14803308 originals loaded
+Loading clone candidates...
+    32853682 clone candidates loaded
+    1353910 clone originals are clones themseves
+    11810456 removed clone originals
+Merging identical clones...
+    187627 merges done
+reindexing and writing clone originals...
+    2805225 clone originals written
+writing clone occurences...
+    19689316 occurences written
+    17514095 of which are complete clones
+KTHXBYE!
+
+real    1m28.149s
+user    0m59.629s
+sys     0m28.507s        
+
+ */o
+
+
 /** Filters the folder clones obtained by previous phases.
 
     First loads the clone originals and the combs through the clone occurences keeping only occurences of valid clones. I.e. if the clone original is the sole clone occurence itself, then it is not really a clone.
@@ -73,7 +100,7 @@ namespace dejavu {
 
             void loadData() {
                 std::cerr << "Loading original candidates..." << std::endl;
-                FolderCloneOriginalsCandidateLoader{DataDir.value() + "/cloneOriginalsCandidates.csv", [this](unsigned id, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path){
+                FolderCloneOriginalsCandidateLoader{DataDir.value() + "/folderCloneOriginalCandidates.csv", [this](unsigned id, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path){
                         if (id >= originals_.size())
                             originals_.resize(id + 1);
                         originals_[id] = new CloneOriginal(id, hash, occurences, files, projectId, commitId, path);
@@ -139,7 +166,7 @@ namespace dejavu {
                 std::cout << "reindexing and writing clone originals..." << std::endl;
                 {
                     std::ofstream f(DataDir.value() + "/folderCloneOriginals.csv");
-                    f << "#cloneId,hash,occurences,files,projectId,commitId,path,isOriginalClone" << std::endl;
+                    f << "cloneId,hash,occurences,files,projectId,commitId,path,isOriginalClone" << std::endl;
                     size_t id = 0;
                     for (CloneOriginal * co : originals_) {
                         if (co == nullptr)
@@ -156,7 +183,7 @@ namespace dejavu {
                 std::cout << "writing clone occurences..." << std::endl;
                 {
                     std::ofstream f(DataDir.value() + "/folderCloneOccurences.csv");
-                    f << "#cloneId,projectId,commitId,path,files" << std::endl;
+                    f << "cloneId,projectId,commitId,path,files" << std::endl;
                     size_t completeClones = 0;
                     for (CloneOccurence * cc : occurences_) {
                         CloneOriginal * co = originals_[cc->cloneId];

@@ -14,6 +14,34 @@
 #include "folder_clones.h"
 
 /** Searches for originals of clone candidates.
+peta@prl1e:~/devel/dejavuii/build$ ./dejavu npm-filter -d=/data/dejavu/no-forks -o=data/dejavu/no-npm
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Filtering paths...
+    303285295 total paths read
+    118507844 retained paths
+Loading projects ...
+    3205111 total projects read
+Loading commits ...
+    62014099 total commits read
+Loading commit parents ...
+    66385473 parent records.
+Loading file changes ...
+    1761919755 total changes read
+    481390547 changes retained
+Removing empty commits...
+    116840 removed commits
+Writing projects...
+    3186352 projects written.
+Writing commits and commit parents...
+    61897259 commits written
+    66264068 parent records writtem
+Writing file changes
+    481390547 records written
+Filtering paths...
+    303285295 paths read
+    118507844 paths retained
+Creating symlinks...
+KTHXBYE!
 
     
  */
@@ -152,7 +180,7 @@ namespace dejavu {
                 std::cerr << "    " << locationHints_.size() << " location hints" << std::endl;
                 std::cerr << "    " << paths_.size() << " paths " << std::endl;
                 std::cerr << "Loading clone candidates ..." << std::endl;
-                FolderCloneOriginalsCandidateLoader{DataDir.value() + "/clone_originals_candidates.csv", [this](unsigned id, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path){
+                FolderCloneOriginalsCandidateLoader{DataDir.value() + "/cloneOriginalsCandidates.csv", [this](unsigned id, SHA1Hash const & hash, unsigned occurences, unsigned files, unsigned projectId, unsigned commitId, std::string const & path){
                         if (id >= clones_.size())
                             clones_.resize(id + 1);
                         Project * p = projects_[projectId];
@@ -256,8 +284,8 @@ namespace dejavu {
 
             void output() {
                 std::cerr << "Writing results..." << std::endl;
-                std::ofstream clones(DataDir.value() + "/cloneOriginalsCandidates.csv");
-                clones << "#cloneId,hash,occurences,files,projectId,commitId,path" << std::endl;
+                std::ofstream clones(DataDir.value() + "/folderCloneOriginalCandidates.csv");
+                clones << "cloneId,hash,occurences,files,projectId,commitId,path" << std::endl;
                 for (auto i : clones_)
                     clones << *(i) << std::endl;
                 std::cerr << "Done." << std::endl;

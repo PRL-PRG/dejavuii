@@ -1,0 +1,65 @@
+---
+title: "Analysis of folder clones"
+output: html_notebook
+---
+ 
+This contains analysis of project and folder clones, full & partial. 
+
+```{r,echo=F}
+DROOT = "/data/dejavu/no-npm"
+source("helpers.R")
+```
+
+
+```{r}
+originals = readDataset("folderCloneOriginals.csv")
+clones = readDataset("folderCloneOccurences.csv")
+```
+
+Let's do some summaries:
+
+```{r}
+LOG("Total originals", d = nrow(originals))
+LOG("Total clones", d = nrow(clones))
+```
+
+Some of the originals are themselves a clone. These are perhaps less likely to be interesting. 
+
+```{r}
+LOG("Originals which are clones", d = sum(originals$isOriginalClone), pct = nrow(originals))
+```
+
+```{r}
+summary(originals$occurences);
+summary(originals$files);
+```
+
+
+```{r}
+x = originals %>% select(occurences)
+h = hist(x$occurences, breaks = 100, plot = F)
+h$counts =log10(h$counts + 1)
+plot(h, ylab="log10(# of packages)", xlab = "# of times the package is included", main = "How often is a package included")
+```
+
+
+# Project Clones
+
+ Let's see first, how many of the originals are entire projects, which we do by celecting those with empty path:
+ 
+```{r}
+projectOriginals = originals %>% filter(is.na(path))
+projectClones = clones %>% filter(cloneId %in% projectOriginals$cloneId)
+LOG("Project originals", d = nrow(projectOriginals), pct = nrow(originals))
+LOG("Project clones", d = nrow(projectClones), pct = nrow(clones))
+```
+
+How many of these are clones from root folder to root folder? 
+
+```{r}
+LOG("Project root clones (forks)", d = nrow(projectClones %>% filter(is.na(path))), pct = nrow(projectClones))
+```
+ 
+ 
+ 
+ 

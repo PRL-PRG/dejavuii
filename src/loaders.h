@@ -599,7 +599,7 @@ namespace dejavu {
 
         PathSegmentsLoader(RowHandler f):
             f_(f) {
-            readFile(DataDir.value() + "/path_segments.csv");
+            readFile(DataDir.value() + "/pathSegments.csv");
         }
     protected:
         void row(std::vector<std::string> & row) override {
@@ -627,7 +627,7 @@ namespace dejavu {
 
         FolderCloneOriginalsCandidateLoader(RowHandler f):
             f_(f) {
-            readFile(DataDir.value() + "/clone_originals.csv");
+            readFile(DataDir.value() + "/cloneOriginals.csv");
         }
     protected:
         void row(std::vector<std::string> & row) override {
@@ -657,7 +657,7 @@ namespace dejavu {
 
         FolderCloneCandidateLoader(RowHandler f):
             f_(f) {
-            readFile(DataDir.value() + "/clone_candidates.csv");
+            readFile(DataDir.value() + "/cloneCandidates.csv");
         }
     protected:
         void row(std::vector<std::string> & row) override {
@@ -686,7 +686,7 @@ namespace dejavu {
 
         FolderCloneStructureLoader(RowHandler f):
             f_(f) {
-            readFile(DataDir.value() + "/clone_strings.csv");
+            readFile(DataDir.value() + "/cloneStrings.csv");
         }
     protected:
         void row(std::vector<std::string> & row) override {

@@ -60,6 +60,18 @@ void InitializeCommands() {
 
 
 
+    // folder clones pipeline
+    new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
+    new helpers::Command("find-folder-originals", FindFolderOriginals, "Finds folder originals for previously detected clone candidates");
+    new helpers::Command("filter-folder-clones", FolderClonesFilter, "Filters folder clones so that different subsets of same original use same clone id");
+    
+
+
+    
+
+    
+
+
     // temp stuff
     new helpers::Command("translate-metadata", tmp_TranslateDownloadedMetadata, "Translates downloaded metadata into a more pleasing format");
     
@@ -68,9 +80,6 @@ void InitializeCommands() {
     new helpers::Command("npm-counts", NPMModuleCounts, "Calculates summaries for projects wrt their paths, changes and node_modules paths and changes."); // TODO should be deleted[<0;160;44M]
     new helpers::Command("verify-ghgrabber", VerifyGhGrabber, "Verifies the integrity of the data obtained by the ghgrabber");
     new helpers::Command("time-subset", TimeSubset, "Creates time bound subset of the data");
-    new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
-    new helpers::Command("find-folder-originals", FindFolderOriginals, "Finds folder originals for previously detected clone candidates");
-    new helpers::Command("filter-folder-clones", FolderClonesFilter, "Filters folder clones so that different subsets of same original use same clone id");
     new helpers::Command("folder-clones-history", FolderCloneHistoryAnalysis, "Detects folder clones across all projects and find their originals");
     new helpers::Command("clones-over-time", ClonesOverTime, "Aggregates clone stats over time");
     new helpers::Command("stats", Stats, "Calculates interesting stats");
