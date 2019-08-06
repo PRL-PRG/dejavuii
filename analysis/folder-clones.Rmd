@@ -23,12 +23,6 @@ LOG("Total originals", d = nrow(originals))
 LOG("Total clones", d = nrow(clones))
 ```
 
-Some of the originals are themselves a clone. These are perhaps less likely to be interesting. 
-
-```{r}
-LOG("Originals which are clones", d = sum(originals$isOriginalClone), pct = nrow(originals))
-```
-
 ```{r}
 summary(originals$occurences);
 summary(originals$files);
@@ -49,6 +43,33 @@ ggplot(originals %>% sample_n(100000), aes(x=log10(files), y=log10(occurences), 
   geom_point()
 ```
 
+
+# Originals being clones 
+
+Some of the originals are themselves a clone. These are perhaps less likely to be interesting. 
+
+```{r}
+LOG("Originals which are clones", d = sum(originals$isOriginalClone), pct = nrow(originals))
+```
+
+```{r}
+originalsClones = originals %>% filter(isOriginalClone == 1) %>% group_by(path) %>% summarize(numOriginals = n(), numClones = sum(occurences), files = mean(files))
+DT::datatable(originalsClones %>% arrange(desc(numOriginals)) %>% head(100))
+```
+So interestingly, the largest section is entire projects which are themselves clones, both in number of originals and in number of clones. The file numbers are non-trivial in the most cloned files. The paths appear to be reasonable, i.e. they are short and names that we woudl actually expect to see copied. 
+
+> Manually, we should check some of these. 
+
+Let's see the summary of the number of originals and number of clones:
+
+```{r}
+summary(originalsClones$numOriginals)
+summary(originalsClones$numClones)
+```
+
+And most of them seem to be degenerate,m i.e. very very small number of clones and originals.
+
+
 # Project Clones
 
  Let's see first, how many of the originals are entire projects, which we do by celecting those with empty path:
@@ -65,7 +86,13 @@ How many of these are clones from root folder to root folder?
 ```{r}
 LOG("Project root clones (forks)", d = nrow(projectClones %>% filter(is.na(path))), pct = nrow(projectClones))
 ```
+
+Where are the project copied? 
  
- 
- 
+```{r}
+x = projectClones %>% group_by(path) %>% summarize(count = n(), files = mean(files))
+DT::datatable(x %>% arrange(desc(count)) %>% head(100))
+
+```
+ This looks actually fairly reasonable to me - by far the largest is when projects are copied to projects, that is what we should have expected from above. The other paths to which whole projects are copied very nicely hints at submodules would have been great, but apparently people did not bother. 
  
