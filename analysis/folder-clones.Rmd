@@ -5,6 +5,10 @@ output: html_notebook
  
 This contains analysis of project and folder clones, full & partial. 
 
+# Questions
+
+1) do we want to exclude stuff from the datasets? such as intraproject, etc. 
+
 ```{r,echo=F}
 DROOT = "/data/dejavu/no-npm"
 source("helpers.R")
@@ -28,6 +32,14 @@ summary(originals$occurences);
 summary(originals$files);
 ```
 
+Actually, how much of this is interproject? 
+
+```{r}
+x = inner_join(clones %>% select(cloneId, cloneProject = projectId), originals %>% select(cloneId, originalProject = projectId))
+intrax = x %>% filter(cloneProject == originalProject)
+LOG("Intra-project clones: ", d = nrow(intrax), pct = nrow(x))
+```
+ok, not too bad. 
 
 ```{r}
 x = originals %>% select(occurences)
