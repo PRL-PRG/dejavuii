@@ -42,6 +42,12 @@ h$counts =log10(h$counts + 1)
 plot(h, ylab="log10(# of packages)", xlab = "# of times the package is included", main = "How often is a package included")
 ```
 
+```{r}
+#plot(log10(originals$files), log10(originals$occurences))
+# Change point shapes by the levels of cyl
+ggplot(originals %>% sample_n(100000), aes(x=log10(files), y=log10(occurences), color=isOriginalClone)) +
+  geom_point()
+```
 
 # Project Clones
 
