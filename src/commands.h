@@ -57,7 +57,7 @@ namespace dejavu {
 
     /** Filters the folder clones so that clones of different subsets still use the same original.  
      */
-    void FolderClonesFilter(int argc, char * argv[]);
+    void FolderClonesClean(int argc, char * argv[]);
 
     /** Calculates project level summary counts of paths, changes and deletions and node_modules paths, changes and deletions.
      */
@@ -119,6 +119,11 @@ namespace dejavu {
     void DownloadContents(int argc, char * argv[]);
 
 
+
+    /** Filters folder clones from the dataset.
+     */
+    void FilterFolderClones(int argc, char * argv[]);
+    
 
 
     void tmp_TranslateDownloadedMetadata(int argc, char * argv[]);

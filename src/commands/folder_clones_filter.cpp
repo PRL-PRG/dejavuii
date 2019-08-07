@@ -28,7 +28,7 @@ real    1m28.149s
 user    0m59.629s
 sys     0m28.507s        
 
- */o
+ */
 
 
 /** Filters the folder clones obtained by previous phases.
@@ -211,7 +211,7 @@ namespace dejavu {
     }
 
 
-    void FolderClonesFilter(int argc, char * argv[]) {
+    void FolderClonesClean(int argc, char * argv[]) {
         Settings.addOption(DataDir);
         Settings.parse(argc, argv);
         Settings.check();
