@@ -12,13 +12,13 @@ library(DT)
 
 # Logging -----------------------------------------------------------------------------------------
 
-LOG = function(..., d = NULL, pct = NULL) {
+LOG = function(..., d = NULL, pct = NULL, pp = NULL) {
   if (is.null(d)) {
     cat(paste0(...,"\n"))
   } else if (is.null(pct)) {
-    cat(paste0(..., ": ", d, "\n"))
+    cat(paste0(..., ": ", ifelse(is.null(pp), d, pp(d)), "\n"))
   } else {
-    cat(paste0(..., ": ", d, " (",round((d / pct) * 100, digits = 2), "%)\n"))
+    cat(paste0(..., ": ", ifelse(is.null(pp), d, pp(d)), " (",round((d / pct) * 100, digits = 2), "%)\n"))
   }
 }
 
@@ -124,4 +124,22 @@ npmPackageUrl = function(name) {
     paste0("https://www.npmjs.com/package/", name)
 }
 
-
+# Pretty printer for large numbers. Examples:
+# pp(0)     -> 0
+# pp(1)     -> 1
+# pp(100)   -> 100
+# pp(1000)   -> 1K
+# pp(5200)   -> 5.2K
+# pp(1000000) -> 1M
+# pp(1010000) -> 1M
+# pp(1100000) -> 1.1M
+# pp(1000000000) -> 1B
+pp <- function(x) ifelse(x==0,
+                         paste(format(x, digits=2, scientific=FALSE)),
+                         ifelse(x < 1000,
+                                format(x, digits=2, scientific=FALSE),
+                                ifelse(x < 1000000,
+                                       paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "K", sep=""),
+                                       ifelse(x < 1000000000,
+                                              paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "M", sep=""),
+                                              paste(format(floor((x/1000000000)*10)/10, digits=2, scientific=FALSE), "B", sep="")))))

@@ -8,6 +8,7 @@
 #include <thread>
 #include <unistd.h>
 #include <openssl/sha.h>
+#include <fstream>
 
 #include "../objects.h"
 #include "../loaders.h"
@@ -29,13 +30,15 @@ namespace dejavu {
             unsigned projectId;
             unsigned commitId;
             std::string path;
+            unsigned files;
             unsigned fileChanges;
 
-            Clone(unsigned id, unsigned projectId, unsigned commitId, std::string const & path):
+            Clone(unsigned id, unsigned projectId, unsigned commitId, std::string const & path, unsigned files):
                 id(id),
                 projectId(projectId),
                 commitId(commitId),
                 path(path),
+                files(files),
                 fileChanges(0) {
             }
 
@@ -45,27 +48,36 @@ namespace dejavu {
 
         class Commit : public BaseCommit<Commit> {
         public:
-            Commit(unsigned id, uint64_t time):
-                BaseCommit<Commit>(id, time) {
+            Commit(unsigned id, uint64_t time, uint64_t time2):
+                BaseCommit<Commit>(id, time),
+                time2(time2),
+                tag(false) {
             }
 
+            uint64_t time2;
+            bool tag;
         };
 
-        class Project : public BaseProject<Project, Commit> {
+        class Project : public FullProject<Project, Commit> {
         public:
-            Project(unsigned id, uint64_t createdAt):
-                BaseProject<Project, Commit>(id, createdAt) {
+            Project(unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt):
+                FullProject<Project, Commit>(id, user, repo, createdAt),
+                tag(false) {
             }
 
             void addIgnoredChange(Commit * c, unsigned pathId) {
-                ignoredChanges[c->id].insert(pathId);
+                ignoredChanges.insert(Join2Unsigned(c->id, pathId));
             }
+
+            bool tag;
 
             // commit id -> clones it introduces
             std::unordered_map<unsigned, std::unordered_set<Clone *>> clones;
 
+            //commit + pathId
+            std::unordered_set<uint64_t> ignoredChanges;
             // commit id -> set of pathIds that are to be ignored because they change a clone
-            std::unordered_map<unsigned, std::unordered_set<unsigned>> ignoredChanges;
+            //            std::unordered_map<unsigned, std::unordered_set<unsigned>> ignoredChanges;
 
         };
 
@@ -144,11 +156,11 @@ namespace dejavu {
             void loadData() {
                 std::cerr << "Loading projects ... " << std::endl;
                 ProjectLoader{[this](unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt){
-                        projects_.insert(std::make_pair(id, new Project(id, createdAt)));
+                        projects_.insert(std::make_pair(id, new Project(id, user, repo, createdAt)));
                     }};
                 std::cerr << "Loading commits ... " << std::endl;
                 CommitLoader{[this](unsigned id, uint64_t authorTime, uint64_t committerTime){
-                        commits_.insert(std::make_pair(id, new Commit(id, authorTime)));
+                        commits_.insert(std::make_pair(id, new Commit(id, authorTime,committerTime)));
                     }};
                 std::cerr << "Loading commit parents ... " << std::endl;
                 CommitParentsLoader{[this](unsigned id, unsigned parentId){
@@ -174,23 +186,27 @@ namespace dejavu {
                 // finally, load the clone occurences we want to filter out
                 FolderCloneOccurencesLoader(Filter.value(), [this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & path, unsigned numFiles) {
                         // add the clone to the particular commit.
-                        projects_[projectId]->clones[commitId].insert(new Clone(cloneId, projectId, commitId, path));
+                        projects_[projectId]->clones[commitId].insert(new Clone(cloneId, projectId, commitId, path, numFiles));
                     });
             }
 
             void filterFileChanges() {
                 std::cerr << "Filtering file changes..." << std::endl;
+                changesOut_.open(OutputDir.value() + "/fileChanges.csv");
+                changesOut_ << "projectId,commitId,pathId,contentsId" << std::endl;
                 std::vector<std::thread> threads;
+                auto i = projects_.begin();
                 size_t completed = 0;
                 for (unsigned stride = 0; stride < NumThreads.value(); ++stride)
-                    threads.push_back(std::thread([stride, & completed, this]() {
+                    threads.push_back(std::thread([stride, &i, & completed, this]() {
                         while (true) {
                             Project * p ;
                             {
                                 std::lock_guard<std::mutex> g(mCerr_);
-                                if (completed == projects_.size())
+                                if (i == projects_.end())
                                     return;
-                                p = projects_[completed];
+                                p = i->second;
+                                ++i;
                                 ++completed;
                                 if (completed % 1000 == 0)
                                     std::cerr << " : " << completed << "    \r" << std::flush;
@@ -203,6 +219,94 @@ namespace dejavu {
                 for (auto & i : threads)
                     i.join();
             }
+
+            /** Creates a table reporting for each clone the number of file changes it has swallowed.
+             */
+            void reportCloneChanges() {
+                std::cerr << "Writing clone change sizes..." << std::endl;
+                std::ofstream f(DataDir.value() + "/folderOccurenceChanges.csv");
+                f << "cloneId,projectId,commitId,path,files,changes" << std::endl;
+                for (auto i : projects_) {
+                    for (auto j : i.second->clones) {
+                        for (Clone * c : j.second) {
+                            f << c->id << ","
+                              << c->projectId << ","
+                              << c->commitId << ","
+                              << helpers::escapeQuotes(c->path) << ","
+                              << c->files << ","
+                              << c->fileChanges << std::endl;
+                        }
+                    }
+                }
+            }
+
+            /** Filtering projects is easy, we output all projects that are tagged.
+             */
+            void filterProjects() {
+                std::cerr << "Writing filtered projects..." << std::endl;
+                std::ofstream f(DataDir.value() + "/projects.csv");
+                f << "projectId,user,repo,createdAt" << std::endl;
+                unsigned tagged = 0;
+                for (auto i : projects_) {
+                    Project * p = i.second;
+                    if (!p->tag)
+                        continue;
+                    ++tagged;
+                    f << p->id << ","
+                      << helpers::escapeQuotes(p->user) << ","
+                      << helpers::escapeQuotes(p->repo) << ","
+                      << p->createdAt << std::endl;
+                }
+                std::cerr << "    " << tagged << " projects written" << std::endl;
+                std::cerr << "    " << projects_.size() << "projects total" << std::endl;
+            }
+
+            /** First remove any untagged commits from the hierarchy. Then output the surviving ones.
+             */
+            void filterCommits() {
+                std::cerr << "Removing empty commits..." << std::endl;
+                unsigned removed = 0;
+                for (auto i : commits_) {
+                    Commit * c = i.second;
+                    if (c->tag)
+                        continue;
+                    ++removed;
+                    c->detach();
+                }
+                std::cerr << "    " << removed << " commits detached" << std::endl;
+                std::cerr << "    " << commits_.size() << " out of total" << std::endl;
+                {
+                    std::cerr << "Writing filtered commits..." << std::endl;
+                    std::ofstream f(OutputDir.value() + "/commits/csv");
+                    f << "commitId,authorTime,committerTime" << std::endl;
+                    for (auto i : commits_) {
+                        Commit * c = i.second;
+                        if (!c->tag)
+                            continue;
+                        f << c->id << "," << c->time << "," << c->time2 << std::endl;
+                    }
+                }
+                {
+                    std::cerr << "Writing commit parents..." << std::endl;
+                    std::ofstream f(OutputDir.value() + "/commitsParents/csv");
+                    f << "commitId,parentId" << std::endl;
+                    for (auto i : commits_) {
+                        Commit * c = i.second;
+                        if (!c->tag)
+                            continue;
+                        for (Commit * p : c->parents)
+                            f << c->id << "," << p->id << std::endl;
+                    }
+                }
+            }
+
+            void createSymlinks() {
+                std::cerr << "Creating symlinks..." << std::endl;
+                helpers::System(STR("ln -s " << DataDir.value() + "/hashes.csv " << OutputDir.value() << "/hashes.csv"));
+                helpers::System(STR("ln -s " << DataDir.value() + "/paths.csv " << OutputDir.value() << "/paths.csv"));
+            }
+
+            
 
         private:
 
@@ -239,10 +343,34 @@ namespace dejavu {
                         return true;
                     });
                 i.process();
+                {
+                    std::lock_guard<std::mutex> g(mChangesOut_);
+                    for (Commit * c : p->commits) {
+                        for (auto i : c->deletions) {
+                            uint64_t x = Join2Unsigned(c->id, i);
+                            if (p->ignoredChanges.find(x) == p->ignoredChanges.end()) {
+                                changesOut_ << p->id << "," << c->id << "," << i << "," << FILE_DELETED << std::endl;
+                                c->tag = true;
+                                p->tag = true;
+                            }
+                        }
+                        for (auto i : c->changes) {
+                            uint64_t x = Join2Unsigned(c->id, i.first);
+                            if (p->ignoredChanges.find(x) == p->ignoredChanges.end()) {
+                                changesOut_ << p->id << "," << c->id << "," << i.first << "," << i.second << std::endl;
+                                c->tag = true;
+                                p->tag = true;
+                            }
+                        }
+                    }
+                }
+                p->ignoredChanges.clear();
+                /*
                 std::cerr << "Project " << p->id << " (ignored changed: " << p->ignoredChanges.size() << ")" << std::endl;
                 for (auto i : p->clones)
                     for (auto clone : i.second)
                         std::cerr << "    " << clone->path << " : " << clone->fileChanges << std::endl;
+                */
             }
 
 
@@ -253,6 +381,8 @@ namespace dejavu {
             std::unordered_map<unsigned, std::string> paths_;
 
             std::mutex mCerr_;
+            std::mutex mChangesOut_;
+            std::ofstream changesOut_;
 
             
         }; // FolderCloneFilter
@@ -273,6 +403,11 @@ namespace dejavu {
         helpers::EnsurePath(OutputDir.value());
         FolderCloneFilter fcf;
         fcf.loadData();
+        fcf.filterFileChanges();
+        fcf.reportCloneChanges();
+        fcf.filterProjects();
+        fcf.filterCommits();
+        fcf.createSymlinks();
         
     }
     

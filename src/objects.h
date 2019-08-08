@@ -218,6 +218,17 @@ namespace dejavu {
                 deletions.insert(path);
         }
 
+        void detach() {
+            for (COMMIT * p : parents) {
+                p->children.erase((COMMIT*)this);
+                p->children.insert(children.begin(), children.end());
+            }
+            for (COMMIT * c : children) {
+                c->parents.erase((COMMIT*)this);
+                c->parents.insert(parents.begin(), parents.end());
+            }
+        }
+
         // constructor
         
         BaseCommit(unsigned id, uint64_t time):

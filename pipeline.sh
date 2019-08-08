@@ -32,12 +32,12 @@ if [[ "$1" == ""  || "$2" == "" ]] ; then
 else
     DOWNLOADER_DIR=$1
     WORKING_DIR=$2
-    if [ "$3" == "" ] ; then
+    if [[ "$3" == "" ]] ; then
         NUM_THREADS=8
     else
         NUM_THREADS=$3
     fi
-    if [ "$4" == "" ] ; then
+    if [[ "$4" == "" ]] ; then
         FORCE_STAGES=0
     else
         FORCE_STAGES=$5
