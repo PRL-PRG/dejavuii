@@ -88,15 +88,27 @@ namespace dejavu {
 
         class State {
         public:
-            State() = default;
+            State():
+                active_(false) {
+            }
 
-            State(State const & from) {
+            State(State const & from):
+                active_(false) {
                 mergeWith(from);
             }
 
             void mergeWith(State const & other, Commit * c = nullptr) {
                 // this is ok, since if the numbers were different, the commit would change them anyways
                 status.insert(other.status.begin(), other.status.end());
+                active_ = active_ || other.active_;
+            }
+
+            bool active() const {
+                return active_;
+            }
+
+            void setActive() {
+                active_ = true;
             }
 
             /** First takes the */ 
@@ -143,6 +155,8 @@ namespace dejavu {
 
             // path inside the folder -> contents id
             std::map<std::string, unsigned> status;
+
+            bool active_;
         }; // STate
 
         
@@ -215,9 +229,21 @@ namespace dejavu {
                     }));
                 for (auto & i : threads)
                     i.join();
+                std::cerr << "Writing results..." << std::endl;
+                std::ofstream f(DataDir.value() + "/folderCloneOccurencesBehavior.csv");
+                f << "cloneId,projectId,commitId,path,changingCommits,divergentCommits,syncCommits,syncDelay,fullySyncedTime" << std::endl;
+                for (auto i : originals_)
+                    for (Clone * c : i.second->clones)
+                        f << c->id << ","
+                          << c->projectId << ","
+                          << c->commitId << ","
+                          << helpers::escapeQuotes(c->path) << ","
+                          << c->changingCommits << ","
+                          << c->divergentCommits << ","
+                          << c->syncCommits << ","
+                          << c->syncDelay << ","
+                          << c->fullySyncedTime << std::endl;
             }
-
-            
 
         private:
 
@@ -229,8 +255,16 @@ namespace dejavu {
                 // calculate a map of different states of the original and the times
                 std::unordered_map<SHA1Hash, uint64_t> originalContents;
                 fillOriginalContents(o, originalContents);
+                std::vector<std::pair<uint64_t, SHA1Hash>> sortedContents;
+                {
+                    std::map<uint64_t, SHA1Hash> sorted;
+                    for (auto i : originalContents)
+                        sorted.insert(std::make_pair(i.second, i.first));
+                    for (auto i : sorted)
+                        sortedContents.push_back(i);
+                }
                 for (Clone * c : o->clones)
-                    analyzeClone(c, originalContents);
+                    analyzeClone(c, originalContents, sortedContents);
             }
 
             void fillOriginalContents(Original * o,  std::unordered_map<SHA1Hash, uint64_t> & contents) {
@@ -253,9 +287,69 @@ namespace dejavu {
                 Synchronization time - for each non-divergent commit calculate the time it took to propagate the commit from original to clone. 
 
              */
-            void analyzeClone(Clone * c, std::unordered_map<SHA1Hash, uint64_t> const & originalContents) {
+            void analyzeClone(Clone * clone, std::unordered_map<SHA1Hash, uint64_t> const & originalContents, std::vector<std::pair<uint64_t, SHA1Hash>> const & sortedContents) {
+                Project * p = projects_[clone->projectId];
+                std::map<uint64_t, SHA1Hash> cloneSorted;
+                CommitForwardIterator<Project, Commit, State> i(p, [&, this](Commit * c, State & state){
+                        if (! state.active() && clone->commitId == c->id)
+                            state.setActive();
+                        if (state.active()) {
+                            if (state.processCommit(c, clone->path, paths_)) {
+                                SHA1Hash hash = state.hash();
+                                cloneSorted.insert(std::make_pair(c->time, hash));
+                                if (clone->commitId != c->id) {
+                                    ++clone->changingCommits;
+                                    auto i = originalContents.find(hash);
+                                    if (i == originalContents.end()) {
+                                        ++clone->divergentCommits;
+                                    } else {
+                                        uint64_t originalTime = i->second;
+                                        if (originalTime <= c->time) {
+                                            ++clone->syncCommits;
+                                            clone->syncDelay += (c->time - originalTime);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        return true;
+                    });
+                i.process();
+                // now we must calculate the fully synced time
+                size_t o = 0;
+                uint64_t tmax = std::max(cloneSorted.rbegin()->first, sortedContents.back().first);
+                for (auto c = cloneSorted.begin(), ce = cloneSorted.end(); c != ce;) {
+                    while (o != sortedContents.size() - 1) {
+                        if (sortedContents[o].first == c->first)
+                            break;
+                        if (sortedContents[o].first > c->first) {
+                            --o;
+                            break;
+                        }
+                    }
+                    if (c->second == sortedContents[o].second) {
+                        uint64_t start = c->first;
+                        uint64_t end = tmax;
+                        if (++c != ce && c->first < end)
+                                end = c->first;
+                        if (o != sortedContents.size() - 1 && sortedContents[o + 1].first < end)
+                            end = sortedContents[o + 1].first;
+                        clone->fullySyncedTime += end - start;
+                    } else {
+                        ++c;
+                    }
+                }
+            }
 
-                
+            size_t getTimeIndex(uint64_t time, std::vector<std::pair<uint64_t, SHA1Hash>> const & sorted) {
+                // let's do really stupid linear search for now
+                for (size_t i = 0; i < sorted.size(); ++i) {
+                    if (sorted[i].first == time)
+                        return i;
+                    if (sorted[i].first > time)
+                        return i - 1;
+                }
+                return sorted.size() - 1;
             }
             
 
