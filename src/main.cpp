@@ -65,11 +65,9 @@ void InitializeCommands() {
     new helpers::Command("find-folder-originals", FindFolderOriginals, "Finds folder originals for previously detected clone candidates");
     new helpers::Command("clean-folder-clones", FolderClonesClean, "Cleans folder clones so that different subsets of same original use same clone id");
     new helpers::Command("filter-folder-clones", FilterFolderClones, "Filters changes to the folder clones from the dataset.");
+    new helpers::Command("folder-clones-behavior", FolderClonesBehavior, "Analyzes the behavior of folder clones over time");
 
     
-
-    
-
 
     // temp stuff
     new helpers::Command("translate-metadata", tmp_TranslateDownloadedMetadata, "Translates downloaded metadata into a more pleasing format");

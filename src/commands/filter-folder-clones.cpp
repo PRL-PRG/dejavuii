@@ -244,7 +244,7 @@ namespace dejavu {
              */
             void filterProjects() {
                 std::cerr << "Writing filtered projects..." << std::endl;
-                std::ofstream f(DataDir.value() + "/projects.csv");
+                std::ofstream f(OutputDir.value() + "/projects.csv");
                 f << "projectId,user,repo,createdAt" << std::endl;
                 unsigned tagged = 0;
                 for (auto i : projects_) {
@@ -277,7 +277,7 @@ namespace dejavu {
                 std::cerr << "    " << commits_.size() << " out of total" << std::endl;
                 {
                     std::cerr << "Writing filtered commits..." << std::endl;
-                    std::ofstream f(OutputDir.value() + "/commits/csv");
+                    std::ofstream f(OutputDir.value() + "/commits.csv");
                     f << "commitId,authorTime,committerTime" << std::endl;
                     for (auto i : commits_) {
                         Commit * c = i.second;
@@ -288,7 +288,7 @@ namespace dejavu {
                 }
                 {
                     std::cerr << "Writing commit parents..." << std::endl;
-                    std::ofstream f(OutputDir.value() + "/commitsParents/csv");
+                    std::ofstream f(OutputDir.value() + "/commitsParents.csv");
                     f << "commitId,parentId" << std::endl;
                     for (auto i : commits_) {
                         Commit * c = i.second;

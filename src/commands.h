@@ -59,6 +59,15 @@ namespace dejavu {
      */
     void FolderClonesClean(int argc, char * argv[]);
 
+    /** Filters folder clones from the dataset.
+     */
+    void FilterFolderClones(int argc, char * argv[]);
+
+    /** Analyzes the behavior of the folder clones, such as divergence and synchronicity.
+     */
+    void FolderClonesBehavior(int argc, char * argv[]);
+    
+
     /** Calculates project level summary counts of paths, changes and deletions and node_modules paths, changes and deletions.
      */
     void NPMModuleCounts(int argc, char * argv[] );
@@ -120,10 +129,6 @@ namespace dejavu {
 
 
 
-    /** Filters folder clones from the dataset.
-     */
-    void FilterFolderClones(int argc, char * argv[]);
-    
 
 
     void tmp_TranslateDownloadedMetadata(int argc, char * argv[]);
