@@ -53,13 +53,19 @@ A = function(name, url, target="_blank") {
 # GitHub Links and Objects Retrieval --------------------------------------------------------------
 
 # Loads the information about projects. If forced, the table is always loaded, if not forced, the table is loaded only if DEJAVU_PROJECTS global variable does not exist yet. Returns the loaded projects and stores them in the DEJAVU_PROJECTS
-loadProjects = function(force = T) {
+loadProjects = function(force = F) {
   if (force || !exists("DEJAVU_PROJECTS")) {
       LOG("Loading projects...")
       DEJAVU_PROJECTS <<- readDataset("projects.csv")
       LOG("Number of projects", d = nrow(DEJAVU_PROJECTS))
   }
   invisible(DEJAVU_PROJECTS)
+}
+
+# Returns the number of projects in the dataset.
+numProjects = function() {
+  loadProjects();
+  nrow(DEJAVU_PROJECTS);
 }
 
 # For given project id, returns its name

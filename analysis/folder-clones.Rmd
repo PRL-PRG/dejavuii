@@ -7,11 +7,12 @@ This contains analysis of project and folder clones, full & partial.
 
 # Questions
 
-1) do we want to exclude stuff from the datasets? such as intraproject, etc. 
+1) do we want to exclude stuff from the datasets? such as intraproject, etc. YES 
 
 ```{r,echo=F}
 DROOT = "/data/dejavu/no-npm"
 source("helpers.R")
+loadProjects()
 ```
 
 
@@ -19,6 +20,120 @@ source("helpers.R")
 originals = readDataset("folderCloneOriginals.csv")
 clones = readDataset("folderCloneOccurences.csv")
 ```
+# Intra Project Clones
+
+First we remove intra project clones from the datasets as these are not really interesting for us:
+
+```{r}
+x = originals %>% select(cloneId, originalProjectId = projectId)
+x = inner_join(clones, x, by = "cloneId")
+intraClones = x %>% filter(projectId == originalProjectId) %>% select(-originalProjectId)
+xclones = x %>% filter(projectId != originalProjectId) %>% select(-originalProjectId)
+intraOriginals = originals %>% filter(! (cloneId %in% xclones$cloneId))
+xoriginals = originals %>% filter(cloneId %in% xclones$cloneId)
+LOG("Intra clones", d = nrow(intraClones), pct = nrow(clones))
+LOG("Intra-only originals", d = nrow(intraOriginals), pct = nrow(originals))
+```
+
+This is interesting. Almost `45%` of the originals we have are intra-project originals only, i.e. their clones only appear in the same project. These are most likely artefacts from copying, etc. and we can safely remove them from the dataset. 
+
+```{r}
+clones = xclones
+originals = xoriginals
+rm(xclones)
+rm(xoriginals)
+```
+
+This is how the dataset looks like now:
+
+```{r}
+LOG("Original records", d = nrow(originals))
+LOG("Clone records", d = nrow(clones))
+```
+
+> Do we want some extra analysis of intra-project clones & originals? 
+
+# Project Clones & Originals
+
+First we take part of the dataset which deals with projects. That is all originals where the path is empty (i.e. the whole project is cloned) and then all clones of these originals:
+
+```{r}
+projectOriginalsRecords = originals %>% filter(is.na(path))
+projectClonesRecords = clones %>% filter(cloneId %in% projectOriginalsRecords$cloneId)
+LOG("Originals records", d = nrow(projectOriginals), pct = nrow(originals))
+LOG("Clones records", d = nrow(projectClones), pct = nrow(clones))
+```
+
+Let's see how much of the dataset in terms of projects this is:
+
+```{r}
+projectOriginals = projectOriginalsRecords %>% group_by(projectId) %>% summarize(clones = n())
+projectClones = projectClonesRecords %>% group_by(projectId) %>% summarize(sources = n())
+LOG("Projects which are originals", d = nrow(projectOriginals), pct = numProjects())
+LOG("Projects which contain clones", d = nrow(projectClones), pct = numProjects())
+```
+
+How many projects are both originals and contain clones of other projects?
+
+```{r}
+x = inner_join(projectOriginals, projectClones, by = "projectId")
+LOG("Project being both originals and containing clones", d = nrow(x), pct = nrow(projectOriginals))
+```
+
+`14%` of the projects which are originals also contain clones of entire other projects in them.
+
+> This is a bit high, perhaps we should investigate?
+
+## How are projects being cloned?
+
+Project can either be cloned into a root folder of other project (akin to fork), or to a folder in a project (submodule). First, what is the percentage of the root-to-root clones?
+
+```{r}
+LOG("Project root clones (records)", d = nrow(projectClonesRecords %>% filter(is.na(path))), pct = nrow(projectClonesRecords))
+LOG("Unique projects which cloned other project in their root", d = nrow(projectClonesRecords %>% filter(is.na(path)) %>% group_by(projectId) %>% summarize(count = n())), pct = numProjects())
+```
+
+Ok, so `5.4%` of the projects we have are essentially forks of other projects, which is some 170k projects in total. Interesting is the small discrepancy between the number of records and number of unique projects - given our definition of folder clones, that means these projects had to have all their javascript files deleted from them and then a project had to be copied again. Let's look at them:
+
+```{r}
+x = projectClonesRecords %>% filter(is.na(path)) %>% group_by(projectId) %>% summarize(count = n()) %>% filter(count > 1)
+summary(x$count)
+DT::datatable(x %>% arrange(desc(count)) %>% head(100))
+```
+
+Let's pick the largest one and check what's going on - it is a project with 512 commits that only contains 3 identical commits applied over and over again, so I guess that problem is being solved ([https://github.com/pkudrin/testgitrepo/commits/master](https://github.com/pkudrin/testgitrepo/commits/master))
+
+Where are the project copied then? 
+ 
+```{r}
+x = projectClonesRecords %>% group_by(path) %>% summarize(count = n(), files = mean(files))
+DT::datatable(x %>% arrange(desc(count)) %>% head(100))
+```
+This looks nice - what we see here is a clear pattern that submodules should have been used really. 
+
+Finally, let's look at how many of the clones are partial, i.e. do not copy everything from the original:
+
+```{r}
+x = projectClonesRecords %>% select(cloneId, cloneFiles = files)
+x = inner_join(x, projectOriginalsRecords %>% select(cloneId, originalFiles = files), by = "cloneId")
+x$ratio = x$cloneFiles / x$originalFiles
+LOG("Partial clones (records)", d = nrow(x %>% filter(cloneFiles != originalFiles)), pct = nrow(projectClonesRecords))
+```
+
+```{r}
+summary(x$ratio)
+DT::datatable(x %>% arrange(ratio) %>% head(100))
+```
+
+Some of these might want extra attention, copying 2 files from 27331 seems a bit too much;-D
+
+# Folder Clones
+
+Now let's concentrate on those originals where the original is a folder, i.e. not an entire project:
+
+# OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD 
+# OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD 
+# OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD 
 
 Let's do some summaries:
 
@@ -92,6 +207,20 @@ projectClones = clones %>% filter(cloneId %in% projectOriginals$cloneId)
 LOG("Project originals", d = nrow(projectOriginals), pct = nrow(originals))
 LOG("Project clones", d = nrow(projectClones), pct = nrow(clones))
 ```
+
+```{r}
+x = projectOriginals %>% group_by(projectId) %>% summarize(count = n())
+nrow(x)
+y = projectClones %>% group_by(projectId) %>% summarize(count = n())
+nrow(y)
+```
+```{r}
+x = originals %>% group_by(projectId) %>% summarize(count = n())
+nrow(x)
+y = clones %>% group_by(projectId) %>% summarize(count = n())
+nrow(y)
+```
+
 
 How many of these are clones from root folder to root folder? 
 
