@@ -311,38 +311,36 @@ namespace dejavu {
         private:
 
             /** Takes the project and creates a list of changes to be removed because they either create, or modify a clone.
-
-                
              */
             void analyzeProject(Project * p) {
                 // if there are no clones in the project, no need to go though it
-                if (p->clones.empty())
-                    return;
-                CommitForwardIterator<Project,Commit,State> i(p, [&, this](Commit * c, State & state){
-                        // first deal with deletions in the commit, if they belong to any active commit
-                        if (!state.activeClones.empty()) {
-                            for (unsigned pathId: c->deletions)
-                                if (state.registerDeletion(pathId))
-                                    p->addIgnoredChange(c, pathId);
-                        }
-                        // now take any clones added in the commit and add them to active clones
-
-                        auto i = p->clones.find(c->id);
-                        if (i != p->clones.end()) {
-                            for (Clone * clone : i->second)
-                                state.addActiveClone(clone);
-                        }
-                        // and now, take every change and determine if it belongs to any of the active clones
-                        if (!state.activeClones.empty()) {
-                            for (auto i : c->changes) {
-                                if (state.registerChange(i.first, paths_[i.first]))
-                                    p->addIgnoredChange(c, i.first);
+                if (! p->clones.empty()) {
+                    CommitForwardIterator<Project,Commit,State> i(p, [&, this](Commit * c, State & state){
+                            // first deal with deletions in the commit, if they belong to any active commit
+                            if (!state.activeClones.empty()) {
+                                for (unsigned pathId: c->deletions)
+                                    if (state.registerDeletion(pathId))
+                                        p->addIgnoredChange(c, pathId);
                             }
-                        }
-                        // that's it
-                        return true;
-                    });
-                i.process();
+                            // now take any clones added in the commit and add them to active clones
+
+                            auto i = p->clones.find(c->id);
+                            if (i != p->clones.end()) {
+                                for (Clone * clone : i->second)
+                                    state.addActiveClone(clone);
+                            }
+                            // and now, take every change and determine if it belongs to any of the active clones
+                            if (!state.activeClones.empty()) {
+                                for (auto i : c->changes) {
+                                    if (state.registerChange(i.first, paths_[i.first]))
+                                        p->addIgnoredChange(c, i.first);
+                                }
+                            }
+                            // that's it
+                            return true;
+                        });
+                    i.process();
+                }
                 {
                     std::lock_guard<std::mutex> g(mChangesOut_);
                     for (Commit * c : p->commits) {
