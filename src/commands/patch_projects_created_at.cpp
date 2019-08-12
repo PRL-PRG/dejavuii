@@ -331,6 +331,7 @@ namespace dejavu {
             static constexpr int RENAMED_EXISTING_NOT_DOWNLOADED = 4;
 
             int patchProjectFromMetadata(Project * p) {
+                int sysres = 0;
                 int result = PATCHED;
                 std::string path = STR(Input.value() << "/" << (p->id % 1000) << "/" << p->id);
                 nlohmann::json json;
@@ -350,7 +351,7 @@ namespace dejavu {
                         p->repo = split[1];
                         result = RENAMED_NEW;
                         // remove the renamed suffix from the metadata
-                        system(STR("mv " << path << ".renamed " << path).c_str());
+                        sysres = system(STR("mv " << path << ".renamed " << path).c_str());
                     // if the project exists,
                     } else {
                         Project * np = i->second;
@@ -367,10 +368,10 @@ namespace dejavu {
                         // not, copy the existing and then patch the project
                         std::string npath = STR(Input.value() << "/" << (np->id % 1000) << "/" << np->id);
                         if (helpers::FileExists(npath)) {
-                            system(STR("mv " << path << ".renamed " << path << ".deleted").c_str());
+                            sysres = system(STR("mv " << path << ".renamed " << path << ".deleted").c_str());
                             return RENAMED_EXISTING;
                         } else {
-                            system(STR("mv " << path << ".renamed " << npath).c_str());
+                            sysres = system(STR("mv " << path << ".renamed " << npath).c_str());
                             patchProjectFromMetadata(np);
                             return RENAMED_EXISTING_NOT_DOWNLOADED;
                         }
@@ -384,6 +385,8 @@ namespace dejavu {
                 if (p->patched) 
                     result = REPATCHED;
                 p->patched = true;
+                // just silence the warnings
+                (void)(sysres);
                 return result;
             }
             

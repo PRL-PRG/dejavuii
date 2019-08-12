@@ -288,7 +288,7 @@ namespace dejavu {
                 }
                 {
                     std::cerr << "Writing commit parents..." << std::endl;
-                    std::ofstream f(OutputDir.value() + "/commitsParents.csv");
+                    std::ofstream f(OutputDir.value() + "/commitParents.csv");
                     f << "commitId,parentId" << std::endl;
                     for (auto i : commits_) {
                         Commit * c = i.second;
