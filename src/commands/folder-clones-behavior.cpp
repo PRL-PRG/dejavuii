@@ -219,7 +219,7 @@ namespace dejavu {
                                 o = i->second;
                                 ++i;
                                 ++completed;
-                                if (completed % 1000 == 0)
+                                //if (completed % 1000 == 0)
                                     std::cerr << " : " << completed << "    \r" << std::flush;
                             }
                             if (o == nullptr)
@@ -326,6 +326,7 @@ namespace dejavu {
                             --o;
                             break;
                         }
+                        ++o;
                     }
                     if (c->second == sortedContents[o].second) {
                         uint64_t start = c->first;

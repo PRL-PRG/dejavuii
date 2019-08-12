@@ -134,12 +134,13 @@ npmPackageUrl = function(name) {
 # pp(1010000) -> 1M
 # pp(1100000) -> 1.1M
 # pp(1000000000) -> 1B
-pp <- function(x) ifelse(x==0,
-                         paste(format(x, digits=2, scientific=FALSE)),
-                         ifelse(x < 1000,
-                                format(x, digits=2, scientific=FALSE),
-                                ifelse(x < 1000000,
-                                       paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "K", sep=""),
-                                       ifelse(x < 1000000000,
-                                              paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "M", sep=""),
-                                              paste(format(floor((x/1000000000)*10)/10, digits=2, scientific=FALSE), "B", sep="")))))
+pp <- function(x, digits=2) 
+    ifelse(x==0,
+           paste(format(x, digits=digits, scientific=FALSE)),
+                 ifelse(x < 1000,
+                        format(x, digits=digits, scientific=FALSE),
+                        ifelse(x < 1000000,
+                               paste(format(floor((x/1000)*10)/10, digits=digits, scientific=FALSE), "K", sep=""),
+                               ifelse(x < 1000000000,
+                                      paste(format(floor((x/1000000)*10)/10, digits=digits, scientific=FALSE), "M", sep=""),
+                                      paste(format(floor((x/1000000000)*10)/10, digits=digits, scientific=FALSE), "B", sep="")))))

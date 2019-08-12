@@ -110,11 +110,22 @@ namespace dejavu {
                 unsigned total = 0;
                 unsigned removed = 0;
                 unsigned isClone = 0;
+                unsigned partial = 0;
                 FolderCloneCandidateLoader{[&, this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & folder, unsigned files) {
                         if (cloneId >= originals_.size())
                             std::cout << cloneId << std::endl;
                         assert(cloneId < originals_.size());
                         CloneOriginal * original = originals_[cloneId];
+                        // ignore partial clones
+                        if (original->files > files) {
+                            ++partial;
+                            if (--original->occurences == 0) {
+                                delete original;
+                                originals_[cloneId] = nullptr;
+                                ++removed;
+                            }
+                            return;
+                        }
                         assert(original != nullptr);
                         ++total;
                         if (original->projectId == projectId && original->commitId == commitId && original->path == folder) {
@@ -133,6 +144,7 @@ namespace dejavu {
                 std::cerr << "    " << total << " clone candidates loaded" << std::endl;
                 std::cerr << "    " << isClone << " clone originals are clones themseves" << std::endl;
                 std::cerr << "    " << removed << " removed clone originals" << std::endl;
+                std::cerr << "    " << partial << " partial clone candidates rejected" << std::endl;
             }
 
             /** It is theoretically possible that two clones are actually from the same source, just a different subset of files. This step makes sure that all such clones are joined into a single clone original.
