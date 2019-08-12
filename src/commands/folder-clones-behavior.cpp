@@ -277,7 +277,6 @@ namespace dejavu {
                 i.process();
             }
 
-
             /** Analyzes the clone and calculates the following metrics:
 
                 Time spent 100% synchronized - for each change in clone we check if parent has the same state at the time and if it does we add the time during which they are identical to the overall time.
