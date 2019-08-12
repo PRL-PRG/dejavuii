@@ -35,7 +35,7 @@ LOG("Intra clones", d = nrow(intraClones), pct = nrow(clones))
 LOG("Intra-only originals", d = nrow(intraOriginals), pct = nrow(originals))
 ```
 
-This is interesting. Almost `45%` of the originals we have are intra-project originals only, i.e. their clones only appear in the same project. These are most likely artefacts from copying, etc. and we can safely remove them from the dataset. 
+This is interesting. `51%` of the originals we have are intra-project originals only, i.e. their clones only appear in the same project. These are most likely artefacts from copying, etc. and we can safely remove them from the dataset. 
 
 ```{r}
 clones = xclones
@@ -101,29 +101,16 @@ summary(x$count)
 DT::datatable(x %>% arrange(desc(count)) %>% head(100))
 ```
 
-Let's pick the largest one and check what's going on - it is a project with 512 commits that only contains 3 identical commits applied over and over again, so I guess that problem is being solved ([https://github.com/pkudrin/testgitrepo/commits/master](https://github.com/pkudrin/testgitrepo/commits/master))
+> TODO look at the ones above manually
 
 Where are the project copied then? 
- 
+
 ```{r}
 x = projectClonesRecords %>% group_by(path) %>% summarize(count = n(), files = mean(files))
 DT::datatable(x %>% arrange(desc(count)) %>% head(100))
 ```
 This looks nice - what we see here is a clear pattern that submodules should have been used really. 
 
-Finally, let's look at how many of the clones are partial, i.e. do not copy everything from the original:
-
-```{r}
-x = projectClonesRecords %>% select(cloneId, cloneFiles = files)
-x = inner_join(x, projectOriginalsRecords %>% select(cloneId, originalFiles = files), by = "cloneId")
-x$ratio = x$cloneFiles / x$originalFiles
-LOG("Partial clones (records)", d = nrow(x %>% filter(cloneFiles != originalFiles)), pct = nrow(projectClonesRecords))
-```
-
-```{r}
-summary(x$ratio)
-DT::datatable(x %>% arrange(ratio) %>% head(100))
-```
 
 Some of these might want extra attention, copying 2 files from 27331 seems a bit too much;-D
 
@@ -131,9 +118,69 @@ Some of these might want extra attention, copying 2 files from 27331 seems a bit
 
 Now let's concentrate on those originals where the original is a folder, i.e. not an entire project:
 
+
+# Clones Behavior
+
+```{r}
+cloneBehavior = readDataset("folderCloneOccurencesBehavior.csv")
+```
+
+Ok, now remove the intra project clones. 
+
+```{r}
+x = originals %>% select(cloneId, originalProjectId = projectId)
+x = inner_join(cloneBehavior, x, by = "cloneId")
+cloneBehavior = x %>% filter(projectId != originalProjectId) %>% select(-originalProjectId)
+LOG("Clone Behavior records", d = nrow(cloneBehavior), pct = nrow(clones))
+```
+
+Now let's do some analysis:
+
+```{r}
+summary(cloneBehavior$changingCommits)
+summary(cloneBehavior$divergentCommits)
+summary(cloneBehavior$syncCommits)
+summary(cloneBehavior$syncDelay)
+summary(cloneBehavior$fullySyncedTime)
+```
+
+
+
+
+
+
+
+
 # OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD 
 # OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD 
 # OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD 
+
+
+
+peta@prl1e:~/devel/dejavuii/build$ time ./dejavu filter-folder-clones -d=/data/dejavu/no-npm -o=/data/dejavu/no-folder-clones -filter=/data/dejavu/no-npm/folderCloneOccurences.csv -n=40
+OH HAI CAN I HAZ DEJAVU AGAINZ?
+Loading projects ...
+Loading commits ...
+Loading commit parents ...
+Loading paths ...
+Loading file changes ...
+Filtering file changes...
+Writing clone change sizes...
+Writing filtered projects...
+    3024039 projects written
+    3186352 projects total
+Removing empty commits...
+    7350336 commits detached
+    61897259 out of total
+Writing filtered commits...
+Writing commit parents...
+Creating symlinks...
+ln: failed to create symbolic link '/data/dejavu/no-folder-clones/hashes.csv': File exists
+ln: failed to create symbolic link '/data/dejavu/no-folder-clones/paths.csv': File exists
+KTHXBYE!
+real    78m45.054s
+user    365m8.195s
+sys     33m26.582s                        
 
 Let's do some summaries:
 

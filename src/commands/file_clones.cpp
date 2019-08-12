@@ -593,7 +593,7 @@ namespace dejavu {
         std::mutex mCerr_;
     };
 
-    void DetectFileClones(int argc, char * argv[]) {
+    void DetectFileClones2(int argc, char * argv[]) {
         Settings.addOption(DataDir);
         Settings.addOption(NumThreads);
         Settings.parse(argc, argv);
