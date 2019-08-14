@@ -74,6 +74,15 @@ namespace dejavu {
 
 
 
+
+
+
+    /** Calculates project lifespans - i.e. time of oldest and youngest commits recorded.
+     */
+    void ProjectLifespan(int argc, char * argv[]);
+
+
+
     
 
     /** Calculates project level summary counts of paths, changes and deletions and node_modules paths, changes and deletions.

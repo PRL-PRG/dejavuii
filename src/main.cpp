@@ -70,6 +70,13 @@ void InitializeCommands() {
     // file clones
     new helpers::Command("detect-file-clones", DetectFileClones, "Detects the file clones");
 
+
+
+
+
+    
+    new helpers::Command("project-lifespan", ProjectLifespan, "Calculates project lifespans");
+
     
 
     // temp stuff
