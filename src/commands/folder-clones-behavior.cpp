@@ -36,7 +36,11 @@ namespace dejavu {
                 divergentCommits{0},
                 syncCommits{0},
                 syncDelay{0},
-                fullySyncedTime{0}{
+                fullySyncedTime{0},
+                fullySyncedCommits{0},
+                youngestChange{0},
+                youngestDivergentChange{0},
+                youngestSyncChange{0} {
             }
 
             unsigned changingCommits;
@@ -44,6 +48,10 @@ namespace dejavu {
             unsigned syncCommits;
             uint64_t syncDelay;
             uint64_t fullySyncedTime;
+            unsigned fullySyncedCommits;
+            uint64_t youngestChange;
+            uint64_t youngestDivergentChange;
+            uint64_t youngestSyncChange;
             
         }; // Clone
 
@@ -231,7 +239,7 @@ namespace dejavu {
                     i.join();
                 std::cerr << "Writing results..." << std::endl;
                 std::ofstream f(DataDir.value() + "/folderCloneOccurencesBehavior.csv");
-                f << "cloneId,projectId,commitId,path,changingCommits,divergentCommits,syncCommits,syncDelay,fullySyncedTime" << std::endl;
+                f << "cloneId,projectId,commitId,path,changingCommits,divergentCommits,syncCommits,syncDelay,fullySyncedTime,fullySyncedCommits,youngestChange,youngestDivergentChange,youngestSyncChange" << std::endl;
                 for (auto i : originals_)
                     for (Clone * c : i.second->clones)
                         f << c->id << ","
@@ -242,7 +250,11 @@ namespace dejavu {
                           << c->divergentCommits << ","
                           << c->syncCommits << ","
                           << c->syncDelay << ","
-                          << c->fullySyncedTime << std::endl;
+                          << c->fullySyncedTime << ","
+                          << c->fullySyncedCommits << ","
+                          << c->youngestChange << ","
+                          << c->youngestDivergentChange << ","
+                          << c->youngestSyncChange << std::endl;
             }
 
         private:
@@ -298,14 +310,20 @@ namespace dejavu {
                                 cloneSorted.insert(std::make_pair(c->time, hash));
                                 if (clone->commitId != c->id) {
                                     ++clone->changingCommits;
+                                    if (clone->youngestChange < c->time)
+                                        clone->youngestChange = c->time;
                                     auto i = originalContents.find(hash);
                                     if (i == originalContents.end()) {
                                         ++clone->divergentCommits;
+                                        if (clone->youngestDivergentChange < c->time)
+                                            clone->youngestDivergentChange = c->time;
                                     } else {
                                         uint64_t originalTime = i->second;
                                         if (originalTime <= c->time) {
                                             ++clone->syncCommits;
                                             clone->syncDelay += (c->time - originalTime);
+                                            if (clone->youngestSyncChange < c->time)
+                                                clone->youngestSyncChange = c->time;
                                         }
                                     }
                                 }
@@ -335,6 +353,7 @@ namespace dejavu {
                         if (o != sortedContents.size() - 1 && sortedContents[o + 1].first < end)
                             end = sortedContents[o + 1].first;
                         clone->fullySyncedTime += end - start;
+                        ++clone->fullySyncedCommits;
                     } else {
                         ++c;
                     }
