@@ -213,7 +213,8 @@ namespace dejavu {
                         // first remove all files added by the commit
                         for (unsigned pathId : c->deletions) {
                             //assert(state.files.find(pathId) != state.files.end());
-                            std::cout << p->id << "," << c->id << "," << pathId << std::endl;
+                            if (state.files.find(pathId) == state.files.end())
+                                std::cout << p->id << "," << c->id << "," << pathId << std::endl;
                             state.files.erase(pathId);
                         }
                         // now for each change, update the change and determine if the thing is a clone

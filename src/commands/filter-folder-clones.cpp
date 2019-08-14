@@ -104,6 +104,8 @@ namespace dejavu {
                             j->second.insert(ui);
                     }
                 }
+                activeFiles.insert(from.activeFiles.begin(), from.activeFiles.end());
+                //std::cout << "merging" << std::endl;
             }
 
             /** Checks *all* active clones if they contain specified pathId and if they do, removes the */
@@ -123,6 +125,11 @@ namespace dejavu {
                     }
                     ++i;
                 }
+                if (!result) {
+                    if (activeFiles.find(pathId) == activeFiles.end())
+                        throw pathId;
+                    activeFiles.erase(pathId);
+                }
                 return result;
             }
 
@@ -132,18 +139,22 @@ namespace dejavu {
 
             bool registerChange(unsigned pathId, std::string const & path) {
                 bool result = false;
-                for (auto i : activeClones) {
+                for (auto & i : activeClones) {
                     if (helpers::startsWith(path, i.first->path)) {
                         result = true;
                         i.second.insert(pathId);
                         ++i.first->fileChanges;
                     }
                 }
+                if (! result)
+                    activeFiles.insert(pathId);
                 return result;
             }
             
             // clone prefix -> set of paths it contains that should be ignored
             std::unordered_map<Clone *, std::unordered_set<unsigned>> activeClones;
+            // set of files currently active in the project, tracked for verification purposes
+            std::unordered_set<unsigned> activeFiles;
             
         }; // State
 
@@ -311,28 +322,40 @@ namespace dejavu {
         private:
 
             /** Takes the project and creates a list of changes to be removed because they either create, or modify a clone.
+
+                Error in project 3544630, commit 285302049, path: 1814152
+
              */
             void analyzeProject(Project * p) {
+                //if (p->id != 3544630)
+                //    return;
                 // if there are no clones in the project, no need to go though it
                 if (! p->clones.empty()) {
-                    CommitForwardIterator<Project,Commit,State> i(p, [&, this](Commit * c, State & state){
-                            // first deal with deletions in the commit, if they belong to any active commit
-                            if (!state.activeClones.empty()) {
-                                for (unsigned pathId: c->deletions)
-                                    if (state.registerDeletion(pathId))
-                                        p->addIgnoredChange(c, pathId);
+                    CommitForwardIterator<Project,Commit,State> i(p, [&, this](Commit * c, State & state) {
+                            try {
+                                // first deal with deletions in the commit, if they belong to any active commit
+                                if (!state.activeClones.empty()) {
+                                    for (unsigned pathId: c->deletions) {
+                                        if (state.registerDeletion(pathId)) 
+                                            p->addIgnoredChange(c, pathId);
+                                    }
+                                }
+                            } catch (unsigned pathId) {
+                                std::cout << "Error in project " << p->id << ", commit " << c->id << ", path: " << pathId << std::endl;
                             }
                             // now take any clones added in the commit and add them to active clones
 
                             auto i = p->clones.find(c->id);
                             if (i != p->clones.end()) {
-                                for (Clone * clone : i->second)
+                                for (Clone * clone : i->second) {
+                                    //std::cout << "Added active clone " << clone->path << std::endl;
                                     state.addActiveClone(clone);
+                                }
                             }
                             // and now, take every change and determine if it belongs to any of the active clones
                             if (!state.activeClones.empty()) {
                                 for (auto i : c->changes) {
-                                    if (state.registerChange(i.first, paths_[i.first]))
+                                    if (state.registerChange(i.first, paths_[i.first])) 
                                         p->addIgnoredChange(c, i.first);
                                 }
                             }
