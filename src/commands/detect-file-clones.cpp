@@ -80,6 +80,11 @@ namespace dejavu {
                 pathId(pathId),
                 cloneId(cloneId) {
             }
+
+            friend std::ostream & operator << (std::ostream & s, FileClone const & f) {
+                s << f.projectId << "," << f.commitId << "," << f.pathId << "," << f.cloneId;
+                return s;
+            }
         };
         
         class State {
@@ -165,7 +170,7 @@ namespace dejavu {
             void detectClones() {
                 std::cerr << "Analyzing projects for clone candidates..." << std::endl;
                 clonesOut_ = std::ofstream(DataDir.value() + "/fileCloneCandidates.csv");
-                clonesOut_ << "cloneId,projectId,commitId,pathId" << std::endl;
+                clonesOut_ << "projectId,commitId,pathId,cloneId" << std::endl;
                 std::vector<std::thread> threads;
                 auto i = projects_.begin();
                 size_t completed = 0;
@@ -192,6 +197,8 @@ namespace dejavu {
                                 {
                                     std::lock_guard<std::mutex> g(mClonesOut_);
                                     numClones += clones.size();
+                                    for (auto const & i : clones)
+                                        clonesOut_ << i << std::endl;
                                 }
                                 clones.clear();
                             }
@@ -201,8 +208,6 @@ namespace dejavu {
                     i.join();
                 std::cerr << "    " << numClones << " file clones detected" << std::endl;
             }
-            
-            
 
 
         private:
@@ -212,19 +217,22 @@ namespace dejavu {
                 CommitForwardIterator<Project, Commit, State> i(p, [&, this](Commit * c, State & state){
                         // first remove all files added by the commit
                         for (unsigned pathId : c->deletions) {
-                            //assert(state.files.find(pathId) != state.files.end());
-                            if (state.files.find(pathId) == state.files.end())
-                                std::cout << p->id << "," << c->id << "," << pathId << std::endl;
+                            assert(state.files.find(pathId) != state.files.end());
+                            //if (state.files.find(pathId) == state.files.end())
+                            //    std::cout << p->id << "," << c->id << "," << pathId << std::endl;
                             state.files.erase(pathId);
                         }
                         // now for each change, update the change and determine if the thing is a clone
                         for (auto i : c->changes) {
-                            // let's see if there is an original
-                            auto o = originals_.find(i.second);
-                            if (o != originals_.end()) {
-                                // ignore intra-project clones
-                                if (o->second->project != p) 
-                                    clones.push_back(FileClone(p->id, c->id, i.first, i.second));
+                            // if the file has not been observed yet, it may be clone
+                            if (state.files.find(i.first) == state.files.end()) {
+                                // let's see if there is an original
+                                auto o = originals_.find(i.second);
+                                if (o != originals_.end()) {
+                                    // ignore intra-project clones
+                                    if (o->second->project != p) 
+                                        clones.push_back(FileClone(p->id, c->id, i.first, i.second));
+                                }
                             }
                             // add the change
                             state.files[i.first] = i.second;
