@@ -112,6 +112,8 @@ namespace dejavu {
             bool registerDeletion(unsigned pathId) {
                 bool result = false;
                 for (auto i = activeClones.begin(), e = activeClones.end(); i != e; ) {
+                    //if (pathId == 303277010)
+                        //std::cout << "Deleting path " << pathId << ", checking clone " << i->first->path << ", size " << i->second.size() << std::endl;
                     if (i->second.erase(pathId) != 0) {
                         // the change is to be ignored
                         result = true;
@@ -134,13 +136,20 @@ namespace dejavu {
             }
 
             void addActiveClone(Clone * clone) {
+                //std::cout << "Added clone " << clone->path << std::endl;
                 activeClones.insert(std::make_pair(clone, std::unordered_set<unsigned>()));
             }
 
             bool registerChange(unsigned pathId, std::string const & path) {
                 bool result = false;
+                //if (pathId == 303277010)
+                //    std::cout << "Adding path " << path << ", id " << pathId << std::endl;
                 for (auto & i : activeClones) {
+                    //if (pathId == 303277010)
+                    //    std::cout << "Adding path " << path << ", id "<< pathId << ", checking clone " << i.first->path << std::endl;
                     if (helpers::startsWith(path, i.first->path)) {
+                        //if (pathId == 303277010)
+                        //    std::cout << "Adding path " << path << ", id " << pathId << " to clone " << i.first->path << std::endl;;
                         result = true;
                         i.second.insert(pathId);
                         ++i.first->fileChanges;
@@ -323,15 +332,14 @@ namespace dejavu {
 
             /** Takes the project and creates a list of changes to be removed because they either create, or modify a clone.
 
-                Error in project 3544630, commit 285302049, path: 1814152
-
              */
             void analyzeProject(Project * p) {
-                //if (p->id != 3544630)
+                //if (p->id != 3544422)
                 //    return;
                 // if there are no clones in the project, no need to go though it
                 if (! p->clones.empty()) {
                     CommitForwardIterator<Project,Commit,State> i(p, [&, this](Commit * c, State & state) {
+                            //std::cout << "Commit " << c->id << std::endl;
                             try {
                                 // first deal with deletions in the commit, if they belong to any active commit
                                 if (!state.activeClones.empty()) {
@@ -353,12 +361,12 @@ namespace dejavu {
                                 }
                             }
                             // and now, take every change and determine if it belongs to any of the active clones
-                            if (!state.activeClones.empty()) {
+                            //if (!state.activeClones.empty()) {
                                 for (auto i : c->changes) {
                                     if (state.registerChange(i.first, paths_[i.first])) 
                                         p->addIgnoredChange(c, i.first);
                                 }
-                            }
+                                //}
                             // that's it
                             return true;
                         });
