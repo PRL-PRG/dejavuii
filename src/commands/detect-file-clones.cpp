@@ -205,6 +205,10 @@ namespace dejavu {
                         assert(p != nullptr);
                         c->addParent(p);
                     }};
+                std::cerr << "Loading paths ... " << std::endl;
+                PathToIdLoader{[&,this](unsigned id, std::string const & path){
+                        paths_[id] = path;
+                    }};
                 std::cerr << "Loading file changes ... " << std::endl;
                 size_t numChanges = 0;
                 size_t numDeletions = 0;
@@ -327,13 +331,14 @@ namespace dejavu {
                 {
                     std::cerr << "Writing clone behavior..." << std::endl;
                     std::ofstream f(DataDir.value() + "/fileCloneOccurencesBehavior.csv");
-                    f << "cloneId,projectId,commitId,path,changingCommits,divergentCommits,syncCommits,syncDelay,fullySyncedTime,fullySyncedCommits,youngestChange,youngestDivergentChange,youngestSyncChange" << std::endl;
+                    f << "cloneId,projectId,commitId,pathId,path,changingCommits,divergentCommits,syncCommits,syncDelay,fullySyncedTime,fullySyncedCommits,youngestChange,youngestDivergentChange,youngestSyncChange" << std::endl;
                     for (auto i : originals_)
                         for (FileClone * c : i.second->clones)
                             f << c->cloneId << ","
                               << c->projectId << ","
                               << c->commitId << ","
                               << c->pathId << ","
+                              << helpers::escapeQuotes(paths_[c->pathId]) << ","
                               << c->changingCommits << ","
                               << c->divergentCommits << ","
                               << c->syncCommits << ","
@@ -349,9 +354,14 @@ namespace dejavu {
             void writeOriginals() {
                 std::cerr << "Writing originals information..." << std::endl;
                 std::ofstream f(DataDir.value() + "/fileCloneOriginals.csv");
-                f << "projectId,commitId,pathId,cloneId,numClones" << std::endl;
+                f << "projectId,commitId,pathId,path,cloneId,numClones" << std::endl;
                 for (auto i : originals_)
-                    f << i.second->project->id << "," << i.second->commit->id << "," << i.second->fileId << "," << i.second->id << "," << i.second->clones.size() << std::endl;
+                    f << i.second->project->id << ","
+                      << i.second->commit->id << ","
+                      << i.second->fileId << ","
+                      << helpers::escapeQuotes(paths_[i.second->fileId]) << ","
+                      << i.second->id << ","
+                      << i.second->clones.size() << std::endl;
             }
 
             void filterFileChanges() {
@@ -601,6 +611,7 @@ namespace dejavu {
             
             std::unordered_map<unsigned, Project *> projects_;
             std::unordered_map<unsigned, Commit *> commits_;
+            std::unordered_map<unsigned, std::string> paths_;
             std::unordered_map<unsigned, FileOriginal *> originals_;
 
         };

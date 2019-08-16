@@ -83,6 +83,15 @@ namespace dejavu {
 
 
 
+    /** Calculates the projects history table.
+     */
+    void HistoryOverview(int argc, char * argv[]);
+
+    /** Expands the smaller history overview to contain datapoints from the larger one for easy merging.
+     */
+    void HistoryOverviewExpander(int argc, char * argv[]);
+
+
     
 
     /** Calculates project level summary counts of paths, changes and deletions and node_modules paths, changes and deletions.

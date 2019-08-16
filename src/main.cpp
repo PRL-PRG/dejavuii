@@ -77,8 +77,14 @@ void InitializeCommands() {
     
     new helpers::Command("project-lifespan", ProjectLifespan, "Calculates project lifespans");
 
+    new helpers::Command("history-overview", HistoryOverview, "Calculates projects history summary");
+    new helpers::Command("history-overview-expander", HistoryOverviewExpander, "Expands the smaller history overview to contain datapoints from the larger");
+
+
+
     
 
+    
     // temp stuff
     new helpers::Command("translate-metadata", tmp_TranslateDownloadedMetadata, "Translates downloaded metadata into a more pleasing format");
     
