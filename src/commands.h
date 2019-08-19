@@ -90,6 +90,9 @@ namespace dejavu {
      */
     void HistoryOverviewExpander(int argc, char * argv[]);
 
+    /** Same as history overview, but uses paths as a guide.
+     */
+    void HistoryPaths(int argc, char * argv[]);
 
     
 

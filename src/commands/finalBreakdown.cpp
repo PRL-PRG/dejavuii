@@ -64,7 +64,59 @@ namespace dejavu {
                 this->commit = commit;
                 this->fileId = fileId;
             }
-        };        
+        };
+
+        enum class FileState {
+            /** The file has unique contents and no other file in the dataset at any point of time has the same contents.
+             */
+            Unique,
+            /** The file is an original, i.e. at least one file has or will have the same contents, but this is the oldest file.
+             */
+            Original,
+            /** The file is a clone, i.e. an earlier file of the same contents existed. 
+             */
+            Clone
+        };
+
+        class FileRecord {
+        public:
+            unsigned pathId;
+            unsigned contentsId;
+            FileState initialState;
+            FileState state;
+            unsigned transitionsToUnique;
+            unsigned transitionsToOriginal;
+            unsigned transitionsToClone;
+
+            FileRecord(unsigned pathId, unsigned contentsId, FileState state):
+                pathId(pathId),
+                contentsId(contentsId),
+                initialState(state),
+                state(state),
+                transitionsToUnique(0),
+                transitionsToOriginal(0),
+                transitionsToClone(0) {
+            }
+        };
+
+        class State {
+        public:
+            State() {
+            }
+
+            State(State const & from) {
+                mergeWith(from, nullptr);
+            }
+
+            void mergeWith(State const & from, Commit * c) {
+                
+            }
+
+            
+
+
+            
+        };
 
         class FinalBreaker {
         public:
@@ -123,7 +175,20 @@ namespace dejavu {
                 }
                 std::cerr << "    " << originals_.size() << " originals (with at least one copy)" << std::endl;
             }
+
+            /** Analyze the rest in categories of files.
+             */
+            
         private:
+
+            void analyzeProject(Project * p) {
+
+
+
+                
+            }
+
+            
 
             std::unordered_map<unsigned, Project *> projects_;
             std::unordered_map<unsigned, Commit *> commits_;
@@ -148,6 +213,7 @@ namespace dejavu {
 
         FinalBreaker fb;
         fb.loadData();
+        fb.removeUniqueFiles();
     }
     
 } // namespace dejavu

@@ -82,7 +82,8 @@ void InitializeCommands() {
     new helpers::Command("history-overview", HistoryOverview, "Calculates projects history summary");
     new helpers::Command("history-overview-expander", HistoryOverviewExpander, "Expands the smaller history overview to contain datapoints from the larger");
 
-
+    new helpers::Command("history-paths", HistoryPaths, "Calculates projects history in terms of paths unique within a project");
+    
 
     
 
