@@ -1,0 +1,85 @@
+---
+title: "Overview of the dataset in time"
+output: html_notebook
+---
+
+```{r,echo=F}
+DROOT = "/data/dejavu"
+source("helpers.R")
+```
+
+```{r}
+verified = readDataset("verified/historyOverview.csv")
+patched = readDataset("patched/historyOverview.csv")
+noForks = readDataset("no-forks/historyOverview.csv")
+noNPM = readDataset("no-npm/historyOverview.csv")
+noFolderClones = readDataset("no-folder-clones/historyOverview.csv")
+noFileClones = readDataset("no-file-clones/historyOverview.csv")
+```
+
+```{r}
+projects = data.frame(
+    time = verified$time,
+    verified = verified$projects,
+    patched = patched$projects,
+    noForks = noForks$projects,
+    noNPM = noNPM$projects,
+    noFolderClones = noFolderClones$projects,
+    noFileClones = noFileClones$projects
+)
+projects = projects %>% gather(dataset, value, 2:7)
+projects$dataset = factor(projects$dataset, levels = c("verified", "patched", "noForks", "noNPM", "noFolderClones", "noFileClones"))
+ggplot(projects, aes(time, value)) +
+     scale_x_continuous(limits = c(1250000000, 1560000000)) + 
+     geom_line(aes(color = dataset))
+```
+
+```{r}
+changes = data.frame(
+    time = verified$time,
+    verified = verified$changes,
+    patched = patched$changes,
+    noForks = noForks$changes,
+    noNPM = noNPM$changes,
+    noFolderClones = noFolderClones$changes,
+    noFileClones = noFileClones$changes
+)
+changes = changes %>% gather(dataset, value, 2:7)
+ggplot(changes, aes(time, value)) +
+     scale_x_continuous(limits = c(1250000000, 1580000000)) + 
+     geom_line(aes(color = dataset))
+```
+
+```{r}
+hashes = data.frame(
+    time = verified$time,
+    verified = verified$hashes,
+    patched = patched$hashes,
+    noForks = noForks$hashes,
+    noNPM = noNPM$hashes,
+    noFolderClones = noFolderClones$hashes,
+    noFileClones = noFileClones$hashes
+)
+hashes = hashes %>% gather(dataset, value, 2:7)
+ggplot(hashes, aes(time, value)) +
+     scale_x_continuous(limits = c(1250000000, 1580000000)) + 
+     geom_line(aes(color = dataset))
+```
+
+
+```{r}
+paths = data.frame(
+    time = verified$time,
+    verified = verified$paths,
+    patched = patched$paths,
+    noForks = noForks$paths,
+    noNPM = noNPM$paths,
+    noFolderClones = noFolderClones$paths,
+    noFileClones = noFileClones$paths
+)
+paths = paths %>% gather(dataset, value, 2:7)
+ggplot(paths, aes(time, value)) +
+     scale_x_continuous(limits = c(1250000000, 1580000000)) + 
+     geom_line(aes(color = dataset))
+```
+

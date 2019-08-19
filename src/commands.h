@@ -71,10 +71,9 @@ namespace dejavu {
      */
     void DetectFileClones(int argc, char * argv[]);
 
-
-
-
-
+    /** The final breakdown of the remaining files after file clones have been removed.
+     */
+    void FinalBreakdown(int argc, char * argv[]);
 
 
     /** Calculates project lifespans - i.e. time of oldest and youngest commits recorded.

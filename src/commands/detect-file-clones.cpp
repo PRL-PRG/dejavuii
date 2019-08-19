@@ -500,8 +500,10 @@ namespace dejavu {
                                 // let's see if there is an original
                                 auto o = originals_.find(i.second);
                                 if (o != originals_.end()) {
-                                    // ignore intra-project clones (this also ignores originals being clones)
-                                    if (o->second->project != p) 
+                                    // original is not clone
+                                    if (o->second->project != p || o->second->commit != c || o->second->fileId != i.first)
+                                        // ignore intra-project clones (this also ignores originals being clones)
+                                        //if (o->second->project != p) 
                                         p->clones.push_back(new FileClone(p->id, c->id, i.first, i.second));
                                 }
                             }

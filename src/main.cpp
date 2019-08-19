@@ -70,6 +70,8 @@ void InitializeCommands() {
     // file clones
     new helpers::Command("detect-file-clones", DetectFileClones, "Detects the file clones");
 
+    new helpers::Command("final-breakdown", FinalBreakdown, "Detects the file clones");
+
 
 
 

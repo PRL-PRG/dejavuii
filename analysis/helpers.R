@@ -6,6 +6,7 @@ library(readr)
 # the usual plotting and data filtering stuffs
 library(dplyr)
 library(ggplot2)
+library(tidyr)
 
 # nicer table output
 library(DT)
