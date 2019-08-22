@@ -6,12 +6,6 @@
 #include "../commands.h"
 
 
-/* Jan wants:
-
-   - # of file contents that are present in more than 1 project
- */
-
-
 namespace dejavu {
 
     namespace {
@@ -90,9 +84,30 @@ namespace dejavu {
                     std::cout << "    " << count << " parent records. " << std::endl;
                 }
                 {
+                    std::cerr << "Loading file changes to determine unique contents..." << std::endl;
+                    size_t totalChanges = 0;
+                    std::unordered_map<unsigned, unsigned> contents;
+                    FileChangeLoader{[&,this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
+                            ++totalChanges;
+                            auto i = contents.find(contentsId);
+                            if (i == contents.end()) 
+                                contents.insert(std::make_pair(contentsId, 1));
+                            else
+                                ++(i->second);
+                        }};
+                    std::cerr << "    " << totalChanges << " total changes read" << std::endl;
+                    for (auto i : contents)
+                        if (i.second == 1)
+                            uniqueContents_.insert(i.first);
+                    std::cerr << "    " << uniqueContents_.size() << " unique file contents" << std::endl;
+                }
+                {
                     std::cerr << "Loading file changes ... " << std::endl;
                     size_t totalChanges = 0;
                     size_t validChanges = 0;
+                    size_t uniqueContentsRemoved = 0;
+                    std::ofstream f(DataDir.value() + "removedUniqueFiles.csv");
+                    f << "projectId,commitId,pathId,contentsId" << std::endl;
                     FileChangeLoader{[&,this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
                             ++totalChanges;
                             if (paths_.find(pathId) != paths_.end()) {
@@ -103,10 +118,14 @@ namespace dejavu {
                                 assert(c != nullptr);
                                 p->addCommit(c);
                                 c->addChange(pathId, contentsId);
+                            } else if (uniqueContents_.find(contentsId) != uniqueContents_.end()) {
+                                f << projectId << "," << commitId << "," << pathId << "," << contentsId << std::endl;
+                                ++uniqueContentsRemoved;
                             }
                         }};
                     std::cerr << "    " << totalChanges << " total changes read" << std::endl;
                     std::cerr << "    " << validChanges << " changes retained" << std::endl;
+                    std::cerr << "    " << uniqueContentsRemoved << " unique contents removed" << std::endl;
                 }
             }
 
@@ -244,6 +263,7 @@ namespace dejavu {
             std::unordered_set<unsigned> paths_;
             std::vector<Project*> projects_;
             std::vector<Commit*> commits_;
+            std::unordered_set<unsigned> uniqueContents_;
             
         };
         
