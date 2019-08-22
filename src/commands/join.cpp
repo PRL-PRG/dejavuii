@@ -39,6 +39,8 @@
     `hashes.csv` - maps commit and contents ids to their SHA1 hashes
     `users.csv` - maps user ids (commit author and committers) to their emails
     `paths.csv` - maps path ids to the actual paths in the repository
+    `submodules.csv` - information about changes to submodules
+    `projectCommits.csv` - total number of commits for each project
  */
 
 namespace dejavu {
@@ -220,6 +222,7 @@ namespace dejavu {
             std::string repo;
             uint64_t createdAt; // the oldest commit
             bool containsSubmodules_;
+            unsigned numCommits = 0;
 
             std::unordered_map<std::string, Commit *> commits;
 
@@ -372,6 +375,11 @@ namespace dejavu {
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
                     f << "commitId,parentId" << std::endl;
+                }
+                filename = DataDir.value() + "/projectCommits.csv";
+                if (!helpers::FileExists(filename)) {
+                    std::ofstream f(filename);
+                    f << "projectId,numCommits,numJSCommits" << std::endl;
                 }
                 reports_.open(DataDir.value()+"/joinReport.csv");
                 reports_ << "path,errors,empty,existing,valid" << std::endl;
@@ -568,6 +576,8 @@ namespace dejavu {
                     if (c->authorTime < this->createdAt)
                         this->createdAt = c->authorTime;
                 }};
+            // keep total number of commits
+            numCommits = commits_.size();
             //std::cerr << std::flush;
             //std::cerr << "    commit parents ... ";
             filename = getPath(path + "/commit_parents") + ".csv";
@@ -759,7 +769,10 @@ namespace dejavu {
                 // pid, user, repo
                 projects << id << "," << helpers::escapeQuotes(user) << "," << helpers::escapeQuotes(repo) << "," << createdAt << std::endl;
             }
-            
+            {
+                std::ofstream projectCommits(DataDir.value() + "/projectCommits.csv", std::ios_base::app);
+                projectCommits << id << "," << numCommits << "," << commits.size() << std::endl;
+            }
         }
 
 
