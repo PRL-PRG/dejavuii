@@ -322,7 +322,7 @@ namespace dejavu {
             void outputProjectsAggregate() {
                 std::cerr << "Writing project aggregates..." << std::endl;
                 std::ofstream f(DataDir.value() + "/projectPaths.csv");
-                f << "projectId,commits,uniqueFiles,originalFiles,cloneFiles" << std::endl;
+                f << "projectId,commits,uniqueFiles,originalFiles,cloneFiles,finalUniqueFiles,finalOriginalFiles,finalCloneFiles" << std::endl;
                 size_t uniqueFiles = 0;
                 size_t originalFiles = 0;
                 size_t cloneFiles = 0;

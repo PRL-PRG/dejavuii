@@ -62,9 +62,9 @@ namespace dejavu {
             std::unordered_set<Commit *> parents;
             std::unordered_set<Commit *> children;
 
-            /** Changes made to files by the commit (pathId -> contentsId)
+            /** Changes made to files by the commit (path -> hash)
              */
-            std::unordered_map<unsigned, unsigned> changes;
+            std::unordered_map<std::string, std::string> changes;
 
             /** Commit message.
              */
@@ -96,15 +96,15 @@ namespace dejavu {
                 - the first change is valid, the second change is delete (the reverse of the above - there is no order for changes in single commit)
                 - multiple updates to the same file as long as all updates change the path to the same contents id (merge commits report diffs to all their parents)
              */
-            void addChange(unsigned pathId, unsigned contentsId) {
+            void addChange(std::string const & pathId, std::string const & contentsId) {
                 auto i = changes.find(pathId);
                 if (i == changes.end()) {
                     changes.insert(std::make_pair(pathId, contentsId));
                 } else {
-                    if (i->second == FILE_DELETED) {
+                    if (i->second == "0000000000000000000000000000000000000000") {
                         i->second = contentsId;
                     } else {
-                        if (contentsId != FILE_DELETED)
+                        if (contentsId != "0000000000000000000000000000000000000000")
                             assert(contentsId == i->second);
                     }
                 }
@@ -183,7 +183,8 @@ namespace dejavu {
             SubmoduleInfo() = default;
             
             SubmoduleInfo(SubmoduleInfo const & other):
-                submodules(other.submodules) {
+                submodules(other.submodules),
+                submoduleUrls(other.submoduleUrls) {
             }
 
             void mergeWith(SubmoduleInfo const & other, Commit *) {
@@ -205,21 +206,21 @@ namespace dejavu {
 
             /** Path ids of submodule files.
              */
-            std::unordered_set<unsigned> submodules;
-            std::unordered_map<unsigned, std::string> submoduleUrls;
+            std::unordered_set<std::string> submodules;
+            std::unordered_map<std::string, std::string> submoduleUrls;
             /** It may happen that a submodule is deleted from gitmodules, but the actual file stays in the repo. In this case the path is moved to this set and any delete of a path from this set is ignored.
 
                 Both change and delete of a path in this list removes the path from the list.
              */
-            std::unordered_set<unsigned> submodulesPendingDelete;
+            std::unordered_set<std::string> submodulesPendingDelete;
         };
 
         class SubmoduleChange {
         public:
-            unsigned commitId;
-            unsigned pathId;
+            std::string commitHash;
+            std::string path;
             std::string url;
-            unsigned hashId;
+            std::string contentsHash;
             
         };
 
@@ -292,7 +293,7 @@ namespace dejavu {
 
             /** Removes changes to submodules from the projects so that they are not treated as files.
               */
-            void ignoreSubmodules(std::string const & path);
+            void ignoreSubmodulesAndNonJSFiles(std::string const & path);
 
             /** Removes commits that do not have any valid file changes from the set of commits the project has.
              */
@@ -451,7 +452,7 @@ namespace dejavu {
                             p->loadCommits(path);
                             if (!p->commits.empty()) {
                                 p->filterMasterBranch();
-                                p->ignoreSubmodules(path);
+                                p->ignoreSubmodulesAndNonJSFiles(path);
                                 p->removeEmptyCommits();
                                 //p->compactCommitHierarchy();
                                 p->write();
@@ -627,19 +628,19 @@ namespace dejavu {
                     Commit * c = commits[commitHash];
                     if (changeType == 'R' || changeType == 'C') {
                         assert(&path2 != & DownloaderCommitChangesLoader::NOT_A_RENAME);
-                        if (ProjectAnalyzer::IsValidPath(path2)) { // if source is valid path, emit delete of the source
-                            unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(path2);
-                            c->addChange(pathId, FILE_DELETED);
-                        }
+                        //if (ProjectAnalyzer::IsValidPath(path2)) { // if source is valid path, emit delete of the source
+                        //unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(path2);
+                        c->addChange(path2, "0000000000000000000000000000000000000000");
+                            //}
                     } else {
                         assert(&path2 == & DownloaderCommitChangesLoader::NOT_A_RENAME);
                     }
-                    if (ProjectAnalyzer::IsValidPath(path)) {
-                        unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(path);
-                        unsigned contentsId = ProjectAnalyzer::GetOrCreateHashId(fileHash);
-                        c->addChange(pathId, contentsId);
-                        ++validChanges;
-                    }
+                    //if (ProjectAnalyzer::IsValidPath(path)) {
+                    //unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(path);
+                    //unsigned contentsId = ProjectAnalyzer::GetOrCreateHashId(fileHash);
+                    c->addChange(path, fileHash);
+                    ++validChanges;
+                        //}
                 }};
             //std::cerr << "    " << validChanges << " of these are changes to valid files" << std::endl;
 
@@ -658,11 +659,11 @@ namespace dejavu {
             return masterCommit;
         }
 
-        void Project::ignoreSubmodules(std::string const & path) {
+        void Project::ignoreSubmodulesAndNonJSFiles(std::string const & path) {
             // if there are no submodules in the project, no need to deal with them
             std::string spath = getPath(path + "/submodule_museum") + "/";
-            if (! containsSubmodules_)
-                return;
+            //if (! containsSubmodules_)
+            //    return;
             //std::cerr << "Removing submodule changes..." << std::flush;
             CommitForwardIterator<Project,Commit,SubmoduleInfo> it(this, [this, spath](Commit * c, SubmoduleInfo & submodules) {
                     submodules.updateWith(c, spath, this);
@@ -679,7 +680,7 @@ namespace dejavu {
         
         void Project::filterMasterBranch() {
             //std::cerr << "    filtering master branch only ... ";
-            unsigned gitmodulesId = ProjectAnalyzer::GetOrCreatePathId(".gitmodules");
+            //unsigned gitmodulesId = ProjectAnalyzer::GetOrCreatePathId(".gitmodules");
             Commit * masterCommit = getMasterHead("origin/HEAD");
             if (masterCommit == nullptr)
                 masterCommit = getMasterHead("HEAD -> HEAD");
@@ -700,7 +701,7 @@ namespace dejavu {
                 // check if the commit changes any submodule information, if it does the commits contains submodules and we must deal with them
                 if (containsSubmodules_ == false)
                     for (auto i : c->changes) {
-                        if (i.first == gitmodulesId) {
+                        if (i.first == ".gitmodules") {
                             containsSubmodules_ = true;
                             break;
                         }
@@ -776,8 +777,10 @@ namespace dejavu {
                 assert(changes.good());
                 for (auto i : commits) {
                     for (auto ch : i.second->changes) {
+                        unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(ch.first);
+                        unsigned contentsId = ProjectAnalyzer::GetOrCreateHashId(ch.second);
                         // project, commit, path, hash
-                        changes << id << "," << i.second->id << "," << ch.first << "," << ch.second << std::endl;
+                        changes << id << "," << i.second->id << "," << pathId << "," << contentsId << std::endl;
                     }
                 }
             }
@@ -796,7 +799,7 @@ namespace dejavu {
             if (! submoduleChanges.empty()) {
                 std::ofstream f(DataDir.value() + "/submoduleChanges.csv", std::ios_base::app);
                 for (SubmoduleChange const & ch : submoduleChanges)
-                    f << id << "," << ch.commitId << "," << ch.pathId << "," << helpers::escapeQuotes(ch.url) << "," << ch.hashId << std::endl;
+                    f << id << "," << ch.commitHash << "," << helpers::escapeQuotes(ch.path) << "," << helpers::escapeQuotes(ch.url) << "," << ch.contentsHash << std::endl;
             }
         }
 
@@ -804,32 +807,34 @@ namespace dejavu {
 
         void SubmoduleInfo::updateWith(Commit * c, std::string const & path, Project * p) {
             // first see if there is a change to gitmodules
-            unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(".gitmodules");
+            //            unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(".gitmodules");
             for (auto i = c->changes.begin(), e = c->changes.end(); i != e; ++i) {
-                if (i->first == pathId) {
+                if (i->first == ".gitmodules") {
                     // if there is submodules, move all existing submodules into pending delete submodules
                     for (auto i : submodules)
                         submodulesPendingDelete.insert(i);
                     // analyze the new version of submodules
-                    if (i->second != FILE_DELETED) {
+                    if (i->second != "0000000000000000000000000000000000000000") {
                         std::ifstream f(path + c->hash);
                         std::string line;
-                        unsigned pathId = 0;
+                        std::string path = "";
                         while (std::getline(f, line)) {
                             size_t x = line.find("url =");
                             if (x != std::string::npos) {
                                 line = line.substr(x + 5);
-                                submoduleUrls[pathId] = line;
+                                if (path == "")
+                                    std::cout << "ERROR -- empty submodule path, commit " << c->hash << std::endl;
+                                submoduleUrls[path] = line;
                                 continue;
                             }
                             x = line.find("path = ");
                             if (x != std::string::npos) {
-                                line = line.substr(x + 7);
+                                path = line.substr(x + 7);
                                 // std::cout << line << " -- " << c->hash << std::endl;
-                                pathId = ProjectAnalyzer::GetOrCreatePathId(line);
-                                submodules.insert(pathId);
+                                //pathId = ProjectAnalyzer::GetOrCreatePathId(line);
+                                submodules.insert(path);
                                 // check that the submodule is not in the pending deletes and remove it if so
-                                auto j = submodulesPendingDelete.find(pathId);
+                                auto j = submodulesPendingDelete.find(path);
                                 if (j != submodulesPendingDelete.end())
                                     submodulesPendingDelete.erase(j);
                             }
@@ -844,16 +849,18 @@ namespace dejavu {
             for (auto i = c->changes.begin(); i != c->changes.end(); ) {
                 if (submodules.find(i->first) != submodules.end()) {
                     // output the submodule change info
-                    p->submoduleChanges.push_back(SubmoduleChange{c->id, i->first, submoduleUrls[i->first], i->second });
+                    p->submoduleChanges.push_back(SubmoduleChange{c->hash, i->first, submoduleUrls[i->first], i->second });
                     //std::cout << "Removing change to file " << i->pathId << std::endl;
                     i = c->changes.erase(i);
                 } else if (submodulesPendingDelete.find(i->first) != submodulesPendingDelete.end()) {
                     submodulesPendingDelete.erase(i->first);
                     // output the submodule change info
-                    p->submoduleChanges.push_back(SubmoduleChange{c->id, i->first, submoduleUrls[i->first], FILE_DELETED });
+                    p->submoduleChanges.push_back(SubmoduleChange{c->hash, i->first, submoduleUrls[i->first], "0000000000000000000000000000000000000000" });
                     i = c->changes.erase(i);
-                } else {
+                } else if (ProjectAnalyzer::IsValidPath(i->first)) {
                     ++i;
+                } else {
+                    i = c->changes.erase(i);
                 }
             }
             /*
