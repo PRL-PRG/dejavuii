@@ -39,13 +39,15 @@
     `hashes.csv` - maps commit and contents ids to their SHA1 hashes
     `users.csv` - maps user ids (commit author and committers) to their emails
     `paths.csv` - maps path ids to the actual paths in the repository
-    `submodules.csv` - information about changes to submodules
+    `submoduleChanges.csv` - information about changes to submodules
     `projectCommits.csv` - total number of commits for each project
  */
 
 namespace dejavu {
 
     namespace {
+
+        class Project;
 
         /** Information about a single commit taken.
          */
@@ -194,20 +196,31 @@ namespace dejavu {
                     if (submodules.find(s) == submodules.end())
                         submodulesPendingDelete.insert(s);
                 }
+                submoduleUrls.insert(other.submoduleUrls.begin(), other.submoduleUrls.end());
             }
 
             /** Determine if the commit changes the .gitmodules path and if it does, update the submodules information according to the contents of that file.
              */
-            void updateWith(Commit * c, std::string const & path);
+            void updateWith(Commit * c, std::string const & path, Project * p);
 
             /** Path ids of submodule files.
              */
             std::unordered_set<unsigned> submodules;
+            std::unordered_map<unsigned, std::string> submoduleUrls;
             /** It may happen that a submodule is deleted from gitmodules, but the actual file stays in the repo. In this case the path is moved to this set and any delete of a path from this set is ignored.
 
                 Both change and delete of a path in this list removes the path from the list.
              */
             std::unordered_set<unsigned> submodulesPendingDelete;
+        };
+
+        class SubmoduleChange {
+        public:
+            unsigned commitId;
+            unsigned pathId;
+            std::string url;
+            unsigned hashId;
+            
         };
 
 
@@ -223,6 +236,8 @@ namespace dejavu {
             uint64_t createdAt; // the oldest commit
             bool containsSubmodules_;
             unsigned numCommits = 0;
+
+            std::vector<SubmoduleChange> submoduleChanges;
 
             std::unordered_map<std::string, Commit *> commits;
 
@@ -380,6 +395,11 @@ namespace dejavu {
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
                     f << "projectId,numCommits,numJSCommits" << std::endl;
+                }
+                filename = DataDir.value() + "/submoduleChanges.csv";
+                if (!helpers::FileExists(filename)) {
+                    std::ofstream f(filename);
+                    f << "projectId,commitId,pathId,submoduleUrl,hashId" << std::endl;
                 }
                 reports_.open(DataDir.value()+"/joinReport.csv");
                 reports_ << "path,errors,empty,existing,valid" << std::endl;
@@ -645,7 +665,7 @@ namespace dejavu {
                 return;
             //std::cerr << "Removing submodule changes..." << std::flush;
             CommitForwardIterator<Project,Commit,SubmoduleInfo> it(this, [this, spath](Commit * c, SubmoduleInfo & submodules) {
-                    submodules.updateWith(c, spath);
+                    submodules.updateWith(c, spath, this);
                     return true;
                 });
             //std::cerr << "Total commits: " << commits.size() << std::endl;
@@ -773,11 +793,16 @@ namespace dejavu {
                 std::ofstream projectCommits(DataDir.value() + "/projectCommits.csv", std::ios_base::app);
                 projectCommits << id << "," << numCommits << "," << commits.size() << std::endl;
             }
+            if (! submoduleChanges.empty()) {
+                std::ofstream f(DataDir.value() + "/submoduleChanges.csv", std::ios_base::app);
+                for (SubmoduleChange const & ch : submoduleChanges)
+                    f << id << "," << ch.commitId << "," << ch.pathId << "," << helpers::escapeQuotes(ch.url) << "," << ch.hashId << std::endl;
+            }
         }
 
 
 
-        void SubmoduleInfo::updateWith(Commit * c, std::string const & path) {
+        void SubmoduleInfo::updateWith(Commit * c, std::string const & path, Project * p) {
             // first see if there is a change to gitmodules
             unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(".gitmodules");
             for (auto i = c->changes.begin(), e = c->changes.end(); i != e; ++i) {
@@ -789,18 +814,25 @@ namespace dejavu {
                     if (i->second != FILE_DELETED) {
                         std::ifstream f(path + c->hash);
                         std::string line;
+                        unsigned pathId = 0;
                         while (std::getline(f, line)) {
-                            size_t x = line.find("path = ");
-                            if (x == std::string::npos)
+                            size_t x = line.find("url =");
+                            if (x != std::string::npos) {
+                                line = line.substr(x + 5);
+                                submoduleUrls[pathId] = line;
                                 continue;
-                            line = line.substr(x + 7);
-                            // std::cout << line << " -- " << c->hash << std::endl;
-                            unsigned pathId = ProjectAnalyzer::GetOrCreatePathId(line);
-                            submodules.insert(pathId);
-                            // check that the submodule is not in the pending deletes and remove it if so
-                            auto j = submodulesPendingDelete.find(pathId);
-                            if (j != submodulesPendingDelete.end())
-                                submodulesPendingDelete.erase(j);
+                            }
+                            x = line.find("path = ");
+                            if (x != std::string::npos) {
+                                line = line.substr(x + 7);
+                                // std::cout << line << " -- " << c->hash << std::endl;
+                                pathId = ProjectAnalyzer::GetOrCreatePathId(line);
+                                submodules.insert(pathId);
+                                // check that the submodule is not in the pending deletes and remove it if so
+                                auto j = submodulesPendingDelete.find(pathId);
+                                if (j != submodulesPendingDelete.end())
+                                    submodulesPendingDelete.erase(j);
+                            }
                         }
                     }
                     // if we see a change to gitmodules, we can stop, there can be only one change per commit
@@ -811,10 +843,14 @@ namespace dejavu {
             // now process the file changes, ignoring anything that is in submodules, and anything that is in 
             for (auto i = c->changes.begin(); i != c->changes.end(); ) {
                 if (submodules.find(i->first) != submodules.end()) {
+                    // output the submodule change info
+                    p->submoduleChanges.push_back(SubmoduleChange{c->id, i->first, submoduleUrls[i->first], i->second });
                     //std::cout << "Removing change to file " << i->pathId << std::endl;
                     i = c->changes.erase(i);
                 } else if (submodulesPendingDelete.find(i->first) != submodulesPendingDelete.end()) {
                     submodulesPendingDelete.erase(i->first);
+                    // output the submodule change info
+                    p->submoduleChanges.push_back(SubmoduleChange{c->id, i->first, submoduleUrls[i->first], FILE_DELETED });
                     i = c->changes.erase(i);
                 } else {
                     ++i;
@@ -858,11 +894,13 @@ namespace dejavu {
         // initializes the project analyzer and loads the existing hashes
         ProjectAnalyzer::Initialize();
         // if the downloader dir contains the timing.csv file then it is single extracted chunk 
-        if (helpers::FileExists(DownloaderDir.value() + "/timing.csv"))
+        if (helpers::FileExists(DownloaderDir.value() + "/timing.csv")) {
+            std::cerr << "Analyzing downloader directory..." << std::endl;
             ProjectAnalyzer::Analyze(DownloaderDir.value());
         // otherwise we assume it contains chunks and extract & join all of them
-        else 
+        } else {
             ProjectAnalyzer::AnalyzeDir();
+        }
     }
     
 } // namespace dejavu
