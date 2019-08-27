@@ -64,17 +64,64 @@ namespace dejavu {
         private:
             std::unordered_map<std::string, Project *> projects_;
         };
+
         
+        /** Translate from the project-id bases scheme to project-name scheme, which is independent of the project ids that caused problems when join script was changed.
+         */
+        class OwnTranslator {
+        public:
+            void loadData() {
+                std::cerr << "Loading projects ... " << std::endl;
+                ProjectLoader{"/data/dejavuii/join/projects.csv", [this](unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt){
+                        Project * p = new Project{id, user, repo};
+                        projects_.insert(p);
+                    }};
+            }
+
+            /** We have project ids, these correspond to the projects we have
+
+                Then we have .deleted, 
+             */
+            void translate() {
+                size_t projects = 0;
+                size_t deleted = 0;
+                std::cerr << "Translating projects metadata..." << std::endl;
+                for (Project * p : projects_) {
+                    std::string oldPath = STR("/data/dejavu/projects-metadata-old/" << (p->id % 1000) << "/" << p->id);
+                    if (!helpers::FileExists(oldPath)) {
+                        oldPath += ".deleted";
+                        if (!helpers::FileExists(oldPath))
+                            continue;
+                        ++deleted;
+                    }
+                    ++projects;
+                    // now store the project under new name
+                    std::string newFilename = STR(p->user << "_" << p->repo << ".json");
+                    std::string newPath = STR("/data/dejavu/projects-metadata/" << newFilename.substr(0, 2) << "/");
+                    helpers::EnsurePath(newPath);
+                    assert(!helpers::FileExists(newPath + newFilename));
+                    system(STR("cp " << oldPath << " " << newPath << newFilename).c_str());
+                }
+                std::cerr << "    " << projects_.size() << " total projects" << std::endl;
+                std::cerr << "    " << projects << " projects with patched data" << std::endl;
+                std::cerr << "    " << deleted << " of which should be deleted" << std::endl;
+            }
+
+        private:
+            std::unordered_set<Project *> projects_;
+        };
+        
+
     }
 
 
     void tmp_TranslateDownloadedMetadata(int argc, char * argv[]) {
-        Settings.addOption(DataDir);
-        Settings.addOption(OutputDir);
+        //Settings.addOption(DataDir);
+        //Settings.addOption(OutputDir);
         Settings.parse(argc, argv);
         Settings.check();
 
-        Translator t;
+        OwnTranslator t;
         t.loadData();
         t.translate();
         

@@ -105,7 +105,8 @@ namespace dejavu {
                         i->second = contentsId;
                     } else {
                         if (contentsId != "0000000000000000000000000000000000000000")
-                            assert(contentsId == i->second);
+                            if (contentsId != i->second) 
+                                std::cerr << "ERROR: Commit " << hash << ", path: " << pathId << " set to " << contentsId << ", after " << i->second << std::endl;
                     }
                 }
             }

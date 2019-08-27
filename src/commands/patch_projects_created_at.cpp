@@ -328,8 +328,51 @@ namespace dejavu {
             static constexpr int REPATCHED = 1;
             static constexpr int RENAMED_NEW = 2;
             static constexpr int RENAMED_EXISTING = 3;
-            static constexpr int RENAMED_EXISTING_NOT_DOWNLOADED = 4;
 
+            int patchProjectFromMetadata(Project * p) {
+                int sysres = 0;
+                int result = PATCHED;
+                std::string path = STR(p->user << "_" << p->repo << ".json");
+                path = STR(Input.value() << "/" << path.substr(0,2) << "/" << path);
+                nlohmann::json json;
+                if (helpers::FileExists(path)) {
+                    std::ifstream(path) >> json;
+                    std::string fullName = helpers::ToLower(json["full_name"]);
+                    /* If the full name in the metadata differs from the full name of the project, the project must be renamed if we do not have any such project in our list, or deleted if it already exists as it is a duplicate.
+                     */
+                    if (fullName != STR(p->user << "/" << p->repo)) {
+                        auto i = projectsByName_.find(fullName);
+                        if (i == projectsByName_.end()) {
+                            std::vector<std::string> split = helpers::Split(fullName, '/', 2);
+                            p->user = split[0];
+                            p->repo = split[1];
+                            result = RENAMED_NEW;
+                        // if the project exists, check if it has metadata in own file and if not, copy the current file to the new project
+                        } else {
+                            Project * np = i->second;
+                            std::string npath = STR(np->user << "_" << np->repo << ".json");
+                            npath = STR(Input.value() << "/" << npath.substr(0,2) << "/" << npath);
+                            if (!helpers::FileExists(npath))
+                                sysres = system(STR("cp " << path << " " << npath).c_str());
+                            // patch the project
+                            patchProjectFromMetadata(np);
+                            return RENAMED_EXISTING;
+                        }
+                    }
+                    // now the fullname should be the same, we can patch the createdAt time
+                    p->createdAt = iso8601ToTime(json["created_at"]);
+                    if (p->patched) 
+                        result = REPATCHED;
+                    p->patched = true;
+                    // just silence the warnings
+                    (void)(sysres);
+                    return result;
+                } else {
+                    return NOT_FOUND;
+                }
+            }
+
+            #ifdef HAHA
             int patchProjectFromMetadata(Project * p) {
                 int sysres = 0;
                 int result = PATCHED;
@@ -389,6 +432,7 @@ namespace dejavu {
                 (void)(sysres);
                 return result;
             }
+            #endif
             
 
             /** The github metadata is a bit more complicated.
@@ -426,7 +470,6 @@ namespace dejavu {
                             ++renamedNew;
                             break;
                         case RENAMED_EXISTING:
-                        case RENAMED_EXISTING_NOT_DOWNLOADED:
                             ++renamed;
                             // output the project to be deleted
                             tbd << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << std::endl;
