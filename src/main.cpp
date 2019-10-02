@@ -49,6 +49,11 @@ void InitializeCommands() {
     new helpers::Command("download-github-metadata", DownloadGithubMetadata, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
     
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
+    new helpers::Command("detect-old-projects", DetectOldProjects, "Detects projects with commits older than given threshold");
+
+    new helpers::Command("active-projects-years", ActiveProjectsYears, "Calculates numbers of active projects with yearly granularity");
+    new helpers::Command("active-projects-weeks", ActiveProjectsWeeks, "Calculates weekly activity summary for projects");
+    
     // TODO Here we should patch the project's createdAt times, but we do not have the data yet, so we are working on later steps for now
     new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
     new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");

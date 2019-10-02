@@ -36,6 +36,18 @@ namespace dejavu {
      */
     void Verify(int argc, char * argv[]);
 
+    /** Detects projects older than given date.
+     */
+    void DetectOldProjects(int argc, char * argv[]);
+
+    /** Calculates whether given project was active in given year with different granularities.
+     */        
+    void ActiveProjectsYears(int argc, char * argv[]);
+
+    /** Calculates weekly activity summary for projects
+     */        
+    void ActiveProjectsWeeks(int argc, char * argv[]);
+
     /** Creates subset of the dataset based on the time of events.
 
         This subset is faster to work on, while preserving as much of the properties of the original dataset. An alternative would be to create a subset in terms of say projects, but that would mean that we would ignore the idea that we see all originals.
