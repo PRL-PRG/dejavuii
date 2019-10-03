@@ -7,6 +7,7 @@
 #include <cassert>
 #include <functional>
 #include <iostream>
+#include <chrono>
 
 #include <sys/stat.h>
 #include <dirent.h>
@@ -219,6 +220,21 @@ namespace helpers {
 
         return result;
     }
+
+    /** Returns a steady clock time in milliseconds. 
+	    Note that the time has no meaningful reference, so all it is good for is simple time duration calculations. 
+	 */
+	inline size_t SteadyClockMillis() {
+		using namespace std::chrono;
+		return static_cast<size_t>(
+			duration<long, std::milli>(
+				duration_cast<milliseconds>(
+					steady_clock::now().time_since_epoch()
+					)
+				).count()
+			);
+	}
+
     
 } // namespace helpers
 

@@ -56,7 +56,7 @@ namespace helpers {
                             row(row_);
                             ++numRows_;
                             if (lineNum_ % 1000 == 0) {
-                                std::cerr << " : " << (lineNum_/1000) << "k\r" << std::flush;
+                                std::cout << " : " << (lineNum_/1000) << "k\r" << std::flush;
                             } 
                         }
                         row_.clear();

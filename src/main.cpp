@@ -115,7 +115,9 @@ void InitializeCommands() {
 /** The main function.
  */
 int main(int argc, char * argv[]) {
+    std::cerr << "GIT_COMMIT " << helpers::Exec("git rev-parse HEAD", ".") << std::endl;
     std::cerr << "OH HAI CAN I HAZ DEJAVU AGAINZ?" << std::endl;
+    size_t start = helpers::SteadyClockMillis();
     try {
         InitializeCommands();
         helpers::Command::Execute(argc, argv);
@@ -126,6 +128,6 @@ int main(int argc, char * argv[]) {
     } catch (...) {
         std::cerr << "OHNOEZ: BASEMENT CAT LURKZ IN UR CODE AND IT FAILZ." << std::endl;
     }
+    std::cerr << "    " << ((helpers::SteadyClockMillis() - start) / 1000) << " TOTAL SECONDS" << std::endl;
     return EXIT_FAILURE;
- 
 }
