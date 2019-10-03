@@ -122,12 +122,12 @@ int main(int argc, char * argv[]) {
         InitializeCommands();
         helpers::Command::Execute(argc, argv);
         std::cerr << "KTHXBYE!" << std::endl;
+        std::cerr << "TOTAL_SECONDS " << ((helpers::SteadyClockMillis() - start) / 1000) << std::endl;
         return EXIT_SUCCESS;
     } catch (std::exception const & e) {
         std::cerr << "OHNOEZ: " << e.what() << std::endl; 
     } catch (...) {
         std::cerr << "OHNOEZ: BASEMENT CAT LURKZ IN UR CODE AND IT FAILZ." << std::endl;
     }
-    std::cerr << "    " << ((helpers::SteadyClockMillis() - start) / 1000) << " TOTAL SECONDS" << std::endl;
     return EXIT_FAILURE;
 }
