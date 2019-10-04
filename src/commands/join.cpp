@@ -421,12 +421,12 @@ namespace dejavu {
                         std::cerr << "Decompressing " << filename << " into " << t.path() << "..." << std::endl;
                         helpers::System(STR("tar -zxf " << filename << " -C " << t.path()));
                         std::cerr << "Analyzing the chunk..." << std::endl;
-                        Analyze(t.path());
+                        Analyze(t.path(), filename);
                     });
             }
 
 
-            static void Analyze(std::string const & path) {
+            static void Analyze(std::string const & path, std::string const & filename) {
                 std::string timings = path + "/timing.csv";
                 size_t emptyProjects = 0;
                 size_t existingProjects = 0;
@@ -477,7 +477,7 @@ namespace dejavu {
                 std::cerr << "    " << emptyProjects << " empty projects" << std::endl;
                 std::cerr << "    " << existingProjects << " existing projects" << std::endl;
                 std::cerr << "    " << validProjects << " valid projects" << std::endl;
-                reports_ << helpers::escapeQuotes(path) << "," << errorProjects << "," << emptyProjects << "," << existingProjects << "," << validProjects << std::endl;
+                reports_ << helpers::escapeQuotes(filename) << "," << errorProjects << "," << emptyProjects << "," << existingProjects << "," << validProjects << std::endl;
             }
 
             static Project * CreateProject(std::string const & name, std::string const & repo) {
@@ -904,7 +904,7 @@ namespace dejavu {
         // if the downloader dir contains the timing.csv file then it is single extracted chunk 
         if (helpers::FileExists(DownloaderDir.value() + "/timing.csv")) {
             std::cerr << "Analyzing downloader directory..." << std::endl;
-            ProjectAnalyzer::Analyze(DownloaderDir.value());
+            ProjectAnalyzer::Analyze(DownloaderDir.value(), DownloaderDir.value());
         // otherwise we assume it contains chunks and extract & join all of them
         } else {
             ProjectAnalyzer::AnalyzeDir();
