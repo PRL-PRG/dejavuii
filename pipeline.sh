@@ -102,6 +102,8 @@ update_stage_input "join"
 # completely, which is detected by observing a delete of file we haven't seen
 # added and removes all projects whose commits structure is not useful for us,
 # i.e. where parent commits are younger than their children
+#
+# Does not 
 
 execute_stage "verify" "verify -d=$STAGE_INPUT -o=$WORKING_DIR/verified"
 update_stage_input "verified"

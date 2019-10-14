@@ -68,7 +68,9 @@ void InitializeCommands() {
     // folder clones pipeline
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
     new helpers::Command("find-folder-originals", FindFolderOriginals, "Finds folder originals for previously detected clone candidates");
+    // this is in wrong filename
     new helpers::Command("clean-folder-clones", FolderClonesClean, "Cleans folder clones so that different subsets of same original use same clone id");
+    new helpers::Command("split-folder-clones", SplitFolderClones, "Splits folder clones intio project to project, project to folder and folder to folder. Also discards intraproject clones.");
     new helpers::Command("filter-folder-clones", FilterFolderClones, "Filters changes to the folder clones from the dataset.");
     new helpers::Command("folder-clones-behavior", FolderClonesBehavior, "Analyzes the behavior of folder clones over time");
 

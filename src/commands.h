@@ -71,6 +71,10 @@ namespace dejavu {
      */
     void FolderClonesClean(int argc, char * argv[]);
 
+    /** Splits the folder clones into project to project, project to folder and folder to folder. Also discards intraproject clones.
+     */
+    void SplitFolderClones(int argc, char * argv[]);
+
     /** Filters folder clones from the dataset.
      */
     void FilterFolderClones(int argc, char * argv[]);
