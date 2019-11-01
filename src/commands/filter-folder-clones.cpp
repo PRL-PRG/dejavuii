@@ -203,6 +203,7 @@ namespace dejavu {
                         p->addCommit(c);
                         c->addChange(pathId, contentsId);
                     }};
+                std::cerr << "Loading clone occurences ..." << std::endl;
                 // finally, load the clone occurences we want to filter out
                 FolderCloneOccurencesLoader(Filter.value(), [this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & path, unsigned numFiles) {
                         // add the clone to the particular commit.
@@ -229,7 +230,7 @@ namespace dejavu {
                                 ++i;
                                 ++completed;
                                 if (completed % 1000 == 0)
-                                    std::cerr << " : " << completed << "    \r" << std::flush;
+                                    std::cout << " : " << completed << "    \r" << std::flush;
                             }
                             if (p == nullptr)
                                 continue;

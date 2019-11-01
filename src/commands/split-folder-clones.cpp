@@ -116,8 +116,6 @@ namespace dejavu {
             std::unordered_map<unsigned, CloneOriginal*> originals_;
             
         };
-
-
         
     } // anonymous namespace
 
