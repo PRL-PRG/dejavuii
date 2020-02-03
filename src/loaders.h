@@ -220,6 +220,7 @@ namespace dejavu {
         RowHandler f_;
         
     };
+    
     /** Loads the commits information about parents.
      */
     class CommitParentsLoader : public BaseLoader {
@@ -242,6 +243,35 @@ namespace dejavu {
             unsigned id = std::stoul(row[0]);
             unsigned parentId = std::stoul(row[1]);
             f_(id, parentId);
+        }
+
+    private:
+        RowHandler f_;
+        
+    };
+    /** Loads the commit authors (authors and committers).
+     */
+    class CommitAuthorsLoader : public BaseLoader {
+    public:
+        // id, authorId, committerId 
+        typedef std::function<void(unsigned, unsigned, unsigned)> RowHandler;
+
+        CommitAuthorsLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        CommitAuthorsLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/commitAuthors.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 3);
+            unsigned id = std::stoul(row[0]);
+            unsigned authorId = std::stoul(row[1]);
+            unsigned committerId = std::stoul(row[2]);
+            f_(id, authorId, committerId);
         }
 
     private:

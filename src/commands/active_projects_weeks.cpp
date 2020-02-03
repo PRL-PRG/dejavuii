@@ -16,6 +16,9 @@ namespace dejavu {
                 BaseCommit<Commit>(id, time) {
             }
 
+            unsigned author;
+            unsigned committer;
+
         };
 
         class ActivityRecord {
@@ -23,6 +26,8 @@ namespace dejavu {
             unsigned commits;
             unsigned changes;
             unsigned deletions;
+            std::unordered_set<unsigned> authors;
+            std::unordered_set<unsigned> committers;
 
             ActivityRecord():
                 commits(0),
@@ -34,6 +39,8 @@ namespace dejavu {
                 ++commits;
                 changes += c->changes.size();
                 deletions += c->deletions.size();
+                authors.insert(c->author);
+                committers.insert(c->committer);
             }
 
         };
@@ -43,13 +50,13 @@ namespace dejavu {
             Project(unsigned id, uint64_t createdAt):
                 id(id),
                 createdAt(createdAt),
-                activeWeeks(0),
                 firstCommitTime(std::numeric_limits<uint64_t>::max()) {
             }
             
             unsigned id;
             uint64_t createdAt;
-            unsigned activeWeeks;
+            unsigned lastWeek = 0;
+            unsigned startWeek = std::numeric_limits<unsigned>::max();
             uint64_t firstCommitTime;
 
             std::unordered_set<Commit *> commits;
@@ -65,10 +72,30 @@ namespace dejavu {
 
             void analyze() {
                 for (Commit * c : commits) {
-                    unsigned week = (c->time - firstCommitTime) / Threshold.value();
-                    if (week > activeWeeks)
-                        activeWeeks = week;
+                    // instead of start of the project, do start of 2008 as the hardcoded start since all our data analysis begins there
+                    //unsigned week = (c->time - firstCommitTime) / Threshold.value();
+                    unsigned week = (c->time - DATA_ANALYSIS_START) / Threshold.value();
+                    if (week < startWeek)
+                        startWeek = week;
+                    if (week > lastWeek)
+                        lastWeek = week;
                     activity[week].updateWith(c);
+                }
+            }
+
+            void outputFull(std::ostream & s) {
+                s << id << "," << startWeek << "," << lastWeek;
+                for (unsigned i = 0, e = (DATA_ANALYSIS_END - DATA_ANALYSIS_START) / Threshold.value(); i < e; ++i) {
+                    auto ar = activity.find(i);
+                    if (ar == activity.end()) {
+                        s << ",0,0,0,0,0";
+                    } else {
+                        s << ar->second.commits << ","
+                          << ar->second.changes << ","
+                          << ar->second.deletions << ","
+                          << ar->second.authors.size() << ","
+                          << ar->second.committers.size();
+                    }
                 }
             }
         };
@@ -90,8 +117,21 @@ namespace dejavu {
                 CommitLoader{[this](unsigned id, uint64_t authorTime, uint64_t committerTime){
                         commits_.insert(std::make_pair(id, new Commit(id, authorTime)));
                     }};
-                // now load all changes and if we see commit that is older than the threshold value, remember the commit
                 std::cerr << "    " << commits_.size() << " commits loaded" << std::endl;
+                {
+                    std::cerr << "Loading commit authors ... " << std::endl;
+                    size_t records = 0;
+                    CommitAuthorsLoader{[ & records, this](unsigned id, unsigned authorId, unsigned committerId){
+                            auto i = commits_.find(id);
+                            if (i != commits_.end()) {
+                                i->second->author = authorId;
+                                i->second->committer = committerId;
+                                ++records;
+                            }
+                    }};
+                    std::cerr << "    " << records << " commits updated" << std::endl;
+                }
+                // now load all changes and if we see commit that is older than the threshold value, remember the commit
                 std::cerr << "Loading file changes ... " << std::endl;
                 FileChangeLoader{[this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
                         Project * p = projects_[projectId];
@@ -105,8 +145,16 @@ namespace dejavu {
 
             void analyze() {
                 std::cerr << "Analyzing projects activity..." << std::endl;
-                for (auto i : projects_)
+                std::ofstream f(DataDir.value() + "/projectsActiveTimeSummaryDetailed.csv");
+                f << "projectId,startWeek,endWeek";
+                for (size_t i = 0, e = (DATA_ANALYSIS_END - DATA_ANALYSIS_START) / Threshold.value(); i < e; ++i)
+                    f << STR(",commits" << i <<",changes" << i <<",deletions" << i << ",authors" << i << ",committers" << i);
+                f << std::endl;
+                for (auto i : projects_) {
                     i.second->analyze();
+                    i.second->outputFull(f);
+                    f << std::endl;
+                }
             }
 
             void outputOverallTimes() {
@@ -115,7 +163,7 @@ namespace dejavu {
                 f << "projectId,firstCommit,numCommits,activeTimeUnits,activeIntervalUnits" << std::endl;
                 for (auto i : projects_) {
                     Project * p = i.second;
-                    f << p->id << "," << p->firstCommitTime << "," << p->commits.size() << "," << p->activity.size() << "," << p->activeWeeks << std::endl;
+                    f << p->id << "," << p->firstCommitTime << "," << p->commits.size() << "," << p->activity.size() << "," << (p->lastWeek - p->startWeek) << std::endl;
                 }
             }
 
@@ -130,13 +178,16 @@ namespace dejavu {
                     unsigned commits = 0;
                     unsigned changes = 0;
                     unsigned deletions = 0;
-                    for (unsigned week = 0; week <= p->activeWeeks; ++week) {
-                        ActivityRecord const & r = p->activity[week];
-                        f << p->id << "," << week << "," << r.commits << "," << r.changes << "," << r.deletions << std::endl;
-                        commits += r.commits;
-                        changes += r.changes;
-                        deletions += r.deletions;
-                        fc << p->id << "," << week << "," << commits << "," << changes << "," << deletions << std::endl;
+                    for (unsigned week = p->startWeek; week <= p->lastWeek; ++week) {
+                        auto i = p->activity.find(week);
+                        if (i != p->activity.end()) {
+                            ActivityRecord const & r = i->second;
+                            f << p->id << "," << (week - p->startWeek) << "," << r.commits << "," << r.changes << "," << r.deletions << std::endl;
+                            commits += r.commits;
+                            changes += r.changes;
+                            deletions += r.deletions;
+                            fc << p->id << "," << (week - p->startWeek) << "," << commits << "," << changes << "," << deletions << std::endl;
+                        }
                     }
                     p->activity.clear();
                 }
@@ -156,7 +207,7 @@ namespace dejavu {
     
 
     void ActiveProjectsWeeks(int argc, char * argv[]) {
-        Threshold.updateDefaultValue(3600 * 24 * 30); // 30 month interval
+        Threshold.updateDefaultValue(3600 * 24 * 7); // 7 days interval
         Settings.addOption(DataDir);
         Settings.addOption(Threshold);
         Settings.parse(argc, argv);

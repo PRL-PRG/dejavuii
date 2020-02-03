@@ -4,6 +4,10 @@
 
 namespace dejavu {
 
+    constexpr uint64_t DATA_ANALYSIS_START = 1199145600; // 2008/1/1
+    constexpr uint64_t DATA_ANALYSIS_END = 1546300799;// 2018/31/12
+    
+
     /** The settings object.
 
         The declarations below point to various settings that different commands of the program can use.
