@@ -63,8 +63,6 @@ void InitializeCommands() {
     new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
     new helpers::Command("download-contents", DownloadContents, "Downloads contents of selected files.");
 
-
-
     // folder clones pipeline
     new helpers::Command("detect-folder-clones", DetectFolderClones, "Detects folder clones across all projects and find their originals");
     new helpers::Command("find-folder-originals", FindFolderOriginals, "Finds folder originals for previously detected clone candidates");
@@ -79,10 +77,10 @@ void InitializeCommands() {
 
     new helpers::Command("final-breakdown", FinalBreakdown, "Detects the file clones");
 
+    // project developers
+    new helpers::Command("project-authors", ProjectAuthors, "Calculates the number of authors in a project");
 
-
-
-
+    new helpers::Command("file-duplication-per-project", FileDuplicationPerProject, "File duplication per project and other stats");                                               
     
     new helpers::Command("project-lifespan", ProjectLifespan, "Calculates project lifespans");
 

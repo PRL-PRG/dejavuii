@@ -97,6 +97,15 @@ namespace dejavu {
     void ProjectLifespan(int argc, char * argv[]);
 
 
+    /** Calculates for each project the number of committers and authors.
+     */
+    void ProjectAuthors(int argc, char * argv[]);
+
+    /** Calculates file duplication and other stats per project.
+     */
+    void FileDuplicationPerProject(int argc, char * argv[]);
+    
+
 
     /** Calculates the projects history table.
      */
