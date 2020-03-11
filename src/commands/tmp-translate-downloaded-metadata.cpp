@@ -100,7 +100,9 @@ namespace dejavu {
                     std::string newPath = STR("/data/dejavu/projects-metadata/" << newFilename.substr(0, 2) << "/");
                     helpers::EnsurePath(newPath);
                     assert(!helpers::FileExists(newPath + newFilename));
-                    system(STR("cp " << oldPath << " " << newPath << newFilename).c_str());
+                    if (! system(STR("cp " << oldPath << " " << newPath << newFilename).c_str()))
+                        STR("ERROR: cannot copy");
+                    
                 }
                 std::cerr << "    " << projects_.size() << " total projects" << std::endl;
                 std::cerr << "    " << projects << " projects with patched data" << std::endl;

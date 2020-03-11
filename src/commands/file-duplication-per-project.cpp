@@ -176,7 +176,7 @@ namespace dejavu {
                 StringRowLoader{DataDir.value() + "/commitAuthors.csv", [this](std::vector<std::string> const & row){
                         unsigned commitId = std::stoul(row[0]);
                         unsigned authorId = std::stoul(row[1]);
-                        unsigned committerId = std::stoul(row[2]);
+                        //unsigned committerId = std::stoul(row[2]);
                         auto i = commits_.find(commitId);
                         if (i != commits_.end())
                             i->second->authorId = authorId;
