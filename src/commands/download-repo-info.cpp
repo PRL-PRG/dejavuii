@@ -26,6 +26,23 @@ namespace dejavu {
             unsigned id;
             std::string user;
             std::string repo;
+
+            /** Returns the mangled name of the project.
+             */
+            std::string mangledName() {
+                std::string result = user + "_" + repo;
+                result = result.substr(0,2) + "/" + result;
+                return result;
+            }
+
+            std::string mangledDir() {
+                std::string result = user + "_" + repo;
+                return result.substr(0, 2);
+            }
+
+            /** The URL to which the project was renamed.
+             */
+            std::string renamedUrl;
         };
 
         class CurlHeaders {
@@ -100,7 +117,7 @@ namespace dejavu {
                                 p = projects_[completed];
                                 ++completed;
                                 if (completed % 1000 == 0)
-                                    std::cerr << "     " << completed << ", failed " << failed << "    \r" << std::flush;
+                                    std::cerr << "     " << completed << ", success: " << success <<  ", failed " << failed << ", moved " << moved_ << "     \r" << std::flush;
                             }
                             unsigned status = downloadProject(p, tokens_[i]);
                             if (status != 200) {
@@ -124,7 +141,7 @@ namespace dejavu {
         private:
 
             unsigned downloadProject(Project * p, std::string const & authToken) {
-                std::string path = STR(OutputDir.value() << "/" << (p->id % 1000) << "/" << p->id);
+                std::string path = STR(OutputDir.value() << "/" << p->mangledName());
                 // if the file has already been downloaded, skip it
                 if (helpers::FileExists(path)) {
                     ++existing_;
@@ -151,7 +168,7 @@ namespace dejavu {
                     CurlHeaders headers(headersRaw.str());
                     // if we have 200, all is fine, save the result
                     if (headers.status == 200) {
-                        std::string targetDir = STR(OutputDir.value() << "/" << (p->id % 1000));
+                        std::string targetDir = STR(OutputDir.value() << "/" << p->mangledDir());
                         helpers::EnsurePath(targetDir);
                         std::ofstream f(path);
                         f << body.str();
@@ -160,7 +177,6 @@ namespace dejavu {
                         // retry with new location
                         ++moved_;
                         url = headers.location;
-                        path = path + ".renamed";
                     } else if (headers.status == 403 && headers.rate_limit_remaining == 0) {
                         std::this_thread::sleep_until(std::chrono::system_clock::from_time_t(headers.rate_limit_reset));
                     } else {
@@ -184,7 +200,7 @@ namespace dejavu {
             std::mutex m_;
             std::atomic<unsigned> existing_;
             std::atomic<unsigned> moved_;
-           
+
         };
         
     } // anonymous namespace

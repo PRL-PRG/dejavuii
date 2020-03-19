@@ -450,6 +450,7 @@ namespace dejavu {
                 size_t renamedNew = 0;
                 size_t renamed = 0;
                 size_t total = 0;
+                // TODO This clashes with the old projects detectio, should be entirely removed when this stage is rewritten
                 std::ofstream tbd(DataDir.value() + "/oldProjects.csv");
                 tbd << "projectId,user,repo" << std::endl;
                 for (auto i : projects_) {
@@ -487,9 +488,9 @@ namespace dejavu {
             }
 
             void output() {
-                std::ofstream f(DataDir.value() + "/projects.csv");
-                std::ofstream pp(DataDir.value() + "/patchedProjects.csv");
-                std::ofstream up(DataDir.value() + "/unpatchedProjects.csv");
+                std::ofstream f(OutputDir.value() + "/projects.csv");
+                std::ofstream pp(OutputDir.value() + "/patchedProjects.csv");
+                std::ofstream up(OutputDir.value() + "/unpatchedProjects.csv");
                 f << "projectId,user,repo,createdAt" << std::endl;
                 pp << "projectId" << std::endl;
                 up << "projectId,user,repo,createdAt" << std::endl;
@@ -526,6 +527,7 @@ namespace dejavu {
         Input.required = false;
         Settings.addOption(DataDir);
         Settings.addOption(Input);
+        Settings.addOption(OutputDir);
         Settings.addOption(GhtDir);
         Settings.parse(argc, argv);
         Settings.check();

@@ -52,6 +52,8 @@ namespace dejavu {
     }
 
     /** Detects projects older than given threshold and outputs their list so that they can be removed later.
+
+        TODO make this to actually do the older & newer too, so that we have the range we want to analyze? 
      */
     void DetectOldProjects(int argc, char * argv[]) {
         Threshold.updateDefaultValue(1199145600); // beginning of the year 2008 when github was created
