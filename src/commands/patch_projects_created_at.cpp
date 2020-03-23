@@ -224,15 +224,8 @@ namespace dejavu {
             std::string user;
             std::string repo;
             uint64_t createdAt;
+            bool fork;
             bool patched;
-
-            std::set<unsigned> commits;
-
-            unsigned commonCommitsWith(Project * other) {
-                std::vector<unsigned> x;
-                std::set_intersection(commits.begin(), commits.end(), other->commits.begin(), other->commits.end(), std::back_inserter(x));
-                return x.size();
-            }
         };
 
         class Patcher {
@@ -241,80 +234,22 @@ namespace dejavu {
             void loadData() {
                 std::cerr << "Loading projects ... " << std::endl;
                 ProjectLoader{[this](unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt){
-                        Project * p = new Project{id, user, repo, createdAt, false};
+                        Project * p = new Project{id, user, repo, createdAt, false, false};
                         projects_.insert(std::make_pair(id, p));
-                        projectsByName_.insert(std::make_pair(user + "/" + repo, p));
                     }};
                 std::cerr << "    " << projects_.size() << " projects loaded" << std::endl;
-                std::cerr << "Loading file changes for project commits ... " << std::endl;
-                FileChangeLoader{[this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
-                        Project * p = projects_[projectId];
-                        assert(p != nullptr);
-                        p->commits.insert(commitId);
-                    }};
-                {
-                    size_t patched = 0;
-                    std::cerr << "Loading patch status..." << std::endl;
-                    std::string filename = DataDir.value() + "/patchedProjects.csv";
-                    if (helpers::FileExists(filename)) {
-                        IdLoader{filename, [&, this](unsigned projectId) {
-                                auto i = projects_.find(projectId);
-                                assert(i != projects_.end());
-                                assert(i->second->patched == false);
-                                i->second->patched = true;
-                                ++patched;
-                            }};
-                    }
-                    std::cerr << "    " << patched << " already patched projects" << std::endl;
-                }
             }
 
-            void patchFromGhTorrent() {
-                if (!GhtDir.isSpecified())
-                    return;
-                std::cerr << "Patching from ghtorrent data..." << std::endl;
-                size_t total = 0;
-                size_t patched = 0;
-                GHTorrentProjectsLoader(GhtDir.value() + "/projects.csv", [&,this](unsigned id,
-                                                 std::string const & url,
-                                                 unsigned ownerId,
-                                                 std::string const & name,
-                                                 std::string const & description,
-                                                 std::string const & language,
-                                                 uint64_t createdAt,
-                                                 unsigned forkedFrom,
-                                                 uint64_t deleted,
-                                                 uint64_t updatedAt){
-                        // first get the user and repo strings from the url and check if we have the project in our database
-                        ++total;
-                        std::string index;
-                        if (url.find("https://api.github.com/repos/") == 0) {
-                            index = url.substr(29);
-                        } else if (url.find("https://api./repos/") == 0) {
-                            index = url.substr(19);
-                        } else if (url == "\\N") {
-                            return; // skip projects w/o urls
-                        } else {
-                            std::cerr << "Invalid url format: " << url << std::endl;
-                            return;
-                        }
-                        auto i = projectsByName_.find(index);
-                        if (i == projectsByName_.end())
-                            return;
-                        Project * p = i->second;
-                        // now update createdAt
-                        ++patched;
-                        if (p->patched) {
-                            if (p->createdAt < createdAt)
-                                p->createdAt = createdAt;
-                        } else {
-                            p->createdAt = createdAt;
-                            p->patched = true;
-                        }
-                    });
-                std::cerr << "    " << total << " projects in GHTorrent" << std::endl;
-                std::cerr << "    " << patched << " newly patched projects" << std::endl;
-                
+
+            /** Patches the project, one by one.
+             */
+            void patchProjects() {
+                std::cerr << "Patching from Github metadata..." << std::endl;
+                for (auto i : projects_) {
+                    patchProject(i.second);
+                }
+                std::cerr << "    " << patchedProjects_.size() << " patched projects" << std::endl;
+                std::cerr << "    " << notPatched_ << " unpatched (overriden or duplicate)" << std::endl;
             }
 
             uint64_t iso8601ToTime(std::string const & str) {
@@ -323,221 +258,93 @@ namespace dejavu {
                 return mktime(&t);
             }
 
-            static constexpr int NOT_FOUND = -1;
-            static constexpr int PATCHED = 0;
-            static constexpr int REPATCHED = 1;
-            static constexpr int RENAMED_NEW = 2;
-            static constexpr int RENAMED_EXISTING = 3;
-
-            int patchProjectFromMetadata(Project * p) {
-                int sysres = 0;
-                int result = PATCHED;
-                std::string path = STR(p->user << "_" << p->repo << ".json");
-                path = STR(Input.value() << "/" << path.substr(0,2) << "/" << path);
-                nlohmann::json json;
+            void patchProject(Project * p) {
+                std::string path = STR(p->user << "_" << p->repo);
+                path = Input.value() + "/" + path.substr(0, 2) + "/" + path;
                 if (helpers::FileExists(path)) {
-                    std::ifstream(path) >> json;
-                    std::string fullName = helpers::ToLower(json["full_name"]);
-                    /* If the full name in the metadata differs from the full name of the project, the project must be renamed if we do not have any such project in our list, or deleted if it already exists as it is a duplicate.
-                     */
-                    if (fullName != STR(p->user << "/" << p->repo)) {
-                        auto i = projectsByName_.find(fullName);
-                        if (i == projectsByName_.end()) {
-                            std::vector<std::string> split = helpers::Split(fullName, '/', 2);
-                            p->user = split[0];
-                            p->repo = split[1];
-                            result = RENAMED_NEW;
-                        // if the project exists, check if it has metadata in own file and if not, copy the current file to the new project
-                        } else {
-                            Project * np = i->second;
-                            std::string npath = STR(np->user << "_" << np->repo << ".json");
-                            npath = STR(Input.value() << "/" << npath.substr(0,2) << "/" << npath);
-                            if (!helpers::FileExists(npath))
-                                sysres = system(STR("cp " << path << " " << npath).c_str());
-                            // patch the project
-                            patchProjectFromMetadata(np);
-                            return RENAMED_EXISTING;
+                    nlohmann::json json;
+                    std::ifstream{path} >> json;
+                    // mark the project as fork, but continue so that we can run two filters allowing us do determine the two datasets size
+                    if (json["fork"] == true) {
+                        p->fork = true;
+                    } else if (json["fork"] != false) {
+                        std::cout << path << std::endl;
+                        assert(false);
+                    }
+                    std::string jsonRepo = json["name"];
+                    std::string jsonUser = json["owner"]["login"];
+                    uint64_t jsonCreatedAt = iso8601ToTime(json["created_at"]);
+                    // now store the project
+                    std::string fullName = jsonUser + "/" + jsonRepo;
+                    auto i = patchedProjects_.find(fullName);
+                    // we already have a project of such name in our database so we need to figure out which one to use
+                    // first we check that it is the same creationTime in the database, otherwise we would not know which project to chode
+                    // then we keep the project that has identical user and repo (if any)
+                    if (i != patchedProjects_.end()) {
+                        assert(i->second->createdAt == jsonCreatedAt);
+                        if (jsonRepo != p->repo && jsonUser != p->user) {
+                            ++notPatched_;
+                            return;
                         }
                     }
-                    // now the fullname should be the same, we can patch the createdAt time
-                    p->createdAt = iso8601ToTime(json["created_at"]);
-                    if (p->patched) 
-                        result = REPATCHED;
-                    p->patched = true;
-                    // just silence the warnings
-                    (void)(sysres);
-                    return result;
-                } else {
-                    return NOT_FOUND;
+                    p->user = jsonUser;
+                    p->repo = jsonRepo;
+                    p->createdAt = jsonCreatedAt;
+                    patchedProjects_[fullName] = p;
                 }
             }
 
-            #ifdef HAHA
-            int patchProjectFromMetadata(Project * p) {
-                int sysres = 0;
-                int result = PATCHED;
-                std::string path = STR(Input.value() << "/" << (p->id % 1000) << "/" << p->id);
-                nlohmann::json json;
-                std::string fullName;
-                // if the metadata file exists, parse the json
-                if (helpers::FileExists(path)) {
-                    std::ifstream (path) >> json;
-                    fullName = helpers::ToLower(json["full_name"]);
-                } else if (helpers::FileExists(path + ".renamed")) {
-                    std::ifstream (path + ".renamed") >> json;
-                    fullName = helpers::ToLower(json["full_name"]);
-                    auto i = projectsByName_.find(fullName);
-                    // the project does not exist yet so all we have to do is to rename the existing project
-                    if (i == projectsByName_.end()) {
-                        std::vector<std::string> split = helpers::Split(fullName, '/', 2);
-                        p->user = split[0];
-                        p->repo = split[1];
-                        result = RENAMED_NEW;
-                        // remove the renamed suffix from the metadata
-                        sysres = system(STR("mv " << path << ".renamed " << path).c_str());
-                    // if the project exists,
-                    } else {
-                        Project * np = i->second;
-                        if (fullName != np->user + "/" + np->repo) {
-                            std::cerr << "Expected " << fullName << ", but " << np->user << "/" << np->repo << " in project " << np->id << " (renamed from "<< p->id << ")" << std::endl;
-                            return NOT_FOUND;
-                        }
-                        //assert(fullName == np->user + "/" + np->repo);
-                        // check that the old project is clone of the new one
-                        if (p->commonCommitsWith(np) != 0)
-                            std::cout << p->id << ","<< helpers::escapeQuotes(p->user + "/" + p->repo) << "," << helpers::escapeQuotes(fullName) << std::endl;
-                                                                                                                                                //assert(p->commonCommitsWith(np) != 0);
-                        // check if the metadata for the new project exists, if it does, there is nothing to do, but if it does
-                        // not, copy the existing and then patch the project
-                        std::string npath = STR(Input.value() << "/" << (np->id % 1000) << "/" << np->id);
-                        if (helpers::FileExists(npath)) {
-                            sysres = system(STR("mv " << path << ".renamed " << path << ".deleted").c_str());
-                            return RENAMED_EXISTING;
-                        } else {
-                            sysres = system(STR("mv " << path << ".renamed " << npath).c_str());
-                            patchProjectFromMetadata(np);
-                            return RENAMED_EXISTING_NOT_DOWNLOADED;
-                        }
-                    }
-                } else {
-                    return NOT_FOUND;
-                }
-                // check that the metadata correspond to the project
-                assert(fullName == p->user + "/" + p->repo);
-                p->createdAt = iso8601ToTime(json["created_at"]);
-                if (p->patched) 
-                    result = REPATCHED;
-                p->patched = true;
-                // just silence the warnings
-                (void)(sysres);
-                return result;
-            }
-            #endif
-            
-
-            /** The github metadata is a bit more complicated.
-
-                First rule is, if we have the metadata valid for the project, we use it and it overides anything else we might have in our database.
-
-             */
-            void patchFromGithubMetadata() {
-                if (!Input.isSpecified())
-                    return;
-                std::cerr << "Patching from downloaded metadata..." << std::endl;
-                size_t errors = 0;
-                size_t patched = 0;
-                size_t repatched = 0;
-                size_t renamedNew = 0;
-                size_t renamed = 0;
-                size_t total = 0;
-                // TODO This clashes with the old projects detectio, should be entirely removed when this stage is rewritten
-                std::ofstream tbd(DataDir.value() + "/oldProjects.csv");
-                tbd << "projectId,user,repo" << std::endl;
-                for (auto i : projects_) {
-                    Project * p = i.second;
-                    if (total++ % 1000 == 0)
-                        std::cerr << "    " << (total/1000) << "k    \r" << std::flush;
-                    try {
-                        switch (patchProjectFromMetadata(p)) {
-                        case NOT_FOUND:
-                            break;
-                        case PATCHED:
-                            ++patched;
-                            break;
-                        case REPATCHED:
-                            ++repatched;
-                            break;
-                        case RENAMED_NEW:
-                            ++renamedNew;
-                            break;
-                        case RENAMED_EXISTING:
-                            ++renamed;
-                            // output the project to be deleted
-                            tbd << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << std::endl;
-                            break;
-                        }
-                    } catch (...) {
-                        ++errors;
-                    }
-                }
-                std::cerr << "    " << patched << " newly patched projects" << std::endl;
-                std::cerr << "    " << repatched << " repatched projects " << std::endl;
-                std::cerr << "    " << renamedNew << " renamed" << std::endl;
-                std::cerr << "    " << renamed << " renamed existing (to be deleted)" << std::endl;
-                std::cerr << "    " << errors << " errors" << std::endl;
-            }
 
             void output() {
-                std::ofstream f(OutputDir.value() + "/projects.csv");
-                std::ofstream pp(OutputDir.value() + "/patchedProjects.csv");
-                std::ofstream up(OutputDir.value() + "/unpatchedProjects.csv");
+                std::ofstream f(DataDir.value() + "/patchedProjects.csv");
+                std::ofstream ff(DataDir.value() + "/patchedNonForks.csv");
+                std::ofstream u(DataDir.value() + "/unpatchedProjects.csv");
+                std::ofstream forks(DataDir.value() + "/forks.csv");
                 f << "projectId,user,repo,createdAt" << std::endl;
-                pp << "projectId" << std::endl;
-                up << "projectId,user,repo,createdAt" << std::endl;
-                size_t patched = 0;
-                for (auto i : projects_) {
+                size_t nonForks = 0;
+                for (auto i : patchedProjects_) {
                     Project * p = i.second;
                     f << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << "," << p->createdAt << std::endl;
-                    if (p->patched) {
-                        ++patched;
-                        pp << p->id << std::endl;
+                    if (p->fork == false) {
+                        ++nonForks;
+                        ff << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << "," << p->createdAt << std::endl;
                     } else {
-                        up << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << "," << p->createdAt << std::endl;
+                        forks << p->id << std::endl;
                     }
+                    p->patched = true;
                 }
-                std::cout << "    " << patched << " patched projects after the stage" << std::endl;
-
-
-                
+                size_t unpatched = 0;
+                for (auto i : projects_) {
+                    if (i.second->patched)
+                        continue;
+                    ++unpatched;
+                    u << i.second->id;
+                }
+                std::cerr << "    " << nonForks << " patched non-fork projects" << std::endl;
+                std::cerr << "    " << unpatched << " unpatched projects reported" << std::endl;
             }
 
         private:
             std::unordered_map<unsigned, Project *> projects_;
-            std::unordered_map<std::string, Project *> projectsByName_;
-
-
-            
+            std::unordered_map<std::string, Project *> patchedProjects_;
+            size_t notPatched_ = 0;
         }; 
 
     } // anonymous namespace
-
 
     void PatchProjectsCreatedAt(int argc, char * argv[]) {
         GhtDir.required = false;
         Input.required = false;
         Settings.addOption(DataDir);
         Settings.addOption(Input);
-        Settings.addOption(OutputDir);
-        Settings.addOption(GhtDir);
+
         Settings.parse(argc, argv);
         Settings.check();
 
         Patcher p;
         p.loadData();
-        p.patchFromGhTorrent();
-        p.patchFromGithubMetadata();
+        p.patchProjects();
         p.output();
-        
     }
     
 } // namespace dejavu

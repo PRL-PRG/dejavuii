@@ -41,26 +41,33 @@ using namespace dejavu;
  */
 void InitializeCommands() {
     new helpers::Command("help", helpers::Command::PrintHelp, "Displays help information");
+
+    // Commands required for data processing
+    new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
+    new helpers::Command("download-github-metadata", DownloadGithubMetadata, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
+    new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
+    new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
+    new helpers::Command("detect-old-projects", DetectOldProjects, "Detects projects with commits older than given threshold");
+    new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");
+
+    // Commands required for data analysis - detecting 
+    new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
+
+    
+    
+    
     // these are the commands that make it to our pipeline v2. Each of these commands must be in src/commands as a separate cpp file of the same name as the command and there should be an extended description of the command at the top of the file. 
     // TODO add command to run the downloader Konrad has implemented as a shell script
-    new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
 
-    new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
-    new helpers::Command("download-github-metadata", DownloadGithubMetadata, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
     
-    new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
-    new helpers::Command("detect-old-projects", DetectOldProjects, "Detects projects with commits older than given threshold");
 
     new helpers::Command("active-projects-years", ActiveProjectsYears, "Calculates numbers of active projects with yearly granularity");
     new helpers::Command("active-projects-weeks", ActiveProjectsWeeks, "Calculates weekly activity summary for projects");
     
     // TODO Here we should patch the project's createdAt times, but we do not have the data yet, so we are working on later steps for now
     new helpers::Command("npm-summary", NPMSummary, "Produces a summary of NPM packages");
-    new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");
     new helpers::Command("npm-using-projects", NPMUsingProjects, "Determine which projects use node.js");
-    // TODO check that there is a prefix of commits that is shared, not just a commit
-    new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
-    new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
     new helpers::Command("download-contents", DownloadContents, "Downloads contents of selected files.");
 
     // folder clones pipeline
