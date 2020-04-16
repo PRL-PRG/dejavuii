@@ -106,7 +106,7 @@ namespace dejavu {
                     size_t totalChanges = 0;
                     size_t validChanges = 0;
                     size_t uniqueContentsRemoved = 0;
-                    std::ofstream f(DataDir.value() + "removedUniqueFiles.csv");
+                    std::ofstream f(DataDir.value() + "/removedUniqueFiles.csv");
                     f << "projectId,commitId,pathId,contentsId" << std::endl;
                     FileChangeLoader{[&,this](unsigned projectId, unsigned commitId, unsigned pathId, unsigned contentsId){
                             ++totalChanges;

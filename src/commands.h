@@ -182,6 +182,19 @@ namespace dejavu {
 
 
 
+    /** Calculates active projects summaries.
+     */
+    void ActiveProjectsSummary(int argc, char * argv[]);
+
+    /** Filters out projects that have commits before 2008 and removes commits newer than 2018 from the rest.
+     */
+    void Filter2008to2018(int argc, char * argv[]);
+
+    /** Collects the metadata from previously downloaded github API and outputs a table summary for that.
+     */
+    void CollectMetadata(int argc, char * argv[]);
+
+
 
 
     void tmp_TranslateDownloadedMetadata(int argc, char * argv[]);

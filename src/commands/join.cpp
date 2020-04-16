@@ -2,6 +2,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <string>
+#include <set>
 
 #include "helpers/strings.h"
 
@@ -53,6 +54,16 @@ namespace dejavu {
          */
         class Commit {
         public:
+            class CummulativeInfo {
+            public:
+                size_t deletions;
+                size_t changes;
+                CummulativeInfo():
+                    deletions{0},
+                    changes{0}{
+                }
+            };
+            
             unsigned id;
             
             /** Hash of the commit. */
@@ -65,6 +76,12 @@ namespace dejavu {
             /** Changes made to files by the commit (path -> hash)
              */
             std::unordered_map<std::string, std::string> changes;
+
+            /** Cummulative changes in the commit per filename extension.
+
+                extension -> (changes, deletes)
+             */
+            std::unordered_map<std::string, CummulativeInfo> cummulativeChanges;
 
             /** Commit message.
              */
@@ -296,6 +313,10 @@ namespace dejavu {
               */
             void ignoreSubmodulesAndNonJSFiles(std::string const & path);
 
+            void assignCommitIds();
+
+            void writeCummulativeInfo();
+
             /** Removes commits that do not have any valid file changes from the set of commits the project has.
              */
             void removeEmptyCommits();
@@ -388,6 +409,12 @@ namespace dejavu {
                     f << "#commit id, message" << std::endl;
                 }
                 */
+                filename = DataDir.value() + "/allCommits.csv";
+                if (!helpers::FileExists(filename)) {
+                    std::ofstream f(filename);
+                    f << "commitId,authorTime,committerTime" << std::endl;
+                }
+                
                 filename = DataDir.value() +"/commitParents.csv";
                 if (!helpers::FileExists(filename)) {
                     std::ofstream f(filename);
@@ -403,6 +430,11 @@ namespace dejavu {
                     std::ofstream f(filename);
                     f << "projectId,commitId,pathId,submoduleUrl,hashId" << std::endl;
                 }
+                filename = DataDir.value() + "/cummulativeCommits.csv";
+                if (!helpers::FileExists(filename)) {
+                    std::ofstream f(filename);
+                    f << "projectId,commitId,extension,changes,deletions" << std::endl;
+                }
                 reports_.open(DataDir.value()+"/joinReport.csv");
                 reports_ << "path,errors,empty,existing,valid" << std::endl;
             }
@@ -410,19 +442,24 @@ namespace dejavu {
             //            tar -zxf repos-10.tar.gz -C /home/peta/xxxxxx
             static void AnalyzeDir() {
                 std::cerr << "Analyzing directory " << DownloaderDir.value() << std::endl;
-                helpers::DirectoryReader(DownloaderDir.value(), [](std::string const & filename) {
+                std::set<std::string> filenames;
+                helpers::DirectoryReader(DownloaderDir.value(), [&filenames](std::string const & filename) {
                         if (! helpers::endsWith(filename,".tar.gz")) {
                             std::cerr << "Skipping file " << filename << std::endl;
                             return;
                         }
-                        std::cerr << "Analyzing file " << filename << std::endl;
-                        std::cout << "Chunk " << filename << std::endl;
-                        helpers::TempDir t(TempDir.value());
-                        std::cerr << "Decompressing " << filename << " into " << t.path() << "..." << std::endl;
-                        helpers::System(STR("tar -zxf " << filename << " -C " << t.path()));
-                        std::cerr << "Analyzing the chunk..." << std::endl;
-                        Analyze(t.path(), filename);
+                        filenames.insert(filename);
                     });
+                std::cerr << "Loaded " << filenames.size() << " archives to join..." << std::endl;
+                for (std::string const & filename : filenames) {
+                    std::cerr << "Analyzing file " << filename << std::endl;
+                    std::cout << "Chunk " << filename << std::endl;
+                    helpers::TempDir t(TempDir.value());
+                    std::cerr << "Decompressing " << filename << " into " << t.path() << "..." << std::endl;
+                    helpers::System(STR("tar -zxf " << filename << " -C " << t.path()));
+                    std::cerr << "Analyzing the chunk..." << std::endl;
+                    Analyze(t.path(), filename);
+                }
             }
 
 
@@ -454,6 +491,8 @@ namespace dejavu {
                             if (!p->commits.empty()) {
                                 p->filterMasterBranch();
                                 p->ignoreSubmodulesAndNonJSFiles(path);
+                                p->assignCommitIds();
+                                p->writeCummulativeInfo();
                                 p->removeEmptyCommits();
                                 //p->compactCommitHierarchy();
                                 p->write();
@@ -742,6 +781,35 @@ namespace dejavu {
             //std::cerr << commits.size() << " commits left" << std::endl;
         }
 
+        /** Assigns commit ids to all surviving commits.
+
+            And outputs the all commits info about them 
+         */
+        void Project::assignCommitIds() {
+            std::ofstream allCommits(DataDir.value() + "/allCommits.csv", std::ios_base::app);
+            for (auto i : commits) {
+                Commit * c = i.second;
+                auto j = ProjectAnalyzer::hashToId_.find(c->hash);
+                if (j == ProjectAnalyzer::hashToId_.end()) {
+                    j = ProjectAnalyzer::hashToId_.insert(std::make_pair(c->hash, ProjectAnalyzer::hashToId_.size())).first;
+                    allCommits << j->second << "," << c->authorTime << "," << c->committerTime << std::endl;
+                }
+                c->id = j->second;
+            }
+        }
+
+        void Project::writeCummulativeInfo() {
+            std::ofstream cc(DataDir.value() + "/cummulativeCommits.csv", std::ios_base::app);
+            for (auto i : commits) {
+                Commit * c = i.second;
+                for (auto j : c->cummulativeChanges) {
+                    cc << id << "," << c->id << "," << helpers::escapeQuotes(j.first) << "," << j.second.changes << "," << j.second.deletions << std::endl;
+                }
+            }
+        }
+
+
+        
         /** Writes the project to the output files.
 
             Since file hash to id and path to id outputs were already created when the input data was read, we only output file changes, commits and the project info itself this time. 
@@ -846,7 +914,8 @@ namespace dejavu {
                     break;
                 }
             }
-            // now process the file changes, ignoring anything that is in submodules, and anything that is in 
+            // now process the file changes, ignoring anything that is in submodules, and anything that is not JS
+            // also calculate the cummulative commit information
             for (auto i = c->changes.begin(); i != c->changes.end(); ) {
                 if (submodules.find(i->first) != submodules.end()) {
                     // output the submodule change info
@@ -858,11 +927,24 @@ namespace dejavu {
                     // output the submodule change info
                     p->submoduleChanges.push_back(SubmoduleChange{c->hash, i->first, submoduleUrls[i->first], "0000000000000000000000000000000000000000" });
                     i = c->changes.erase(i);
-                } else if (ProjectAnalyzer::IsValidPath(i->first)) {
-                    ++i;
                 } else {
-                    i = c->changes.erase(i);
-                }
+                    // determine the extension of the file and update the cummulative counts
+                    std::string ext = i->first;
+                    auto e = ext.find_last_of("/");
+                    ext = ext.substr(e + 1);
+                    e = ext.find_last_of(".");
+                    if (e != std::string::npos) 
+                        ext = ext.substr(e);
+                    if (i->second == "0000000000000000000000000000000000000000")
+                        ++(c->cummulativeChanges[ext]).deletions;
+                    else
+                        ++(c->cummulativeChanges[ext]).changes;;
+                    if (ProjectAnalyzer::IsValidPath(i->first)) {
+                        ++i;
+                    } else {
+                        i = c->changes.erase(i);
+                    }
+                } 
             }
             /*
 
@@ -891,6 +973,11 @@ namespace dejavu {
         
     } // anonymous namespace
 
+    /** TODO:
+
+        - sort the chunks before we process them so that same chunks will return same project ids in the future
+        - add file changes for all commits....
+     */
 
     
     void Join(int argc, char * argv[]) {

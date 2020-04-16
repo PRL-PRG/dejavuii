@@ -59,6 +59,9 @@ namespace dejavu {
                     std::ofstream forkClones(DataDir.value() + "/forkClones.csv");
                     std::ofstream submoduleClones(DataDir.value() + "/submoduleClones.csv");
                     std::ofstream folderClones(DataDir.value() + "/folderOnlyClones.csv");
+                    forkClones << "cloneId,projectId,commitId,folder,files" << std::endl;
+                    submoduleClones << "cloneId,projectId,commitId,folder,files" << std::endl;
+                    folderClones << "cloneId,projectId,commitId,folder,files" << std::endl;
                     FolderCloneOccurencesLoader([&, this](unsigned cloneId, unsigned projectId, unsigned commitId, std::string const & folder, unsigned files) {
                             ++total;
                             CloneOriginal * co = originals_[cloneId];

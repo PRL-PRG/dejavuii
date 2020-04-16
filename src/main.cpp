@@ -47,14 +47,25 @@ void InitializeCommands() {
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     new helpers::Command("download-github-metadata", DownloadGithubMetadata, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
+
+    new helpers::Command("collect-project-metadata", CollectMetadata, "Creates projectsMetadata.csv.");
+    
+    
     new helpers::Command("filter-projects", FilterProjects, "Filters given projects and their contents from the dataset.");
+
+    new helpers::Command("filter-2008-to-2018", Filter2008to2018, "Filters too old projects and too new commits");
     new helpers::Command("detect-old-projects", DetectOldProjects, "Detects projects with commits older than given threshold");
     new helpers::Command("npm-filter", NPMFilter, "Filters node_modules files");
 
     // Commands required for data analysis - detecting 
     new helpers::Command("detect-forks", DetectForks, "Detects projects that are forked or cloned other repositories.");
 
+
+
+
+
     
+    new helpers::Command("active-projects-summary", ActiveProjectsSummary, "Calculates active projects summaries.");
     
     
     // these are the commands that make it to our pipeline v2. Each of these commands must be in src/commands as a separate cpp file of the same name as the command and there should be an extended description of the command at the top of the file. 

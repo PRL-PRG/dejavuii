@@ -226,6 +226,8 @@ namespace dejavu {
             uint64_t createdAt;
             bool fork;
             bool patched;
+            std::string oldUser;
+            std::string oldRepo;
         };
 
         class Patcher {
@@ -234,7 +236,7 @@ namespace dejavu {
             void loadData() {
                 std::cerr << "Loading projects ... " << std::endl;
                 ProjectLoader{[this](unsigned id, std::string const & user, std::string const & repo, uint64_t createdAt){
-                        Project * p = new Project{id, user, repo, createdAt, false, false};
+                        Project * p = new Project{id, user, repo, createdAt, false, false, user, repo};
                         projects_.insert(std::make_pair(id, p));
                     }};
                 std::cerr << "    " << projects_.size() << " projects loaded" << std::endl;
@@ -250,6 +252,7 @@ namespace dejavu {
                 }
                 std::cerr << "    " << patchedProjects_.size() << " patched projects" << std::endl;
                 std::cerr << "    " << notPatched_ << " unpatched (overriden or duplicate)" << std::endl;
+                std::cerr << "    " << notFound_ << " not found (no metadata)" << std::endl;
             }
 
             uint64_t iso8601ToTime(std::string const & str) {
@@ -281,16 +284,19 @@ namespace dejavu {
                     // first we check that it is the same creationTime in the database, otherwise we would not know which project to chode
                     // then we keep the project that has identical user and repo (if any)
                     if (i != patchedProjects_.end()) {
+                        ++notPatched_; // either us, or the old project in there
                         assert(i->second->createdAt == jsonCreatedAt);
-                        if (jsonRepo != p->repo && jsonUser != p->user) {
-                            ++notPatched_;
+                        if (jsonRepo != p->repo && jsonUser != p->user)
                             return;
-                        }
                     }
-                    p->user = jsonUser;
-                    p->repo = jsonRepo;
+                    // now we must make sure that the project metadata exists and are properly named
+                    // TODO 
+                    p->user = helpers::ToLower(jsonUser);
+                    p->repo = helpers::ToLower(jsonRepo);
                     p->createdAt = jsonCreatedAt;
                     patchedProjects_[fullName] = p;
+                } else {
+                    ++notFound_;
                 }
             }
 
@@ -302,6 +308,8 @@ namespace dejavu {
                 std::ofstream forks(DataDir.value() + "/forks.csv");
                 f << "projectId,user,repo,createdAt" << std::endl;
                 size_t nonForks = 0;
+                std::unordered_set<std::string> createdSubdirs;
+                helpers::EnsurePath("/dejavuii/patched_projects_metadata");
                 for (auto i : patchedProjects_) {
                     Project * p = i.second;
                     f << p->id << "," << helpers::escapeQuotes(p->user) << "," << helpers::escapeQuotes(p->repo) << "," << p->createdAt << std::endl;
@@ -312,10 +320,24 @@ namespace dejavu {
                         forks << p->id << std::endl;
                     }
                     p->patched = true;
+                    // copy the metadata file
+                    std::string newPath = p->user + "_" + p->repo;
+                    std::string subdir = newPath.substr(0,2);
+                    if (createdSubdirs.insert(newPath.substr(0,2)).second)
+                        helpers::EnsurePath(STR("/dejavuii/patched_projects_metadata/" << newPath.substr(0, 2)));
+                        
+                    newPath = STR("/dejavuii/patched_projects_metadata/" << newPath.substr(0, 2) << "/" << newPath + ".json");
+                    std::string oldPath = STR(p->oldUser << "_" << p->oldRepo);
+                    oldPath = Input.value() + "/" + oldPath.substr(0, 2) + "/" + oldPath;
+                    // actually copy
+                    std::ifstream s{oldPath};
+                    std::string x(std::istreambuf_iterator<char>(s), {});
+                    std::ofstream so{newPath};
+                    so << x;
                 }
                 size_t unpatched = 0;
                 for (auto i : projects_) {
-                    if (i.second->patched)
+                    if (i.second->patched == true)
                         continue;
                     ++unpatched;
                     u << i.second->id;
@@ -328,13 +350,12 @@ namespace dejavu {
             std::unordered_map<unsigned, Project *> projects_;
             std::unordered_map<std::string, Project *> patchedProjects_;
             size_t notPatched_ = 0;
+            size_t notFound_ = 0;
         }; 
 
     } // anonymous namespace
 
     void PatchProjectsCreatedAt(int argc, char * argv[]) {
-        GhtDir.required = false;
-        Input.required = false;
         Settings.addOption(DataDir);
         Settings.addOption(Input);
 
