@@ -462,7 +462,6 @@ namespace dejavu {
                 }
             }
 
-
             static void Analyze(std::string const & path, std::string const & filename) {
                 std::string timings = path + "/timing.csv";
                 size_t emptyProjects = 0;
@@ -793,6 +792,8 @@ namespace dejavu {
                 if (j == ProjectAnalyzer::hashToId_.end()) {
                     j = ProjectAnalyzer::hashToId_.insert(std::make_pair(c->hash, ProjectAnalyzer::hashToId_.size())).first;
                     allCommits << j->second << "," << c->authorTime << "," << c->committerTime << std::endl;
+                    // write the hash
+                    ProjectAnalyzer::hashes_ << j->second << "," << c->hash << std::endl;
                 }
                 c->id = j->second;
             }

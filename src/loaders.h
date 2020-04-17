@@ -220,6 +220,38 @@ namespace dejavu {
         RowHandler f_;
         
     };
+
+    /** Loads the commits basic information.
+     */
+    class CummulativeCommitsLoader : public BaseLoader {
+    public:
+        // projectId, commitId, extension, changes, deletions
+        typedef std::function<void(size_t, size_t, std::string const &, unsigned, unsigned)> RowHandler;
+
+        CummulativeCommitsLoader(std::string const & filename, RowHandler f):
+            f_(f) {
+            readFile(filename);
+        }
+
+        CummulativeCommitsLoader(RowHandler f):
+            f_(f) {
+            readFile(DataDir.value() + "/cummulativeCommits.csv");
+        }
+    protected:
+        void row(std::vector<std::string> & row) override {
+            assert(row.size() == 5);
+            size_t projectId = std::stoull(row[0]);
+            size_t commitId = std::stoull(row[1]);
+            unsigned changes = std::stoul(row[3]);
+            unsigned deletions = std::stoul(row[4]);
+            f_(projectId, commitId, row[2], changes, deletions);
+        }
+
+    private:
+        RowHandler f_;
+        
+    };
+
     
     /** Loads the commits information about parents.
      */

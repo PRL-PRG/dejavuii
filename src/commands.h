@@ -13,6 +13,10 @@ namespace dejavu {
      */
     void Join(int argc, char * argv[]);
 
+    /** Calculates summary changes for all commits in the projects.
+     */
+    void AllCommitsSummary(int argc, char * argv[]);
+
     /** Detects projects that are forks.
      */
     void DetectForks(int argc, char * argv[]);

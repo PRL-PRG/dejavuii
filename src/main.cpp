@@ -44,6 +44,8 @@ void InitializeCommands() {
 
     // Commands required for data processing
     new helpers::Command("join", Join, "Joins the information about the downloaded projects into the CSV files used for further processing.");
+    new helpers::Command("all-commits-summary", AllCommitsSummary, "Calculates summary of allchanges for projects.");
+    
     new helpers::Command("verify", Verify, "Verifies the joined dataset and creates a subset containing valid data only.");
     new helpers::Command("download-github-metadata", DownloadGithubMetadata, "Downloads a JSON file containint basic info about the repository (createdAt, etc.) for each specified project");
     new helpers::Command("patch-projects-createdAt", PatchProjectsCreatedAt, "Patches project createAt times from ghtorrent data.");
