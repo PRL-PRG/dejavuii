@@ -781,6 +781,10 @@ namespace dejavu {
         }
     protected:
         void row(std::vector<std::string> & row) override {
+            if (row.size() != 5) {
+                std::cout << " row size " << row.size() << std::endl;
+                for (auto i L: row) 
+            }
             assert(row.size() == 5);
             unsigned cloneId = std::stoul(row[0]);
             unsigned projectId = std::stoul(row[1]);
